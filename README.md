@@ -40,8 +40,11 @@ The values are passed to the GPU by calling `gasal_copy_subst_scores()` function
 void gasal_copy_subst_scores(gasal_subst_scores *subst);
 ```
 
-A vector of `gasal_gpu_storage_t` is defined
-
+A vector of `gasal_gpu_storage_t` is defined using the following function:
+```
+gasal_gpu_storage_v gasal_init_gpu_storage_v(int n_streams);
+```
+`n_streams` is the number of outstanding GPU kernel launces. The return type is `gasal_gpu_storage_v`. 
 To align sequences with GASAL batches of sequences are passed to aliognment function. A batch is a concatenation of sequences. *The number of bases in each sequence must a multiple of 8*. To do this add redundant bases at the end of the seequnces, e.g. A's. We call these redundant bases as *Pad bases* Alignment can be performed by calling one of the follwing two functions:
 
 ```
