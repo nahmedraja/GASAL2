@@ -56,7 +56,7 @@ typedef struct{
 }gasal_gpu_storage_v;
 ```
 
-`n` is same as `n_streams` and `a` points to elements of the vector. To destroy the vector the following function is used.
+`n = n_streams` and `a` pointer to the array. Each a To destroy the vector the following function is used.
 
 ```
 void gasal_destroy_gpu_storage_v(gasal_gpu_storage_v *gpu_storage_vec);
@@ -91,8 +91,32 @@ void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec);
 
 The `gasal_init_streams()` and `gasal_destroy_streams()` internally use `cudaMalloc()`, `cudaMallocHost()`, `cudaFree()` and `cudaFreeHost()` functions. These CUDA API functions are time expensive. Therefore, `gasal_init_streams()` and `gasal_destroy_streams()` should be preferably called only once in the program.
 
+The `gasal_gpu_storage_t` holds the data structures for a stream. In the following we only show those members of `gasal_gpu_storage_t` which are accessed by the user:
 
-To align sequences with GASAL batches of sequences are passed to aliognment function. A batch is a concatenation of sequences. *The number of bases in each sequence must a multiple of 8*. To do this add redundant bases at the end of the seequnces, e.g. A's. We call these redundant bases as *Pad bases* Alignment can be performed by calling one of the follwing two functions:
+```
+typedef struct{
+	...
+	uint8_t *host_unpacked1;
+	uint8_t *host_unpacked2;
+	uint32_t *host_offsets1;
+	uint32_t *host_offsets2;
+	uint32_t *host_lens1;
+	uint32_t *host_lens2;
+	int32_t *host_aln_score;
+	int32_t *host_batch1_end;
+	int32_t *host_batch2_end;
+	int32_t *host_batch1_start;
+	int32_t *host_batch2_start;
+	uint32_t host_max_batch1_bytes;
+	uint32_t host_max_batch2_bytes;
+	uint32_t host_max_n_alns;
+	int is_free;
+	...
+
+} gasal_gpu_storage_t;
+```
+
+To align the sequences the user need to check the `host_unpacked1` and `host_unpacked2` contains the batch of sequences to be aligned. A batch is a concatenation of sequences. *The number of bases in each sequence must a multiple of 8*. Hence, if a sequence is not a multiple of 8 `N's` are added at the end of sequence. We call these redundant bases as *Pad bases* Alignment can be performed by calling one of the follwing two functions:
 
 ```
 void gasal_aln(const uint8_t *batch1, const uint32_t *batch1_lens, const uint32_t *batch1_offsets, const uint8_t *batch2, const uint32_t *batch2_lens, const uint32_t *batch2_offsets,  const uint32_t n_alns, const uint32_t batch1_bytes, const uint32_t batch2_bytes, int32_t *host_aln_score, int32_t *host_batch1_start, int32_t *host_batch2_start, int32_t *host_batch1_end, int32_t *host_batch2_end, int algo, int start);
