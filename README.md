@@ -56,7 +56,7 @@ typedef struct{
 }gasal_gpu_storage_v;
 ```
 
-`n = n_streams` and `a` pointer to the array. Each a To destroy the vector the following function is used.
+`n = n_streams` and `a` pointer to the array. An element of the array holds the required data structure of a stream. To destroy the vector the following function is used.
 
 ```
 void gasal_destroy_gpu_storage_v(gasal_gpu_storage_v *gpu_storage_vec);
@@ -65,7 +65,7 @@ void gasal_destroy_gpu_storage_v(gasal_gpu_storage_v *gpu_storage_vec);
 The streams in the vector are initialized by calling:
 
 ```
-void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_batch1_bytes,  int gpu_max_batch1_bytes,  int host_max_batch2_bytes, int gpu_max_batch2_bytes, int host_max_n_alns, int gpu_max_n_alns, int algo, int start)
+void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_batch1_bytes,  int gpu_max_batch1_bytes,  int host_max_batch2_bytes, int gpu_max_batch2_bytes, int host_max_n_alns, int gpu_max_n_alns, int algo, int start);
 ```
 
 With the help of *max_batch_bytes* the user specifies the expected maxumum size(in bytes) of sequences in the two batches. *host_max_batch_bytes* bytes are pre-allocated in the CPU memory. Smilarly, *gpu_max_batch_bytes* bytes are pre-allocated in the GPU memory. *max_n_alns* is the expected number of sequences to be aligned. If the actual required GPU memory is more than the pre-allocated memory, GASAL2 automatically allocates the. This is not true for the memory allocated on the CPU side. The number of sequences and the size of batches must not exceed *host_max_n_alns* and *host_max_batch_bytes*, respectively.  The type of sequence alignment algorithm is specfied using `algo` parameter. Pass one of the follwing three values as the `algo` parameter:
@@ -116,37 +116,22 @@ typedef struct{
 } gasal_gpu_storage_t;
 ```
 
-To align the sequences the user need to check the `host_unpacked1` and `host_unpacked2` contains the batch of sequences to be aligned. A batch is a concatenation of sequences. *The number of bases in each sequence must a multiple of 8*. Hence, if a sequence is not a multiple of 8 `N's` are added at the end of sequence. We call these redundant bases as *Pad bases* Alignment can be performed by calling one of the follwing two functions:
+To align the sequences the user first need to check the availability of the stream. If `is_free` is  1 the user can use the current stream to perform the alignment on the GPU. To do this, `host_unpacked1` and `host_unpacked2` are filled with the sequences to be aligned. Th user must make sure that the number of sequences and the size of batches must not exceed *host_max_n_alns* and *host_max_batch_bytes*.  A batch is a concatenation of sequences. *The number of bases in each sequence must a multiple of 8*. At the same time the user Hence, if a sequence is not a multiple of 8 `N's` are added at the end of sequence. We call these redundant bases as *Pad bases*. `host_offsets1` and `host_offsets2` contain the starting point of sequences in the batch that are required to be aligned. These offset values include the pad bases, and hence always multiple of 8. `host_lens1` and `host_lens2` are the original length of sequences i.e. excluding pad bases. Alignment is performed by calling one of the follwing function:
 
 ```
-void gasal_aln(const uint8_t *batch1, const uint32_t *batch1_lens, const uint32_t *batch1_offsets, const uint8_t *batch2, const uint32_t *batch2_lens, const uint32_t *batch2_offsets,  const uint32_t n_alns, const uint32_t batch1_bytes, const uint32_t batch2_bytes, int32_t *host_aln_score, int32_t *host_batch1_start, int32_t *host_batch2_start, int32_t *host_batch1_end, int32_t *host_batch2_end, int algo, int start);
-
-gasal_gpu_storage* gasal_aln_async(const uint8_t *batch1, const uint32_t *batch1_lens, const uint32_t *batch1_offsets, const uint8_t *batch2, const uint32_t *batch2_lens, const uint32_t *batch2_offsets,  const uint32_t n_alns, const uint32_t batch1_bytes, const uint32_t batch2_bytes, int32_t *host_aln_score, int32_t *host_batch1_start, int32_t *host_batch2_start, int32_t *host_batch1_end, int32_t *host_batch2_end, int algo, int start);
+void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_batch1_bytes, const uint32_t actual_batch2_bytes, const uint32_t actual_n_alns, int algo, int start);
 ```
 
-`batch1` and `batch2` are the concatenation of sequences to be aligned. `batch1_offsets` and `batch2_offsets` contain the starting point of sequences in the batch that are required to be aligned. These offset values include the pad bases, and hence always multiple of 8. `batch1_lens` and `batch2_lens` are the original length of sequences i.e. excluding pad bases. `batch1_bytes` and `batch2_bytes` specify the size of the two batches (in bytes) including the pad bases. `n_alns` is the number of alignments to be performed. 
+
+The `actual_batch1_bytes` and `actual_batch2_bytes` specify the size of the two batches (in bytes) including the pad bases. `actual_n_alns` is the number of alignments to be performed. GASAL2 internally sets `is_free` to 0.
 
 
-The result of alignments are stored in `host_*` arrays. In cases where one or more results are not required, pass `NULL` as the parameter. Note that `n_alns = |batch1_offsets| = |batch2_offsets| = |batch1_lens| = |batch2_lens| = |host_*|`.
-
-
-The `void gasal_aln()` function returns only after the alignment on the GPU is finished and `host_*` arrays contain valid result of the alignment. In contrast, the `gasal_aln_async()` function immediately returns control to the CPU after launching the alignment kernel on the GPU. This allows the user thread to do other useful work instead of waiting for the alignment kernel to finish. The *async* function returns the pointer to `gasal_gpu_strorage` struct. To test whether the alignment on GPU is finished and the  `host_*` arrays contain valid results, a call to the following function is required to be made:
+The `gasal_aln_async()` function returns immediately after launching the alignment kernel on the GPU. The user can perform other tasks instead of waiting for the kernel to finish. The output of alignments are stored in `host_aln_score`, `host_batch1_end`, `host_batch2_end`, `host_batch1_start`, and `host_batch2_start` arrays. To test whether the alignment on GPU is finished, a call to the following function is required to be made:
 
 ```
-gasal_error_t is_gasal_aln_async_done(gasal_gpu_storage *gpu_storage);
+int gasal_is_aln_async_done(gasal_gpu_storage *gpu_storage);
 ```
-If the function returns `0` the alignment on the GPU is finished and the  `host_*` arrays contain valid results.
-
-Although, the CPU mememory for all the arrays can be allocated using C/C++ standard library functions, but for better performance the GASAL CPU memory allocation function should be used:
-
-```
-void gasal_host_malloc(void *mem_ptr, uint32_t n_bytes);
-```
-If memory is allocated using above function it must be freed using:
-
-```
-void gasal_host_free(void *mem_ptr);
-```
+If the function returns 0 the alignment on the GPU is finished and the  output arrays contain valid results. Moreover, if the function returns 0, the `is_free` has been set to 0 by GASAL2 and, hence the current stream can be used for another alignment call. 
 
 
 
