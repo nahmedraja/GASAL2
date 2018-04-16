@@ -8,7 +8,7 @@ GASAL2 is an easy to use CUDA library for DNA/RNA sequence alignment algorithms.
 - Semi-global alignment with start position computation. Gives alignment score and end and start position of the alignment.
 - Global alignment.
 
-It is an extension of GASAL (https://github.com/nahmedraja/GASAL2) and allows full overlapping of CPU and GPU execution
+It is an extension of GASAL (https://github.com/nahmedraja/GASAL) and allows full overlapping of CPU and GPU execution
 
 ## Requirements
 CUDA toolkit 8 or higher. Maybe 7 will also work, but not tested yet. 
