@@ -41,19 +41,28 @@ void gasal_copy_subst_scores(gasal_subst_scores *subst);
 ```
 
 A vector of `gasal_gpu_storage_t` is defined using the following function:
+
 ```
 gasal_gpu_storage_v gasal_init_gpu_storage_v(int n_streams);
 ```
-`n_streams` is the number of outstanding GPU kernel launces. The return type is `gasal_gpu_storage_v`. 
-To align sequences with GASAL batches of sequences are passed to aliognment function. A batch is a concatenation of sequences. *The number of bases in each sequence must a multiple of 8*. To do this add redundant bases at the end of the seequnces, e.g. A's. We call these redundant bases as *Pad bases* Alignment can be performed by calling one of the follwing two functions:
+
+`n_streams` is the number of outstanding GPU kernel launces known as *streams* . The return type is `gasal_gpu_storage_v`:
 
 ```
-void gasal_aln(const uint8_t *batch1, const uint32_t *batch1_lens, const uint32_t *batch1_offsets, const uint8_t *batch2, const uint32_t *batch2_lens, const uint32_t *batch2_offsets,  const uint32_t n_alns, const uint32_t batch1_bytes, const uint32_t batch2_bytes, int32_t *host_aln_score, int32_t *host_batch1_start, int32_t *host_batch2_start, int32_t *host_batch1_end, int32_t *host_batch2_end, int algo, int start);
 
-gasal_gpu_storage* gasal_aln_async(const uint8_t *batch1, const uint32_t *batch1_lens, const uint32_t *batch1_offsets, const uint8_t *batch2, const uint32_t *batch2_lens, const uint32_t *batch2_offsets,  const uint32_t n_alns, const uint32_t batch1_bytes, const uint32_t batch2_bytes, int32_t *host_aln_score, int32_t *host_batch1_start, int32_t *host_batch2_start, int32_t *host_batch1_end, int32_t *host_batch2_end, int algo, int start);
+typedef struct {
+	int n;
+	gasal_gpu_storage_t *a;
+}gasal_gpu_storage_v;
 ```
 
-`batch1` and `batch2` are the concatenation of sequences to be aligned. `batch1_offsets` and `batch2_offsets` contain the starting point of sequences in the batch that are required to be aligned. These offset values include the pad bases, and hence always multiple of 8. `batch1_lens` and `batch2_lens` are the original length of sequences i.e. excluding pad bases. `batch1_bytes` and `batch2_bytes` specify the size of the two batches (in bytes) including the pad bases. `n_alns` is the number of alignments to be performed. The type of sequence alignment algorithm is specfied using `algo` parameter. Pass one of the follwing three values as the `algo` parameter:
+The streams in the vector are initialized by calling:
+
+```
+void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_batch1_bytes,  int gpu_max_batch1_bytes,  int host_max_batch2_bytes, int gpu_max_batch2_bytes, int host_max_n_alns, int gpu_max_n_alns, int algo, int start)
+```
+
+With the help of *max_batch_bytes* the user specifies the expected maxumum size(in bytes) of sequences in the two batches. *host_max_batch_bytes* bytes are pre-allocated in the CPU memory. Smilarly, *gpu_max_batch_bytes* bytes are pre-allocated in the GPU memory. *max_n_alns* is the expected number of sequences to be aligned. If the actual required GPU memory is more than the pre-allocated memory, GASAL2 automatically allocates the. This is not true for the memory allocated on the CPU side. The number of sequences and the size of batches must not exceed *host_max_n_alns* and *host_max_batch_bytes*, respectively.  The type of sequence alignment algorithm is specfied using `algo` parameter. Pass one of the follwing three values as the `algo` parameter:
 
 ```
 LOCAL
@@ -67,6 +76,25 @@ Similarly, to perform alignment with or without start position computation is sp
 WITHOUT_START
 WITH_START
 ```
+
+To free up the allocated memory the following function is used:
+
+```
+void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec);
+```
+
+The `gasal_init_streams()` and `gasal_destroy_streams()` internally use `cudaMalloc()`, `cudaMallocHost()`, `cudaFree()` and `cudaFreeHost()` functions. These CUDA API functions are time expensive. Therefore, `gasal_init_streams()` and `gasal_destroy_streams()` should be preferably called only once in the program.
+
+
+To align sequences with GASAL batches of sequences are passed to aliognment function. A batch is a concatenation of sequences. *The number of bases in each sequence must a multiple of 8*. To do this add redundant bases at the end of the seequnces, e.g. A's. We call these redundant bases as *Pad bases* Alignment can be performed by calling one of the follwing two functions:
+
+```
+void gasal_aln(const uint8_t *batch1, const uint32_t *batch1_lens, const uint32_t *batch1_offsets, const uint8_t *batch2, const uint32_t *batch2_lens, const uint32_t *batch2_offsets,  const uint32_t n_alns, const uint32_t batch1_bytes, const uint32_t batch2_bytes, int32_t *host_aln_score, int32_t *host_batch1_start, int32_t *host_batch2_start, int32_t *host_batch1_end, int32_t *host_batch2_end, int algo, int start);
+
+gasal_gpu_storage* gasal_aln_async(const uint8_t *batch1, const uint32_t *batch1_lens, const uint32_t *batch1_offsets, const uint8_t *batch2, const uint32_t *batch2_lens, const uint32_t *batch2_offsets,  const uint32_t n_alns, const uint32_t batch1_bytes, const uint32_t batch2_bytes, int32_t *host_aln_score, int32_t *host_batch1_start, int32_t *host_batch2_start, int32_t *host_batch1_end, int32_t *host_batch2_end, int algo, int start);
+```
+
+`batch1` and `batch2` are the concatenation of sequences to be aligned. `batch1_offsets` and `batch2_offsets` contain the starting point of sequences in the batch that are required to be aligned. These offset values include the pad bases, and hence always multiple of 8. `batch1_lens` and `batch2_lens` are the original length of sequences i.e. excluding pad bases. `batch1_bytes` and `batch2_bytes` specify the size of the two batches (in bytes) including the pad bases. `n_alns` is the number of alignments to be performed. 
 
 
 The result of alignments are stored in `host_*` arrays. In cases where one or more results are not required, pass `NULL` as the parameter. Note that `n_alns = |batch1_offsets| = |batch2_offsets| = |batch1_lens| = |batch2_lens| = |host_*|`.
