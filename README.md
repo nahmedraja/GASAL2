@@ -68,7 +68,7 @@ The streams in the vector are initialized by calling:
 void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_batch1_bytes,  int gpu_max_batch1_bytes,  int host_max_batch2_bytes, int gpu_max_batch2_bytes, int host_max_n_alns, int gpu_max_n_alns, int algo, int start);
 ```
 
-With the help of *max_batch_bytes* the user specifies the expected maxumum size(in bytes) of sequences in the two batches. *host_max_batch_bytes* bytes are pre-allocated in the CPU memory. Smilarly, *gpu_max_batch_bytes* bytes are pre-allocated in the GPU memory. *max_n_alns* is the expected number of sequences to be aligned. If the actual required GPU memory is more than the pre-allocated memory, GASAL2 automatically allocates the. This is not true for the memory allocated on the CPU side. The number of sequences and the size of batches must not exceed *host_max_n_alns* and *host_max_batch_bytes*, respectively.  The type of sequence alignment algorithm is specfied using `algo` parameter. Pass one of the follwing three values as the `algo` parameter:
+With the help of *max_batch_bytes* the user specifies the expected maxumum size(in bytes) of sequences in the two batches. *host_max_batch_bytes* bytes are pre-allocated in the CPU memory. Smilarly, *gpu_max_batch_bytes* bytes are pre-allocated in the GPU memory. *max_n_alns* is the expected number of sequences to be aligned. If the actual required GPU memory is more than the pre-allocated memory, GASAL2 automatically allocates the. This is not true for the memory allocated on the CPU side. The number of sequences and the size of batches must not exceed *host_max_n_alns* and *host_max_batch_bytes*, respectively. This	 requirement may be removed in the future.  The type of sequence alignment algorithm is specfied using `algo` parameter. Pass one of the follwing three values as the `algo` parameter:
 
 ```
 LOCAL
@@ -76,7 +76,7 @@ GLOBAL
 SEMI_GLOBAL
 ```
 
-Similarly, to perform alignment with or without start position computation is specfied by passing one the following two values in the `start` parameter:
+Similarly, to perform alignment with or without start position, computation is specfied by passing one the following two values in the `start` parameter:
 
 ```
 WITHOUT_START
@@ -116,14 +116,14 @@ typedef struct{
 } gasal_gpu_storage_t;
 ```
 
-To align the sequences the user first need to check the availability of the stream. If `is_free` is  1 the user can use the current stream to perform the alignment on the GPU. To do this, `host_unpacked1` and `host_unpacked2` are filled with the sequences to be aligned. Th user must make sure that the number of sequences and the size of batches must not exceed *host_max_n_alns* and *host_max_batch_bytes*.  A batch is a concatenation of sequences. *The number of bases in each sequence must a multiple of 8*. At the same time the user Hence, if a sequence is not a multiple of 8 `N's` are added at the end of sequence. We call these redundant bases as *Pad bases*. `host_offsets1` and `host_offsets2` contain the starting point of sequences in the batch that are required to be aligned. These offset values include the pad bases, and hence always multiple of 8. `host_lens1` and `host_lens2` are the original length of sequences i.e. excluding pad bases. Alignment is performed by calling one of the follwing function:
+To align the sequences the user first need to check the availability of the stream. If `is_free` is  1 the user can use the current stream to perform the alignment on the GPU. To do this, `host_unpacked1` and `host_unpacked2` are filled with the sequences to be aligned. Th user makes sure that the number of sequences and the size of batches must not exceed *host_max_n_alns* and *host_max_batch_bytes*, respectively.  A batch is a concatenation of sequences. *The number of bases in each sequence must a multiple of 8*. At the same time the user Hence, if a sequence is not a multiple of 8, `N's` are added at the end of sequence. We call these redundant bases as *Pad bases*. `host_offsets1` and `host_offsets2` contain the starting point of sequences in the batch that are required to be aligned. These offset values include the pad bases, and hence always multiple of 8. `host_lens1` and `host_lens2` are the original length of sequences i.e. excluding pad bases. Alignment is performed by calling the follwing function:
 
 ```
 void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_batch1_bytes, const uint32_t actual_batch2_bytes, const uint32_t actual_n_alns, int algo, int start);
 ```
 
 
-The `actual_batch1_bytes` and `actual_batch2_bytes` specify the size of the two batches (in bytes) including the pad bases. `actual_n_alns` is the number of alignments to be performed. GASAL2 internally sets `is_free` to 0.
+The `actual_batch1_bytes` and `actual_batch2_bytes` specify the size of the two batches (in bytes) including the pad bases. `actual_n_alns` is the number of alignments to be performed. GASAL2 internally sets `is_free` to 0. From the performance prespective, if the average lengths of the sequences in *batch1* and *batch2* are not same, then the shorter sequences should be placed in *batch1*
 
 
 The `gasal_aln_async()` function returns immediately after launching the alignment kernel on the GPU. The user can perform other tasks instead of waiting for the kernel to finish. The output of alignments are stored in `host_aln_score`, `host_batch1_end`, `host_batch2_end`, `host_batch1_start`, and `host_batch2_start` arrays. To test whether the alignment on GPU is finished, a call to the following function is required to be made:
@@ -131,7 +131,7 @@ The `gasal_aln_async()` function returns immediately after launching the alignme
 ```
 int gasal_is_aln_async_done(gasal_gpu_storage *gpu_storage);
 ```
-If the function returns 0 the alignment on the GPU is finished and the  output arrays contain valid results. Moreover, if the function returns 0, the `is_free` has been set to 0 by GASAL2 and, hence the current stream can be used for the alignment of another batch of sequences. 
+If the function returns 0 the alignment on the GPU is finished and the output arrays contain valid results. Moreover, if the function returns 0, the `is_free` has been set to 0 by GASAL2 and, hence the current stream can be used for the alignment of another batch of sequences. 
 
 
 
