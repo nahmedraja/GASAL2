@@ -32,8 +32,9 @@ typedef struct{
 	int32_t mismatch;
 	int32_t gap_open;e
 	int32_t gap_extend;
-} gasal_subst_scores;
+}gasal_subst_scores;
 ```
+
 The values are passed to the GPU by calling `gasal_copy_subst_scores()` function
 
 ```
@@ -49,11 +50,16 @@ gasal_gpu_storage_v gasal_init_gpu_storage_v(int n_streams);
 `n_streams` is the number of outstanding GPU kernel launces known as *streams* . The return type is `gasal_gpu_storage_v`:
 
 ```
-
-typedef struct {
+typedef struct{
 	int n;
 	gasal_gpu_storage_t *a;
 }gasal_gpu_storage_v;
+```
+
+`n` is same as `n_streams` and `a` points to elements of the vector. To destroy the vector the following function is used.
+
+```
+void gasal_destroy_gpu_storage_v(gasal_gpu_storage_v *gpu_storage_vec);
 ```
 
 The streams in the vector are initialized by calling:
