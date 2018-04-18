@@ -123,7 +123,7 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_bat
 ```
 
 
-The `actual_batch1_bytes` and `actual_batch2_bytes` specify the size of the two batches (in bytes) including the pad bases. `actual_n_alns` is the number of alignments to be performed. GASAL2 internally sets `is_free` to 0. From the performance prespective, if the average lengths of the sequences in *batch1* and *batch2* are not same, then the shorter sequences should be placed in *batch1*
+The `actual_batch1_bytes` and `actual_batch2_bytes` specify the size of the two batches (in bytes) including the pad bases. `actual_n_alns` is the number of alignments to be performed. GASAL2 internally sets `is_free` to 0. From the performance prespective, if the average lengths of the sequences in *batch1* and *batch2* are not same, then the shorter sequences should be placed in *batch1*. Forexample, in case of read mappers the query sequences are conatined in batch1 and the genome sequences in batch2.
 
 
 The `gasal_aln_async()` function returns immediately after launching the alignment kernel on the GPU. The user can perform other tasks instead of waiting for the kernel to finish. The output of alignments are stored in `host_aln_score`, `host_batch1_end`, `host_batch2_end`, `host_batch1_start`, and `host_batch2_start` arrays. To test whether the alignment on GPU is finished, a call to the following function is required to be made:
