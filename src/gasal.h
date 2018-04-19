@@ -58,14 +58,8 @@ typedef struct {
 	uint32_t host_max_batch2_bytes;
 	uint32_t gpu_max_n_alns;
 	uint32_t host_max_n_alns;
-	uint32_t n_alns;
-	uint64_t max_gpu_malloc_size;
 	cudaStream_t str;
 	int is_free;
-	int is_host_mem_alloc;
-	int is_gpu_mem_alloc;
-	int is_host_mem_alloc_contig;
-	int is_gpu_mem_alloc_contig;
 
 } gasal_gpu_storage_t;
 
