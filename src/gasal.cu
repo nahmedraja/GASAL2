@@ -695,33 +695,33 @@ void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec) {
 
 	int i;
 	for (i = 0; i < gpu_storage_vec->n; i ++) {
-			if (gpu_storage_vec->a[i].host_unpacked1 != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_unpacked1));
-			if (gpu_storage_vec->a[i].host_unpacked2 != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_unpacked2));
-			if (gpu_storage_vec->a[i].host_offsets1 != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_offsets1));
-			if (gpu_storage_vec->a[i].host_offsets2 != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_offsets2));
-			if (gpu_storage_vec->a[i].host_lens1 != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_lens1));
-			if (gpu_storage_vec->a[i].host_lens2 != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_lens2));
-			if (gpu_storage_vec->a[i].host_aln_score != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_aln_score));
-			if (gpu_storage_vec->a[i].host_batch1_start != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_batch1_start));
-			if (gpu_storage_vec->a[i].host_batch2_start != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_batch2_start));
-			if (gpu_storage_vec->a[i].host_batch1_end != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_batch1_end));
-			if (gpu_storage_vec->a[i].host_batch2_end != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_batch2_end));
+		if (gpu_storage_vec->a[i].host_unpacked1 != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_unpacked1));
+		if (gpu_storage_vec->a[i].host_unpacked2 != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_unpacked2));
+		if (gpu_storage_vec->a[i].host_offsets1 != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_offsets1));
+		if (gpu_storage_vec->a[i].host_offsets2 != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_offsets2));
+		if (gpu_storage_vec->a[i].host_lens1 != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_lens1));
+		if (gpu_storage_vec->a[i].host_lens2 != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_lens2));
+		if (gpu_storage_vec->a[i].host_aln_score != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_aln_score));
+		if (gpu_storage_vec->a[i].host_batch1_start != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_batch1_start));
+		if (gpu_storage_vec->a[i].host_batch2_start != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_batch2_start));
+		if (gpu_storage_vec->a[i].host_batch1_end != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_batch1_end));
+		if (gpu_storage_vec->a[i].host_batch2_end != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_batch2_end));
 
-			if (gpu_storage_vec->a[i].unpacked1 != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].unpacked1));
-			if (gpu_storage_vec->a[i].unpacked2 != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].unpacked2));
-			if (gpu_storage_vec->a[i].packed1_4bit != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].packed1_4bit));
-			if (gpu_storage_vec->a[i].packed2_4bit != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].packed2_4bit));
-			if (gpu_storage_vec->a[i].offsets1 != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].offsets1));
-			if (gpu_storage_vec->a[i].offsets2 != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].offsets2));
-			if (gpu_storage_vec->a[i].lens1 != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].lens1));
-			if (gpu_storage_vec->a[i].lens2 != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].lens2));
-			if (gpu_storage_vec->a[i].aln_score != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].aln_score));
-			if (gpu_storage_vec->a[i].batch1_start != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].batch1_start));
-			if (gpu_storage_vec->a[i].batch2_start != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].batch2_start));
-			if (gpu_storage_vec->a[i].batch1_end != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].batch1_end));
-			if (gpu_storage_vec->a[i].batch2_end != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].batch2_end));
+		if (gpu_storage_vec->a[i].unpacked1 != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].unpacked1));
+		if (gpu_storage_vec->a[i].unpacked2 != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].unpacked2));
+		if (gpu_storage_vec->a[i].packed1_4bit != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].packed1_4bit));
+		if (gpu_storage_vec->a[i].packed2_4bit != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].packed2_4bit));
+		if (gpu_storage_vec->a[i].offsets1 != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].offsets1));
+		if (gpu_storage_vec->a[i].offsets2 != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].offsets2));
+		if (gpu_storage_vec->a[i].lens1 != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].lens1));
+		if (gpu_storage_vec->a[i].lens2 != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].lens2));
+		if (gpu_storage_vec->a[i].aln_score != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].aln_score));
+		if (gpu_storage_vec->a[i].batch1_start != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].batch1_start));
+		if (gpu_storage_vec->a[i].batch2_start != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].batch2_start));
+		if (gpu_storage_vec->a[i].batch1_end != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].batch1_end));
+		if (gpu_storage_vec->a[i].batch2_end != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].batch2_end));
 
-			if (gpu_storage_vec->a[i].str != NULL)CHECKCUDAERROR(cudaStreamDestroy(gpu_storage_vec->a[i].str));
+		if (gpu_storage_vec->a[i].str != NULL)CHECKCUDAERROR(cudaStreamDestroy(gpu_storage_vec->a[i].str));
 	}
 
 

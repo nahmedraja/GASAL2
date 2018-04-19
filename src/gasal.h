@@ -45,13 +45,11 @@ typedef struct {
 	int32_t *batch2_end;
 	int32_t *batch1_start;
 	int32_t *batch2_start;
-	int32_t *results;
 	int32_t *host_aln_score;
 	int32_t *host_batch1_end;
 	int32_t *host_batch2_end;
 	int32_t *host_batch1_start;
 	int32_t *host_batch2_start;
-	int32_t *host_results;
 	uint32_t gpu_max_batch1_bytes;
 	uint32_t gpu_max_batch2_bytes;
 	uint32_t host_max_batch1_bytes;
