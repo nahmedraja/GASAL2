@@ -21,7 +21,7 @@ $ ./configure.sh <path to cuda installation directory>
 $ make GPU_SM_ARCH=<GPU SM architecture> MAX_LEN=<maximum sequence length> [N_SCORE=<penalty for aligning "N" against any other base>]
 ```
 
-`N_SCORE` is optional and if it is not specified then GASAL2 considers "N" as an ordinary base having the same match/mismatch scores as for A, C, G or T. As a result of these commands, *include* and *lib* directories will be created containing `gasal.h` and `libgasal.a`, respectively. Include `gasal.h` in your code link it with `libgasal.a` during compilation. Also link the CUDA runtime library by adding `-lcudart` flag. The path to the CUDA runtime library must also be specfied while linking as *-L <path to CUDA lib64 directory>*.
+`N_SCORE` is optional and if it is not specified then GASAL2 considers "N" as an ordinary base having the same match/mismatch scores as for A, C, G or T. As a result of these commands, *include* and *lib* directories will be created containing `gasal.h` and `libgasal.a`, respectively. Include `gasal.h` in your code and link it with `libgasal.a` during compilation. Also link the CUDA runtime library by adding `-lcudart` flag. The path to the CUDA runtime library must also be specfied while linking as *-L <path to CUDA lib64 directory>*.
 
 ## Using GASAL2
 To use GASAL2  alignment functions, first the match/mismatach scores and gap open/extension penalties need to be passed on to the GPU. Assign the values match/mismatach scores and gap open/extension penalties to the members of `gasal_subst_scores` struct
@@ -116,7 +116,7 @@ typedef struct{
 } gasal_gpu_storage_t;
 ```
 
-To align the sequences the user first need to check the availability of a stream. If `is_free` is  1 then a current stream  can be used to perform the alignment on the GPU. To do this, `host_unpacked1` and `host_unpacked2` are filled with the sequences to be aligned. AS described earlier, the number of bases in a sequenceare must always be multiple of 8. The user makes sure that the number of sequences and the size of batches must not exceed *host_max_n_alns* and *host_max_batch_bytes*, respectively. `host_offsets1` and `host_offsets2` contain the starting point of sequences in the batch that are required to be aligned. These offset values include the pad bases, and hence always multiple of 8. `host_lens1` and `host_lens2` are the original length of sequences i.e. excluding pad bases. Alignment is performed by calling the follwing function:
+To align the sequences the user first need to check the availability of a stream. If `is_free` is  1 then a current stream  can be used to perform the alignment on the GPU. To do this, `host_unpacked1` and `host_unpacked2` are filled with the sequences to be aligned. As described earlier, the number of bases in a sequence must always be multiple of 8. The user makes sure that the number of sequences and the size of batches must not exceed *host_max_n_alns* and *host_max_batch_bytes*, respectively. `host_offsets1` and `host_offsets2` contain the starting point of sequences in the batch that are required to be aligned. These offset values include the pad bases, and hence always multiple of 8. `host_lens1` and `host_lens2` are the original length of sequences i.e. excluding pad bases. Alignment is performed by calling the follwing function:
 
 ```
 void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_batch1_bytes, const uint32_t actual_batch2_bytes, const uint32_t actual_n_alns, int algo, int start);
