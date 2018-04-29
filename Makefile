@@ -1,6 +1,7 @@
 GPU_SM_ARCH=
 MAX_LEN=
-N_SCORE=
+N_CODE=
+N_PENALTY=
 GPU_COMPUTE_ARCH=$(subst sm,compute,$(GPU_SM_ARCH))
 NVCC=/usr/local/cuda-8.0/bin/nvcc
 SRC_DIR=./src/
@@ -15,32 +16,37 @@ NC=\033[0m # No Color
 
 ifeq ($(GPU_SM_ARCH),)
 error1:
-	@echo "Must specify GPU architecture as SM_XX"
+	@echo "Must specify GPU architecture as sm_xx"
 endif
 ifeq ($(MAX_LEN),)
 error2:
 	@echo "Must specify maximum sequence length"
 endif
 
+ifeq ($(N_CODE),)
+error3:
+	@echo "Must specify the code for 'N'"
+endif
 #ifneq ($(GPU_SM_ARCH),clean)
 
 .SUFFIXES: .cu .c .o .cc .cpp
-ifeq ($(N_SCORE),)
+ifeq ($(N_PENALTY),)
 .cu.o:
-	$(NVCC) -c -g -O3 -Xcompiler -Wall,-DMAX_SEQ_LEN=$(MAX_LEN) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
+	$(NVCC) -c -g -O3 -Xcompiler -Wall,-DMAX_SEQ_LEN=$(MAX_LEN),-DN_CODE=$(N_CODE) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
 else
 .cu.o:
-	$(NVCC) -c -g -O3 -Xcompiler -Wall,-DMAX_SEQ_LEN=$(MAX_LEN),-DN_SCORE=$(N_SCORE) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
+	$(NVCC) -c -g -O3 -Xcompiler -Wall,-DMAX_SEQ_LEN=$(MAX_LEN),-DN_CODE=$(N_CODE),-DN_PENALTY=$(N_PENALTY) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
 endif
 all: makedir libgasal.a
 
 makedir:
-	mkdir -p $(OBJ_DIR)
-	mkdir -p $(LIB_DIR)
-	mkdir -p $(INCLUDE_DIR)
-	cp $(SRC_DIR)/gasal.h $(INCLUDE_DIR) 
+	@mkdir -p $(OBJ_DIR)
+	@mkdir -p $(LIB_DIR)
+	@mkdir -p $(INCLUDE_DIR)
+	@cp $(SRC_DIR)/gasal.h $(INCLUDE_DIR)
+	@sed  -i "s,MAX_LEN=.*,MAX_LEN=$(MAX_LEN),g" ./test_prog/Makefile
 	 
-ifeq ($(N_SCORE),)
+ifeq ($(N_PENALTY),)
 libgasal.a: $(LOBJS)
 	ar -csru $(LIB_DIR)$@ $(LOBJS_PATH)
 	@echo ""
