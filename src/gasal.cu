@@ -273,7 +273,21 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 	if (actual_target_batch_bytes % 8) {
 		fprintf(stderr, "[GASAL ERROR:] actual_target_batch_bytes=%d is not a multiple of 8\n", actual_target_batch_bytes);
 		exit(EXIT_FAILURE);
+	}
 
+	if (actual_query_batch_bytes > gpu_storage->host_max_query_batch_bytes) {
+				fprintf(stderr, "[GASAL ERROR:] actual_query_batch_bytes(%d) > host_max_query_batch_bytes(%d)\n", actual_query_batch_bytes, gpu_storage->host_max_query_batch_bytes);
+				exit(EXIT_FAILURE);
+	}
+
+	if (actual_target_batch_bytes > gpu_storage->host_max_target_batch_bytes) {
+			fprintf(stderr, "[GASAL ERROR:] actual_target_batch_bytes(%d) > host_max_target_batch_bytes(%d)\n", actual_target_batch_bytes, gpu_storage->host_max_target_batch_bytes);
+			exit(EXIT_FAILURE);
+	}
+
+	if (actual_n_alns > gpu_storage->host_max_n_alns) {
+			fprintf(stderr, "[GASAL ERROR:] actual_n_alns(%d) > host_max_n_alns(%d)\n", actual_n_alns, gpu_storage->host_max_n_alns);
+			exit(EXIT_FAILURE);
 	}
 
 	//--------------if pre-allocated memory is less, allocate more--------------------------
