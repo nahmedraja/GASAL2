@@ -15,5 +15,5 @@ Options: -a INT    match score [1]
 ```
 
 
-`query_batch.fasta` and `target_batch.fasta` contain the sequences for the alignment. The sequences in these files are aligned one-to-one, i.e. the first sequence in query_batch.fasta is aligned to the first sequence in target_batch.fasta, the second sequence in query_batch.fasta is aligned to the second sequence in target_batch.fasta, and so on. The directory also conatins sample query_batch.fasta and target_batch.fasta files.
+`query_batch.fasta` and `target_batch.fasta` contain the sequences for the alignment. The sequences in these files are aligned one-to-one, i.e. the first sequence in query_batch.fasta is aligned to the first sequence in target_batch.fasta, the second sequence in query_batch.fasta is aligned to the second sequence in target_batch.fasta, and so on. The directory also conatins sample query_batch.fasta and target_batch.fasta files. For the two sample files use `MAX_LEN=350` during compilation.
 
