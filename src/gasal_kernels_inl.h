@@ -57,11 +57,11 @@ __constant__ int32_t _cudaMismatchScore; /*penalty for a mismatch*/
 #ifdef N_PENALTY
 #define DEV_GET_SUB_SCORE_LOCAL(score, rbase, gbase) \
       	score = (rbase == gbase) ?_cudaMatchScore : -_cudaMismatchScore;\
-        score = ((rbase == N_VALUE) || (gbase == N_VALUE)) ? N_PENALTY : score;\
+        score = ((rbase == N_VALUE) || (gbase == N_VALUE)) ? -N_PENALTY : score;\
 
 #define DEV_GET_SUB_SCORE_GLOBAL(score, rbase, gbase) \
         score = (rbase == gbase) ?_cudaMatchScore : -_cudaMismatchScore;\
-        score = ((rbase == N_VALUE) || (gbase == N_VALUE)) ? N_PENALTY : score;\
+        score = ((rbase == N_VALUE) || (gbase == N_VALUE)) ? -N_PENALTY : score;\
 
 #else
 #define DEV_GET_SUB_SCORE_LOCAL(score, rbase, gbase) \

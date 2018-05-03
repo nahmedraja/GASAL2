@@ -131,7 +131,10 @@ The `gasal_aln_async()` function returns immediately after launching the alignme
 ```
 int gasal_is_aln_async_done(gasal_gpu_storage *gpu_storage);
 ```
-If the function returns 0 the alignment on the GPU is finished and the output arrays contain valid results. Moreover, `is_free` is set to 1 by GASAL2. Thus, the current stream can be used for the alignment of another batch of sequences. 
+If the function returns 0 the alignment on the GPU is finished and the output arrays contain valid results. Moreover, `is_free` is set to 1 by GASAL2. Thus, the current stream can be used for the alignment of another batch of sequences. The function returns `-1` if the results are not ready. It returns `-2` if the function is called on a stream in which no alignment has been launced, i.e. `is_free == 1`.
+
+## Example
+The `test_prog` directory conatins an example program which uses GASAL2 for sequence alignment on GPU. See the README in the directory for the instructions about running the program.  
 
 
 ## Problems and suggestions
