@@ -1,9 +1,9 @@
 
 CUDA_LD_LIBRARY=/usr/local/cuda-8.0/lib64
-MAX_LEN=600
+MAX_SEQ_LEN=600
 
 .cpp.o:
-	g++ -g -c -O3 -Wall -DMAX_SEQ_LEN=$(MAX_LEN) -Werror -fopenmp -I ../include  -o test_prog.o test_prog.cpp
+	g++ -g -c -O3 -Wall -DMAX_SEQ_LEN=$(MAX_SEQ_LEN) -Werror -fopenmp -I ../include  -o test_prog.o test_prog.cpp
 
 all: test_prog.out
 
