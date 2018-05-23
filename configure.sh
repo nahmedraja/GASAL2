@@ -24,7 +24,7 @@ else
 fi	
 
 
-cuda_lib_path="${cuda_path}/lib64"
+cuda_lib_path="${cuda_path}/targets/x86_64-linux/lib"
 
 
 if [ -d $cuda_lib_path ]; then
@@ -36,7 +36,7 @@ else
   exit 1	
 fi
 
-cuda_runtime_file="${cuda_path}/include/cuda_runtime.h"
+cuda_runtime_file="${cuda_path}/targets/x86_64-linux/include/cuda_runtime.h"
 
 if [ -f $cuda_runtime_file ]; then
  echo  "CUDA runtime header file found (${cuda_runtime_file})"
@@ -55,6 +55,10 @@ sed  -i "s,NVCC=.*,NVCC=$cuda_nvcc_path,g" Makefile
 echo "Configuring gasal.h..."
 
 sed  -i "s,.*cuda_runtime\.h\",\#include \"$cuda_runtime_file\",g" ./src/gasal.h
+
+echo "Configuring Makefile of test program..."
+
+sed  -i "s,CUDA_LD_LIBRARY=.*,CUDA_LD_LIBRARY=$cuda_lib_path,g" ./test_prog/Makefile 
 
 #mkdir -p include
 
