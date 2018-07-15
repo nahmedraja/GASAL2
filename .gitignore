@@ -10,5 +10,6 @@
 *.fa
 *.fasta
 *.bam
+*.swp
 lib/*
 include/*
