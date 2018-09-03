@@ -4,7 +4,7 @@ MAX_SEQ_LEN=300
 .cpp.o:
 	g++ -g -c -O3 -Wall -DMAX_SEQ_LEN=$(MAX_SEQ_LEN) -Werror -fopenmp -I ../include  -o test_prog.o test_prog.cpp
 
-all: test_prog.out
+all: clean test_prog.out
 
 test_prog.out: test_prog.o
 	g++ -O3 -o test_prog.out -L$(CUDA_LD_LIBRARY) -L../lib test_prog.o -fopenmp -lcudart -lgasal
