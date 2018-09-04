@@ -15,7 +15,7 @@ clean:
 test_prog.o: Timer.h
 
 run: all
-	optirun ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta
+	./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta > out.log
 
 fullrun: all
-	optirun ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
+	./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta > out.log

@@ -13,3 +13,5 @@
 *.swp
 lib/*
 include/*
+.vscode/*
+*.log
