@@ -566,7 +566,12 @@ void gasal_gpu_mem_alloc(gasal_gpu_storage_t *gpu_storage, int gpu_max_query_bat
 
 }
 
-
+void gasal_host_fill(gasal_gpu_storage_t *gpu_storage_t, int query_idx, const char* query_data, int query_size, int target_idx, const char* target_data, int target_size)
+{
+	// Here, we can take care of whatever should be taken care of, memory-speaking.
+	memcpy(&((gpu_storage_t)->host_unpacked_query_batch[query_idx]), query_data, query_size);	
+	memcpy(&((gpu_storage_t)->host_unpacked_target_batch[target_idx]), target_data, target_size);
+}
 
 
 void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query_batch_bytes,  int gpu_max_query_batch_bytes,  int host_max_target_batch_bytes, int gpu_max_target_batch_bytes, int host_max_n_alns, int gpu_max_n_alns, int algo, int start) {

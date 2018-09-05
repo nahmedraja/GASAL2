@@ -222,8 +222,8 @@ int main(int argc, char *argv[]) {
 							query_seqs_len, 
 							target_seqs_len, 
 							target_seqs_len, 
-							(target_seqs.size() / NB_STREAMS) -5, 
-							(target_seqs.size() / NB_STREAMS) -5, 
+							(target_seqs.size() / NB_STREAMS), 
+							(target_seqs.size() / NB_STREAMS), 
 							LOCAL, 
 							WITH_START);
 	}
@@ -260,13 +260,22 @@ int main(int argc, char *argv[]) {
 					int query_batch_idx = 0;
 					int target_batch_idx = 0;
 					unsigned int j = 0;
-					int res = 0;
 					//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
 					for (int i = curr_idx; seqs_done < n_seqs && j < (target_seqs.size() / NB_STREAMS); i++, j++, seqs_done++) {
 
 						// filling the host here. careful on memory copies
-						 memcpy(&((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_unpacked_query_batch[query_batch_idx]), query_seqs[i].c_str(), query_seqs[i].size());
-						 memcpy(&((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_unpacked_target_batch[target_batch_idx]), target_seqs[i].c_str(),  target_seqs[i].size());
+						// I WANT TO RAISE A SEGFAULT HERE. EDIT: GOT IT. ERROR 139 SEGFAULT
+						// moving the filling on the library size, to take care of the memory size.
+						gasal_host_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
+										query_batch_idx, 
+										query_seqs[i].c_str(), 
+										query_seqs[i].size(), 
+										target_batch_idx, 
+										target_seqs[i].c_str(), 
+										target_seqs[i].size()
+									   );
+
+
 
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;

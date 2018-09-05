@@ -103,7 +103,7 @@ void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec);
 
 void gasal_destroy_gpu_storage_v(gasal_gpu_storage_v *gpu_storage_vec);
 
-
+void gasal_host_fill(gasal_gpu_storage_t *gpu_storage_t, int query_idx, const char* query_data, int query_size, int target_idx, const char* target_data, int target_size);
 
 
 #ifdef __cplusplus
