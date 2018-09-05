@@ -20,7 +20,7 @@ fullrun: all
 	optirun ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta > out.log
 
 cuda-memcheck: all
-	optirun cuda-memcheck ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta
+	optirun cuda-memcheck ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
 
 cuda-gdb: all
 	optirun cuda-gdb --args ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta

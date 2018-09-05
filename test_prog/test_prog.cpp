@@ -15,12 +15,13 @@
 using namespace std;
 
 
-#define GPU_BATCH_SIZE 10000
-#define NB_STREAMS 4
+// #define GPU_BATCH_SIZE 10000
+// not used anymore.
+
+#define NB_STREAMS 2
 
 #define MAX(a,b) (a>b ? a : b)
 
-// between 2550 and 2560 it goes from not working to working for fullrun (20000 sequences). a consequence of the maximum size of the sequence (fixed at 300), where most of the sequences are much inferior to this size.
 
 
 
@@ -114,6 +115,51 @@ int main(int argc, char *argv[]) {
 	uint32_t target_seqs_len = 0;
 	uint32_t query_seqs_len = 0;
 	cerr << "Loading files...." << endl;
+
+	/* Warning : test program does not comply with generic FASTA files. Modifying.
+	   the following code concatenates each sequence into a single line, every time it reads a >
+	*/
+	
+	int seq_begin=0;
+	while (getline(query_batch_fasta, query_batch_line) && getline(target_batch_fasta, target_batch_line)) { 
+
+		//load sequences from the files
+		if (query_batch_line[0] == '>' && target_batch_line[0] == '>') {
+			query_headers.push_back(query_batch_line.substr(1));
+			target_headers.push_back(target_batch_line.substr(1));
+
+			if (seq_begin == 2) {
+				// a sequence was already being read. Now it's done, so we should find its length.
+				target_seqs_len += (target_seqs.back()).length();
+				query_seqs_len += (query_seqs.back()).length();
+				maximum_sequence_length = MAX((target_seqs.back()).length(), maximum_sequence_length);
+				maximum_sequence_length = MAX((query_seqs.back()).length(), maximum_sequence_length);
+			}
+			seq_begin = 1;
+			total_seqs++;
+		} else if (seq_begin == 1) {
+			query_seqs.push_back(query_batch_line);
+			target_seqs.push_back(target_batch_line);
+			seq_begin=2;
+		} else if (seq_begin == 2) {
+			query_seqs.back() += query_batch_line;
+			target_seqs.back() += target_batch_line;
+		} else { // should never happen but always put an else, for safety...
+			seq_begin = 0;
+			cerr << "Batch1 and target_batch files should be fasta having same number of sequences" << endl;
+			exit(EXIT_FAILURE);
+		}
+	}
+
+
+	// do it once more for the final value
+	target_seqs_len += (target_seqs.back()).length();
+	query_seqs_len += (query_seqs.back()).length();
+	maximum_sequence_length = MAX((target_seqs.back()).length(), maximum_sequence_length);
+	maximum_sequence_length = MAX((query_seqs.back()).length(), maximum_sequence_length);
+
+	
+	/*
 	while (getline(query_batch_fasta, query_batch_line) && getline(target_batch_fasta, target_batch_line)) { //load sequences from the files
 		if (query_batch_line[0] == '>' && target_batch_line[0] == '>') {
 			query_headers.push_back(query_batch_line.substr(1));
@@ -135,6 +181,8 @@ int main(int argc, char *argv[]) {
 		}
 
 	}
+	*/
+
 
 	fprintf(stderr, "Size of read batches are: query=%d, target=%d. maximum_sequence_length=%d\n", query_seqs_len, target_seqs_len, maximum_sequence_length);
 
@@ -174,8 +222,8 @@ int main(int argc, char *argv[]) {
 							query_seqs_len, 
 							target_seqs_len, 
 							target_seqs_len, 
-							(target_seqs.size() / NB_STREAMS), 
-							(target_seqs.size() / NB_STREAMS), 
+							(target_seqs.size() / NB_STREAMS) -5, 
+							(target_seqs.size() / NB_STREAMS) -5, 
 							LOCAL, 
 							WITH_START);
 	}
@@ -212,15 +260,21 @@ int main(int argc, char *argv[]) {
 					int query_batch_idx = 0;
 					int target_batch_idx = 0;
 					unsigned int j = 0;
+					int res = 0;
 					//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
 					for (int i = curr_idx; seqs_done < n_seqs && j < (target_seqs.size() / NB_STREAMS); i++, j++, seqs_done++) {
-						memcpy(&((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_unpacked_query_batch[query_batch_idx]), query_seqs[i].c_str(), query_seqs[i].size());
-						memcpy(&((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_unpacked_target_batch[target_batch_idx]), target_seqs[i].c_str(),  target_seqs[i].size());
+
+						// filling the host here. careful on memory copies
+						 memcpy(&((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_unpacked_query_batch[query_batch_idx]), query_seqs[i].c_str(), query_seqs[i].size());
+						 memcpy(&((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_unpacked_target_batch[target_batch_idx]), target_seqs[i].c_str(),  target_seqs[i].size());
+
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;
 						query_batch_idx += query_seqs[i].size();
 						target_batch_idx +=  target_seqs[i].size();
 						int query_batch_seq_len = query_seqs[i].size();
+
+						// padding with N here...
 						while(query_batch_idx%8) {
 							(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_unpacked_query_batch[query_batch_idx++] = 'N';
 						}
