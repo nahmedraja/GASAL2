@@ -16,6 +16,12 @@ using namespace std;
 
 
 #define GPU_BATCH_SIZE 10000
+#define NB_STREAMS 4
+
+#define MAX(a,b) (a>b ? a : b)
+
+// between 2550 and 2560 it goes from not working to working for fullrun (20000 sequences). a consequence of the maximum size of the sequence (fixed at 300), where most of the sequences are much inferior to this size.
+
 
 
 int main(int argc, char *argv[]) {
@@ -104,6 +110,9 @@ int main(int argc, char *argv[]) {
 	string query_batch_line, target_batch_line;
 
 	int total_seqs = 0;
+	uint32_t maximum_sequence_length = 0;
+	uint32_t target_seqs_len = 0;
+	uint32_t query_seqs_len = 0;
 	cerr << "Loading files...." << endl;
 	while (getline(query_batch_fasta, query_batch_line) && getline(target_batch_fasta, target_batch_line)) { //load sequences from the files
 		if (query_batch_line[0] == '>' && target_batch_line[0] == '>') {
@@ -113,6 +122,12 @@ int main(int argc, char *argv[]) {
 			query_seqs.push_back(query_batch_line);
 			getline(target_batch_fasta, target_batch_line);
 			target_seqs.push_back(target_batch_line);
+
+			target_seqs_len += (target_seqs.back()).length();
+			query_seqs_len += (query_seqs.back()).length();
+			maximum_sequence_length = MAX((target_seqs.back()).length(), maximum_sequence_length);
+			maximum_sequence_length = MAX((query_seqs.back()).length(), maximum_sequence_length);
+
 			total_seqs++;
 		} else {
 			cerr << "Batch1 and target_batch files should be fasta having same number of sequences" << endl;
@@ -120,6 +135,11 @@ int main(int argc, char *argv[]) {
 		}
 
 	}
+
+	fprintf(stderr, "Size of read batches are: query=%d, target=%d. maximum_sequence_length=%d\n", query_seqs_len, target_seqs_len, maximum_sequence_length);
+
+	
+	// here you should know all your data size.
 
 	int *thread_seqs_idx = (int*)malloc(n_threads*sizeof(int));
 	int *thread_n_seqs = (int*)malloc(n_threads*sizeof(int));
@@ -132,10 +152,13 @@ int main(int argc, char *argv[]) {
 		thread_seqs_idx[i] = n_seqs_alloc;
 		if (n_seqs_alloc + thread_batch_size < total_seqs) thread_n_seqs[i] = thread_batch_size;
 		else thread_n_seqs[i] = total_seqs - n_seqs_alloc;
-		thread_n_batchs[i] = (int)ceil((double)thread_n_seqs[i]/GPU_BATCH_SIZE);
+		thread_n_batchs[i] = (int)ceil((double)thread_n_seqs[i]/(target_seqs.size() / NB_STREAMS));
 		n_seqs_alloc += thread_n_seqs[i];
 
 	}
+
+	// shit gets real here
+
 	cerr << "Processing..." << endl;
 
 
@@ -144,9 +167,17 @@ int main(int argc, char *argv[]) {
 	omp_set_num_threads(n_threads);
 	gasal_gpu_storage_v *gpu_storage_vecs =  (gasal_gpu_storage_v*)calloc(n_threads, sizeof(gasal_gpu_storage_v));
 	for (int z = 0; z < n_threads; z++) {
-		gpu_storage_vecs[z] = gasal_init_gpu_storage_v(2);// creating 2 streams per thread
+		gpu_storage_vecs[z] = gasal_init_gpu_storage_v(NB_STREAMS);// creating 2 streams per thread
 		//initializing the streams by allocating the required CPU and GPU memory
-		gasal_init_streams(&(gpu_storage_vecs[z]), GPU_BATCH_SIZE*MAX_SEQ_LEN, GPU_BATCH_SIZE*MAX_SEQ_LEN, GPU_BATCH_SIZE*MAX_SEQ_LEN, GPU_BATCH_SIZE*MAX_SEQ_LEN, GPU_BATCH_SIZE, GPU_BATCH_SIZE, LOCAL, WITH_START);
+		gasal_init_streams(&(gpu_storage_vecs[z]), 
+							query_seqs_len, 
+							query_seqs_len, 
+							target_seqs_len, 
+							target_seqs_len, 
+							(target_seqs.size() / NB_STREAMS), 
+							(target_seqs.size() / NB_STREAMS), 
+							LOCAL, 
+							WITH_START);
 	}
 
 	#pragma omp parallel
@@ -158,7 +189,7 @@ int main(int argc, char *argv[]) {
 
 	struct gpu_batch{ //a struct to hold data structures of a stream
 			gasal_gpu_storage_t *gpu_storage; //the struct that holds the GASAL2 data structures
-			int n_seqs_batch;//number of sequences in the batch (<= GPU_BATCH_SIZE)
+			int n_seqs_batch;//number of sequences in the batch (<= (target_seqs.size() / NB_STREAMS))
 			int batch_start;//starting index of batch
 	};
 
@@ -180,9 +211,9 @@ int main(int argc, char *argv[]) {
 			if (seqs_done < n_seqs && gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n) {
 					int query_batch_idx = 0;
 					int target_batch_idx = 0;
-					int j = 0;
-					//-----------Create a batch of sequences to be aligned on the GPU. The batch contains GPU_BATCH_SIZE number of sequences-----------------------
-					for (int i = curr_idx; seqs_done < n_seqs && j < GPU_BATCH_SIZE; i++, j++, seqs_done++) {
+					unsigned int j = 0;
+					//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
+					for (int i = curr_idx; seqs_done < n_seqs && j < (target_seqs.size() / NB_STREAMS); i++, j++, seqs_done++) {
 						memcpy(&((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_unpacked_query_batch[query_batch_idx]), query_seqs[i].c_str(), query_seqs[i].size());
 						memcpy(&((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_unpacked_target_batch[target_batch_idx]), target_seqs[i].c_str(),  target_seqs[i].size());
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
@@ -206,7 +237,7 @@ int main(int argc, char *argv[]) {
 					uint32_t query_batch_bytes = query_batch_idx;
 					uint32_t target_batch_bytes = target_batch_idx;
 					gpu_batch_arr[gpu_batch_arr_idx].batch_start = curr_idx;
-					curr_idx += GPU_BATCH_SIZE;
+					curr_idx += (target_seqs.size() / NB_STREAMS);
 
 					//----------------------------------------------------------------------------------------------------
 					//-----------------calling the GASAL2 non-blocking alignment function---------------------------------
