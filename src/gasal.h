@@ -17,12 +17,26 @@ enum comp_start{
 	WITHOUT_START
 };
 
+enum data_source{
+	QUERY,
+	TARGET
+};
+
 enum algo_type{
 	LOCAL,
 	GLOBAL,
 	SEMI_GLOBAL
 };
 
+// data structure of linked list to allow extension of memory on host side
+struct host_batch{
+	uint8_t *data;
+	uint32_t data_offset;
+	struct host_batch* next;
+};
+typedef struct host_batch host_batch_t;
+// *ctors done.
+// need (printer), reader, writer
 
 //stream data
 typedef struct {
@@ -34,8 +48,15 @@ typedef struct {
 	uint32_t *target_batch_offsets;
 	uint32_t *query_batch_lens;
 	uint32_t *target_batch_lens;
+	
+	
 	uint8_t *host_unpacked_query_batch;
 	uint8_t *host_unpacked_target_batch;
+	
+
+	host_batch *extensible_host_unpacked_query_batch;
+	host_batch *extensible_host_unpacked_target_batch;
+
 	uint32_t *host_query_batch_offsets;
 	uint32_t *host_target_batch_offsets;
 	uint32_t *host_query_batch_lens;
@@ -52,8 +73,10 @@ typedef struct {
 	int32_t *host_target_batch_start;
 	uint32_t gpu_max_query_batch_bytes;
 	uint32_t gpu_max_target_batch_bytes;
+
 	uint32_t host_max_query_batch_bytes;
 	uint32_t host_max_target_batch_bytes;
+	
 	uint32_t gpu_max_n_alns;
 	uint32_t host_max_n_alns;
 	cudaStream_t str;
@@ -104,6 +127,15 @@ void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec);
 void gasal_destroy_gpu_storage_v(gasal_gpu_storage_v *gpu_storage_vec);
 
 void gasal_host_fill(gasal_gpu_storage_t *gpu_storage_t, int query_idx, const char* query_data, int query_size, int target_idx, const char* target_data, int target_size);
+
+// host data structure methods
+host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t offset);
+void gasal_host_batch_destroy(host_batch_t *res);
+host_batch_t *gasal_host_batch_getlast(host_batch_t *arg);
+
+void gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const char* data, int size, data_source SRC );
+
+
 
 
 #ifdef __cplusplus
