@@ -23,10 +23,10 @@ cuda-memcheck: all
 	optirun cuda-memcheck ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
 
 cuda-gdb: all
-	optirun cuda-gdb --args ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta
+	optirun cuda-gdb --args ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
 
 valgrind: all
-	optirun valgrind ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta
+	optirun valgrind ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
 
 gdb: all
 	optirun gdb --args ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta
