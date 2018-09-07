@@ -96,7 +96,6 @@ int gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const cha
 	if (*p_batch_bytes >= idx)
 	{
 		memcpy(&(cur_page->data[idx - cur_page->data_offset]), data, size);
-		fprintf(stderr, "[memcpy]: filled page with offset %d with data of size %d at address @%d\n", cur_page->data_offset, size, idx - cur_page->data_offset);
 
 		idx = idx + size;
 
@@ -124,10 +123,10 @@ int gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const cha
 		idx = gasal_host_batch_fill(gpu_storage_t, idx, data, size, SRC);
 
 	}
-	gasal_host_batch_print(cur_page);
 	return idx;
 }
 
+// this printer is a bit heavy and shouldn't be called when you have more than a couple sequences.
 void gasal_host_batch_print(host_batch_t *res) 
 {
 	fprintf(stderr, "[GASAL PRINT] Page with offset %d, next page has offset %d\n",res->data_offset, (res->next == NULL? -1 : (int)res->next->data_offset));

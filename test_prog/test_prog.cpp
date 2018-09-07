@@ -288,7 +288,6 @@ int main(int argc, char *argv[]) {
 					//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
 					for (int i = curr_idx; seqs_done < n_seqs && j < (target_seqs.size() / NB_STREAMS); i++, j++, seqs_done++) {
 
-
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;
 
@@ -309,16 +308,12 @@ int main(int argc, char *argv[]) {
 										target_seqs[i].size(),
 										TARGET);
 
-
-						// WARNING : padding chould be done before copying. Otherwise you could run into troubles with your memory size, right ?
-						// Basically, you're adding something at the end without checking that you have the memory for it.
-						// EDIT: going for worst case scenario, and preparing just a bit more memory in advance (adding 7 bytes of memory to every sequence)
-
-						// this has nothing to do here...
-						// Padding should be something internal of the library. 
-						// The user should not be concerned about its data size. 
-						// At most, the library can raise a warning about padding.
+						// Padding is done on the library side. 
+						// Since the library changes the idx with the sequence size and the padding, it has to return it !
 						
+						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_lens[j] = query_seqs[i].size();
+						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_lens[j] = target_seqs[i].size();
+
 					}
 					gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch = j;
 					uint32_t query_batch_bytes = query_batch_idx;
