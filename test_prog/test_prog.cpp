@@ -221,11 +221,7 @@ int main(int argc, char *argv[]) {
 		//initializing the streams by allocating the required CPU and GPU memory
 
 		/* actually , the memory every stream need is the total length of the batch, divided by the NB_STREAM ! You allocate just what you need.µ
-		 * For a unknown reason, GASAL needs just a bit more memory that this exact size, that's why I augmented it with a factor 1.05
-		 * I devise that it needs just a bit more because cudaMallocHost uses more memory that what you would expect, to be able for cuda- functions or the GPU to use it.
-		 * Performance should even improve a bit (you spend less time allocating memory you don't need.)
-		 * as an example, I let the regular size for one of the GPU memories. You can see that it needs re-allocation.
-		 * EDIT: this is probably because of the padding !!
+		 * But GASAL needs a bit more memory that this exact size, this is probably because of the padding.
 		 * Worst case scenario is if every sequence needs 7 bytes padding for every sequence, so we should add this size of memory allocation.
 		 */
 
@@ -236,9 +232,9 @@ int main(int argc, char *argv[]) {
 			[GASAL WARNING:] actual_query_batch_bytes(1520000) > Allocated GPU memory (gpu_max_query_batch_bytes=3000000). Therefore, allocating 6000000 bytes on GPU (gpu_max_query_batch_bytes=6000000). Performance may be lost if this is repeated many times.
 		*/
 
-
+		// note: the calculations of the detailed sizes to allocate could be done on the library side (to hide it from the user's perspective)
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
-							1 * (query_seqs_len +7*total_seqs) / (NB_STREAMS) ,  // smaller host size for query (caught by library)
+							1 * (query_seqs_len +7*total_seqs) / (NB_STREAMS) , 
 							1 * (query_seqs_len +7*total_seqs)  / (NB_STREAMS) , 
 							1 * (target_seqs_len +7*total_seqs)/ (NB_STREAMS),
 							1 * (target_seqs_len +7*total_seqs) / (NB_STREAMS) , 
@@ -293,69 +289,36 @@ int main(int argc, char *argv[]) {
 					for (int i = curr_idx; seqs_done < n_seqs && j < (target_seqs.size() / NB_STREAMS); i++, j++, seqs_done++) {
 
 
-
-
+						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
+						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;
 
 						// filling the host here. careful on memory copies
-						// I WANT TO RAISE A SEGFAULT HERE. EDIT: GOT IT. ERROR 139 SEGFAULT
+						// I WANT TO RAISE A SEGFAULT HERE. EDIT: GOT IT. ERROR 139
 						// moving the filling on the library size, to take care of the memory size.
 						
-						gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
+
+						query_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
 										query_batch_idx, 
 										query_seqs[i].c_str(), 
 										query_seqs[i].size(),
 										QUERY);
 										
-						gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
+						target_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
 										target_batch_idx, 
 										target_seqs[i].c_str(), 
 										target_seqs[i].size(),
 										TARGET);
 
-						// 2 days after, already deprecated. How sad. 
-						/*
-						gasal_host_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
-										query_batch_idx, 
-										query_seqs[i].c_str(), 
-										query_seqs[i].size(), 
-										target_batch_idx, 
-										target_seqs[i].c_str(), 
-										target_seqs[i].size()
-									   );
-						*/
 
-						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
-						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;
-						query_batch_idx += query_seqs[i].size();
-						target_batch_idx +=  target_seqs[i].size();
-
-
-						// WARNING : padding should be done BEFORE copying. Otherwise you could run into troubles with your memory size, right ?
+						// WARNING : padding chould be done before copying. Otherwise you could run into troubles with your memory size, right ?
 						// Basically, you're adding something at the end without checking that you have the memory for it.
+						// EDIT: going for worst case scenario, and preparing just a bit more memory in advance (adding 7 bytes of memory to every sequence)
 
 						// this has nothing to do here...
 						// Padding should be something internal of the library. 
 						// The user should not be concerned about its data size. 
 						// At most, the library can raise a warning about padding.
 						
-						
-						while((query_batch_idx)%8) {
-							//(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_unpacked_query_batch[query_batch_idx++] = 'N';
-							gasal_host_batch_getlast((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->extensible_host_unpacked_query_batch)->data[query_batch_idx++] = 'N';
-						}
-						
-						
-						while((target_batch_idx)%8) {
-							//(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_unpacked_target_batch[target_batch_idx++] = 'N';
-							gasal_host_batch_getlast((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->extensible_host_unpacked_target_batch)->data[target_batch_idx++] = 'N';
-						}
-
-						int query_batch_seq_len = query_seqs[i].size();
-						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_lens[j] = query_batch_seq_len;
-						int target_batch_seq_len =  target_seqs[i].size();
-						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_lens[j] = target_batch_seq_len;
-
-
 					}
 					gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch = j;
 					uint32_t query_batch_bytes = query_batch_idx;

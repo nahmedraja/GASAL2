@@ -61,64 +61,77 @@ void gasal_host_batch_destroy(host_batch_t *res)
 
 host_batch_t *gasal_host_batch_getlast(host_batch_t *arg)
 {
+
 	host_batch_t* res = arg;
 	while (res->next != NULL)
 	{
-		res = res-> next;
+		res = res->next;
 	}
+	//fprintf(stderr, "GetLast called, last page is: ");
+	//gasal_host_batch_print(res);
 	return res;
 }
 
 
-void gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const char* data, int size, data_source SRC )
+int gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const char* data, int size, data_source SRC )
 {
 	// Here, we can take care of whatever should be taken care of, memory-speaking.
-	//fprintf(stderr, "host_unpacked_query_batch is asked to fill query_idx=%d with size %d\n", query_idx, query_size);
+	
+	host_batch_t *cur_page = NULL;
+	uint32_t *p_batch_bytes = NULL;
+
 	switch(SRC) {
 		case QUERY:
-		if (gpu_storage_t->host_max_query_batch_bytes > idx)
-		{
-			memcpy(&(gasal_host_batch_getlast((gpu_storage_t)->extensible_host_unpacked_query_batch)->data[idx - gasal_host_batch_getlast((gpu_storage_t)->extensible_host_unpacked_query_batch)->data_offset]), data, size);	
-		}
-	else {
-		fprintf(stderr, "GASAL Error: host memory for query too smol. adding another page.\n");
-		// create a new page with the same size.
-		host_batch_t *res = (host_batch_t *)calloc(1, sizeof(host_batch_t));
-		res = gasal_host_batch_new(gpu_storage_t->host_max_query_batch_bytes, idx);
-		fprintf(stderr, "new page created. extending account size.\n");
-
-		gpu_storage_t->host_max_query_batch_bytes *= 2;
-
-		fprintf(stderr, "account size extended. Linking the new page.\n");
-		// link it
-		gasal_host_batch_getlast((gpu_storage_t)->extensible_host_unpacked_query_batch)->next = res;
-		
-		fprintf(stderr, "Page extended. Trying again to fill...\n");
-		// call the function again to see if it's sufficient now.
-		gasal_host_batch_fill(gpu_storage_t, idx, data, size, QUERY);
-
-	}
+			cur_page = gasal_host_batch_getlast((gpu_storage_t)->extensible_host_unpacked_query_batch);
+			p_batch_bytes = &(gpu_storage_t->host_max_query_batch_bytes);
 		break;
 		case TARGET:
-		if (gpu_storage_t->host_max_target_batch_bytes > idx)
-		{
-			memcpy(&(gasal_host_batch_getlast((gpu_storage_t)->extensible_host_unpacked_target_batch)->data[idx - gasal_host_batch_getlast((gpu_storage_t)->extensible_host_unpacked_target_batch)->data_offset]), data, size);	
-		}
-	else {
-		fprintf(stderr, "GASAL Error: host memory for target too smol. adding another page.\n");
-		// create a new page with the same size.
-		host_batch_t *res = gasal_host_batch_new(gpu_storage_t->host_max_target_batch_bytes, idx);
-		gpu_storage_t->host_max_target_batch_bytes *= 2; 
-		
-		// link it
-		gasal_host_batch_getlast((gpu_storage_t)->extensible_host_unpacked_target_batch)->next = res;
-		
-		// call the function again to see if it's sufficient now.
-		gasal_host_batch_fill(gpu_storage_t, idx, data, size, TARGET);
+			cur_page = gasal_host_batch_getlast((gpu_storage_t)->extensible_host_unpacked_target_batch);
+			p_batch_bytes = &(gpu_storage_t->host_max_target_batch_bytes);
+		break;
+		default:
 		break;
 	}
-	
+
+	if (*p_batch_bytes >= idx)
+	{
+		memcpy(&(cur_page->data[idx - cur_page->data_offset]), data, size);
+		fprintf(stderr, "[memcpy]: filled page with offset %d with data of size %d at address @%d\n", cur_page->data_offset, size, idx - cur_page->data_offset);
+
+		idx = idx + size;
+
+		while(idx%8)
+		{
+			cur_page->data[idx - cur_page->data_offset] = 'N';
+			idx++;
+		}
 	}
+	else {
+		fprintf(stderr, "GASAL Error: host memory for %d [0=Query, 1=Target] too small. adding another page.\n", SRC);
+
+		// create a new page with the same size.
+		host_batch_t *res = (host_batch_t *)calloc(1, sizeof(host_batch_t));
+		res = gasal_host_batch_new(*p_batch_bytes, idx);
+
+		fprintf(stderr, "new page created. extending account size.\n");
+		*p_batch_bytes *= 2;
+
+		fprintf(stderr, "account size extended. Linking the new page.\n");
+		cur_page->next = res;
+		
+		// call the function again to see if it's sufficient now.
+		fprintf(stderr, "Page extended. Trying again to fill...\n");
+		idx = gasal_host_batch_fill(gpu_storage_t, idx, data, size, SRC);
+
+	}
+	gasal_host_batch_print(cur_page);
+	return idx;
+}
+
+void gasal_host_batch_print(host_batch_t *res) 
+{
+	fprintf(stderr, "[GASAL PRINT] Page with offset %d, next page has offset %d\n",res->data_offset, (res->next == NULL? -1 : (int)res->next->data_offset));
+	fprintf(stderr, "[GASAL PRINT] Page contains: %s\n", res->data );
 }
 
 //GASAL2 blocking alignment function
