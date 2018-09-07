@@ -225,6 +225,8 @@ int main(int argc, char *argv[]) {
 		 * I devise that it needs just a bit more because cudaMallocHost uses more memory that what you would expect, to be able for cuda- functions or the GPU to use it.
 		 * Performance should even improve a bit (you spend less time allocating memory you don't need.)
 		 * as an example, I let the regular size for one of the GPU memories. You can see that it needs re-allocation.
+		 * EDIT: this is probably because of the padding !!
+		 * Worst case scenario is if every sequence needs 7 bytes padding for every sequence, so we should add this size of memory allocation.
 		 */
 
 		/* 	WARNING  : the allocated and used sizes across all the library and the program are highly inconsistent!!! I don't understand why the sizes are not allocated BY STREAM, so I changed it.
@@ -236,10 +238,10 @@ int main(int argc, char *argv[]) {
 
 
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
-							1.05 * query_seqs_len  / (NB_STREAMS) ,  // smaller host size for query (caught by library)
-							1.05 * query_seqs_len  / (NB_STREAMS) , 
-							1.05 * target_seqs_len / (NB_STREAMS) ,
-							1.05 * target_seqs_len / (NB_STREAMS) , 
+							1 * (query_seqs_len +7*total_seqs) / (NB_STREAMS) ,  // smaller host size for query (caught by library)
+							1 * (query_seqs_len +7*total_seqs)  / (NB_STREAMS) , 
+							1 * (target_seqs_len +7*total_seqs)/ (NB_STREAMS),
+							1 * (target_seqs_len +7*total_seqs) / (NB_STREAMS) , 
 							(target_seqs.size() / NB_STREAMS), // maximum number of alignments is bigger on target than on query side.
 							(target_seqs.size() / NB_STREAMS), 
 							LOCAL, 
@@ -247,7 +249,7 @@ int main(int argc, char *argv[]) {
 
 	}
 	#ifdef DEBUG
-		fprintf(stderr, "size of host_unpack_query is %d\n", query_seqs_len / 2);
+		fprintf(stderr, "size of host_unpack_query is %d\n", (query_seqs_len +7*total_seqs) / (NB_STREAMS) );
 	#endif
 
 	#pragma omp parallel
