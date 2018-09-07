@@ -131,10 +131,10 @@ void gasal_host_fill(gasal_gpu_storage_t *gpu_storage_t, int query_idx, const ch
 // host data structure methods
 host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t offset);
 void gasal_host_batch_destroy(host_batch_t *res);
+
 host_batch_t *gasal_host_batch_getlast(host_batch_t *arg);
-
-void gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const char* data, int size, data_source SRC );
-
+int gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const char* data, int size, data_source SRC );
+void gasal_host_batch_print(host_batch_t *res);
 
 
 
