@@ -133,6 +133,18 @@ void gasal_host_batch_print(host_batch_t *res)
 	fprintf(stderr, "[GASAL PRINT] Page contains: %s\n", res->data );
 }
 
+// this printer allows to see the linked list easily.
+void gasal_host_batch_printall(host_batch_t *res)
+{
+	fprintf(stderr, "[GASAL PRINT] Page data: offset=%d, next=%d\n", res->data_offset, (res->next == NULL? -1 : (int)res->next->data_offset));
+	if (res->next != NULL)
+	{
+		fprintf(stderr, "+--->");
+		gasal_host_batch_printall(res->next);
+		
+	}
+}
+
 //GASAL2 blocking alignment function
 void gasal_aln(gasal_gpu_storage_t *gpu_storage, const uint8_t *query_batch, const uint32_t *query_batch_offsets, const uint32_t *query_batch_lens, const uint8_t *target_batch, const uint32_t *target_batch_offsets, const uint32_t *target_batch_lens, const uint32_t actual_query_batch_bytes, const uint32_t actual_target_batch_bytes, const uint32_t actual_n_alns, int32_t *host_aln_score, int32_t *host_query_batch_start, int32_t *host_target_batch_start, int32_t *host_query_batch_end, int32_t *host_target_batch_end,  int algo, int start) {
 
@@ -495,19 +507,21 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 
 	//------------------------launch copying of sequence batches from CPU to GPU---------------------------
 	host_batch_t *current = gpu_storage->extensible_host_unpacked_query_batch;
+	gasal_host_batch_printall(current);
 	while (current != NULL)
 	{
 		if (current->next != NULL ) {
-			CHECKCUDAERROR(cudaMemcpyAsync( gpu_storage->unpacked_query_batch + current->data_offset, 
+			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->data_offset]), 
 											current->data, 
-											current->next->data_offset, 
+											current->next->data_offset - current->data_offset, 
 											cudaMemcpyHostToDevice, 
 											gpu_storage->str ) );
 			
 		} else {
 			// it's the last page to copy
-			CHECKCUDAERROR(cudaMemcpyAsync( gpu_storage->unpacked_query_batch + current->data_offset, 
-											current->data, 
+
+			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->data_offset]), 
+											current->data - current->data_offset, 
 											actual_query_batch_bytes - current->data_offset, 
 											cudaMemcpyHostToDevice, 
 											gpu_storage->str ) );
@@ -516,18 +530,19 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 	}
 
 	current = gpu_storage->extensible_host_unpacked_target_batch;
+	gasal_host_batch_printall(current);
 	while (current != NULL)
 	{
 		if (current->next != NULL ) {
-			CHECKCUDAERROR(cudaMemcpyAsync( gpu_storage->unpacked_target_batch + current->data_offset, 
+			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_target_batch[current->data_offset]), 
 											current->data, 
-											current->next->data_offset, 
+											current->next->data_offset - current->data_offset, 
 											cudaMemcpyHostToDevice, 
 											gpu_storage->str ) );
 			
 		} else {
 			// it's the last page to copy
-			CHECKCUDAERROR(cudaMemcpyAsync( gpu_storage->unpacked_target_batch + current->data_offset, 
+			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_target_batch[current->data_offset]), 
 											current->data, 
 											actual_target_batch_bytes - current->data_offset, 
 											cudaMemcpyHostToDevice, 
@@ -695,24 +710,6 @@ void gasal_gpu_mem_alloc(gasal_gpu_storage_t *gpu_storage, int gpu_max_query_bat
 	gpu_storage->gpu_max_target_batch_bytes = gpu_max_target_batch_bytes;
 	gpu_storage->gpu_max_n_alns = gpu_max_n_alns;
 
-}
-
-void gasal_host_fill(gasal_gpu_storage_t *gpu_storage_t, int query_idx, const char* query_data, int query_size, int target_idx, const char* target_data, int target_size)
-{
-	// Here, we can take care of whatever should be taken care of, memory-speaking.
-	//fprintf(stderr, "host_unpacked_query_batch is asked to fill query_idx=%d with size %d\n", query_idx, query_size);
-	if (gpu_storage_t->host_max_query_batch_bytes > query_idx)
-		memcpy(&((gpu_storage_t)->host_unpacked_query_batch[query_idx]), query_data, query_size);	
-	else {
-		fprintf(stderr, "GASAL Error: host memory for query too smol. Exiting.\n");
-		exit(EXIT_FAILURE);
-	}
-	if (gpu_storage_t->host_max_target_batch_bytes > target_idx)
-		memcpy(&((gpu_storage_t)->host_unpacked_target_batch[target_idx]), target_data, target_size);
-	else {
-		fprintf(stderr, "GASAL Error: host memory for target too smol. Exiting.\n");
-		exit(EXIT_FAILURE);
-	}
 }
 
 
