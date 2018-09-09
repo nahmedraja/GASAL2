@@ -234,7 +234,7 @@ int main(int argc, char *argv[]) {
 
 		// note: the calculations of the detailed sizes to allocate could be done on the library side (to hide it from the user's perspective)
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
-							1 * (query_seqs_len +7*total_seqs) / (NB_STREAMS) , 
+							0.4 * (query_seqs_len +7*total_seqs) / (NB_STREAMS) , 
 							1 * (query_seqs_len +7*total_seqs)  / (NB_STREAMS) , 
 							1 * (target_seqs_len +7*total_seqs)/ (NB_STREAMS),
 							1 * (target_seqs_len +7*total_seqs) / (NB_STREAMS) , 

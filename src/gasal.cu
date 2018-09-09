@@ -73,7 +73,7 @@ host_batch_t *gasal_host_batch_getlast(host_batch_t *arg)
 }
 
 
-int gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const char* data, int size, data_source SRC )
+int gasal_host_batch_fill(gasal_gpu_storage_t *t, int idx, const char* data, int size, data_source SRC )
 {
 	// Here, we can take care of whatever should be taken care of, memory-speaking.
 	
@@ -82,47 +82,51 @@ int gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const cha
 
 	switch(SRC) {
 		case QUERY:
-			cur_page = gasal_host_batch_getlast((gpu_storage_t)->extensible_host_unpacked_query_batch);
-			p_batch_bytes = &(gpu_storage_t->host_max_query_batch_bytes);
+			cur_page = gasal_host_batch_getlast((t)->extensible_host_unpacked_query_batch);
+			p_batch_bytes = &(t->host_max_query_batch_bytes);
 		break;
 		case TARGET:
-			cur_page = gasal_host_batch_getlast((gpu_storage_t)->extensible_host_unpacked_target_batch);
-			p_batch_bytes = &(gpu_storage_t->host_max_target_batch_bytes);
+			cur_page = gasal_host_batch_getlast((t)->extensible_host_unpacked_target_batch);
+			p_batch_bytes = &(t->host_max_target_batch_bytes);
 		break;
 		default:
 		break;
 	}
+	int is_done = 0;
 
-	if (*p_batch_bytes >= idx)
+	while (!is_done)
 	{
-		memcpy(&(cur_page->data[idx - cur_page->data_offset]), data, size);
-
-		idx = idx + size;
-
-		while(idx%8)
+		if (*p_batch_bytes >= idx)
 		{
-			cur_page->data[idx - cur_page->data_offset] = 'N';
-			idx++;
+			memcpy(&(cur_page->data[idx - cur_page->data_offset]), data, size);
+	
+			idx = idx + size;
+	
+			while(idx%8)
+			{
+				cur_page->data[idx - cur_page->data_offset] = 'N';
+				idx++;
+			}
+			is_done = 1;
+		}
+		else {
+			fprintf(stderr, "GASAL Error: host memory for %s too small. adding another page.\n", (SRC == QUERY ? "query":"target"));
+	
+			// create a new page with the same size.
+			host_batch_t *res = gasal_host_batch_new(*p_batch_bytes, idx);
+	
+			fprintf(stderr, "new page created. extending account size.\n");
+			*p_batch_bytes *= 2;
+	
+			fprintf(stderr, "account size extended. Linking the new page.\n");
+			cur_page->next = res;
+			
+			// call the function again to see if it's sufficient now.
+			fprintf(stderr, "Page extended. Trying again to fill...\n");
+			cur_page = cur_page->next;
 		}
 	}
-	else {
-		fprintf(stderr, "GASAL Error: host memory for %d [0=Query, 1=Target] too small. adding another page.\n", SRC);
-
-		// create a new page with the same size.
-		host_batch_t *res = (host_batch_t *)calloc(1, sizeof(host_batch_t));
-		res = gasal_host_batch_new(*p_batch_bytes, idx);
-
-		fprintf(stderr, "new page created. extending account size.\n");
-		*p_batch_bytes *= 2;
-
-		fprintf(stderr, "account size extended. Linking the new page.\n");
-		cur_page->next = res;
-		
-		// call the function again to see if it's sufficient now.
-		fprintf(stderr, "Page extended. Trying again to fill...\n");
-		idx = gasal_host_batch_fill(gpu_storage_t, idx, data, size, SRC);
-
-	}
+	
 	return idx;
 }
 
@@ -136,7 +140,7 @@ void gasal_host_batch_print(host_batch_t *res)
 // this printer allows to see the linked list easily.
 void gasal_host_batch_printall(host_batch_t *res)
 {
-	fprintf(stderr, "[GASAL PRINT] Page data: offset=%d, next=%d\n", res->data_offset, (res->next == NULL? -1 : (int)res->next->data_offset));
+	fprintf(stderr, "[GASAL PRINT] Page data: offset=%d, next_offset=%d, data size=%d\n", res->data_offset, (res->next == NULL? -1 : (int)res->next->data_offset), (unsigned int)strlen((char*) res->data));
 	if (res->next != NULL)
 	{
 		fprintf(stderr, "+--->");
@@ -507,13 +511,14 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 
 	//------------------------launch copying of sequence batches from CPU to GPU---------------------------
 	host_batch_t *current = gpu_storage->extensible_host_unpacked_query_batch;
-	gasal_host_batch_printall(current);
 	while (current != NULL)
 	{
+		gasal_host_batch_printall(current);
+		fprintf(stderr, "Actual_target=%d\n", actual_query_batch_bytes);
 		if (current->next != NULL ) {
 			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->data_offset]), 
 											current->data, 
-											current->next->data_offset - current->data_offset, 
+											current->next->data_offset - current->data_offset, // I have 64 bytes exceeding...
 											cudaMemcpyHostToDevice, 
 											gpu_storage->str ) );
 			
@@ -521,7 +526,7 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 			// it's the last page to copy
 
 			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->data_offset]), 
-											current->data - current->data_offset, 
+											current->data, 
 											actual_query_batch_bytes - current->data_offset, 
 											cudaMemcpyHostToDevice, 
 											gpu_storage->str ) );
@@ -530,16 +535,15 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 	}
 
 	current = gpu_storage->extensible_host_unpacked_target_batch;
-	gasal_host_batch_printall(current);
 	while (current != NULL)
 	{
 		if (current->next != NULL ) {
 			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_target_batch[current->data_offset]), 
 											current->data, 
-											current->next->data_offset - current->data_offset, 
+											current->next->data_offset - current->data_offset, // below 250, doesn't run
 											cudaMemcpyHostToDevice, 
 											gpu_storage->str ) );
-			
+
 		} else {
 			// it's the last page to copy
 			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_target_batch[current->data_offset]), 
@@ -551,7 +555,10 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		current = current->next;
 	}
 	// original copy was:
-	//CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->unpacked_target_batch, gpu_storage->host_unpacked_target_batch, actual_target_batch_bytes, cudaMemcpyHostToDevice, gpu_storage->str));
+	/* 
+		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->unpacked_query_batch, gpu_storage->host_unpacked_query_batch, actual_query_batch_bytes, cudaMemcpyHostToDevice, gpu_storage->str));
+		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->unpacked_target_batch, gpu_storage->host_unpacked_target_batch, actual_target_batch_bytes, cudaMemcpyHostToDevice, gpu_storage->str));
+	*/
 	
 	//-----------------------------------------------------------------------------------------------------------
 
