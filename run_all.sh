@@ -1,7 +1,7 @@
 #!/bin/bash
-./personal_configure.sh
+./configure.sh /usr/local/cuda/
 make clean
-make MAX_SEQ_LEN=150
+make MAX_SEQ_LEN=350
 cd test_prog
 make
 make $1 
