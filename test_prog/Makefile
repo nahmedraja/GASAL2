@@ -1,8 +1,7 @@
 CUDA_LD_LIBRARY=/usr/lib/x86_64-linux-gnu/
-MAX_SEQ_LEN=300
 
 .cpp.o:
-	g++ -g -c -O3 -Wall -DMAX_SEQ_LEN=$(MAX_SEQ_LEN) -Werror -fopenmp -I ../include  -o test_prog.o test_prog.cpp
+	g++ -g -c -O3 -Wall -Werror -fopenmp -I ../include  -o test_prog.o test_prog.cpp
 
 all: clean test_prog.out
 
@@ -15,7 +14,19 @@ clean:
 test_prog.o: Timer.h
 
 run: all
-	./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta > out.log
+	 ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta > out.log
 
 fullrun: all
-	./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta > out.log
+	 ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta > out.log
+
+cuda-memcheck: all
+	 cuda-memcheck ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
+
+cuda-gdb: all
+	 cuda-gdb --args ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
+
+valgrind: all
+	 valgrind ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
+
+gdb: all
+	 gdb --args ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta
