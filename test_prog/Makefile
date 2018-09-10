@@ -14,22 +14,22 @@ clean:
 test_prog.o: Timer.h
 
 run: all
-	./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta > out.log
+	 ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta > out.log
 
 fullrun: all
-	./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta > out.log
+	 ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta > out.log
 
 nvprof: all
 	nvprof -f -o analysis.nvvp ./test_prog.out -p -y semi_global query_batch_rc.fasta target_batch_rc.fasta > out.log
 
 cuda-memcheck: all
-    cuda-memcheck ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
+	 cuda-memcheck ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
 
 cuda-gdb: all
-	cuda-gdb --args ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
+	 cuda-gdb --args ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
 
 valgrind: all
-	valgrind ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta
+	 valgrind ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
 
 gdb: all
-	gdb --args ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta
+	 gdb --args ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta
