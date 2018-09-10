@@ -1,5 +1,5 @@
 GPU_SM_ARCH=sm_20
-MAX_SEQ_LEN=300
+MAX_SEQ_LEN=
 N_CODE=0x4E
 N_PENALTY=-2
 
@@ -45,7 +45,7 @@ makedir:
 	@mkdir -p $(LIB_DIR)
 	@mkdir -p $(INCLUDE_DIR)
 	@cp $(SRC_DIR)/gasal.h $(INCLUDE_DIR)
-	@sed  -i "s,MAX_SEQ_LEN=[0-9]+,MAX_SEQ_LEN=$(MAX_SEQ_LEN),g" ./test_prog/Makefile
+	@sed  -i "s/MAX_SEQ_LEN=[0-9]\{1,9\}/MAX_SEQ_LEN=$(MAX_SEQ_LEN)/" ./test_prog/Makefile
 	 
 ifeq ($(N_PENALTY),)
 libgasal.a: $(LOBJS)
