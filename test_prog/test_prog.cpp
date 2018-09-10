@@ -252,8 +252,8 @@ int main(int argc, char *argv[]) {
 			}
 			//---------------------------------------------------------------------------
 			if (seqs_done < n_seqs && gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n) {
-					int query_batch_idx = 0;
-					int target_batch_idx = 0;
+					uint32_t query_batch_idx = 0;
+					uint32_t target_batch_idx = 0;
 					unsigned int j = 0;
 					//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
 					for (int i = curr_idx; seqs_done < n_seqs && j < (target_seqs.size() / NB_STREAMS); i++, j++, seqs_done++) {

@@ -68,7 +68,7 @@ host_batch_t *gasal_host_batch_getlast(host_batch_t *arg)
 }
 
 
-int gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const char* data, int size, data_source SRC )
+uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx, const char* data, uint32_t size, data_source SRC )
 {	
 	// since query and target are very symmetric here, we use pointers to route the data where it has to, while keeping the actual memory management 'source-agnostic'.
 	host_batch_t *cur_page = NULL;
@@ -131,11 +131,10 @@ int gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const cha
 // this printer displays the whole sequence. It is heavy and shouldn't be called when you have more than a couple sequences.
 void gasal_host_batch_print(host_batch_t *res) 
 {
-	fprintf(stderr, "[GASAL PRINT] Page with offset %d, next page has offset %d\n",res->offset, (res->next == NULL? -1 : (int)res->next->offset));
-	fprintf(stderr, "[GASAL PRINT] Page contains: ");
-	for (int i = 0; i < strlen((char*)res->data); i++)
-		fprintf(stderr, "%c", res->data[i]);
-	fprintf(stderr, "\n");
+	if (res->next != NULL)
+		fprintf(stderr, "[GASAL PRINT] Page with offset %d, next page has offset %d\n",res->offset, (res->next->offset));
+	else
+		fprintf(stderr, "[GASAL PRINT] Page with offset %d, next page has offset NULL (last page)\n",res->offset);
 }
 
 // this printer allows to see the linked list easily.
@@ -520,7 +519,7 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		if (current->next != NULL ) {
 			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->offset]), 
 											current->data, 
-											current->next->offset - current->offset, // I have 64 bytes exceeding...
+											current->next->offset - current->offset,
 											cudaMemcpyHostToDevice, 
 											gpu_storage->str ) );
 			
@@ -542,7 +541,7 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		if (current->next != NULL ) {
 			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_target_batch[current->offset]), 
 											current->data, 
-											current->next->offset - current->offset, // I have 234 bytes exceeding...
+											current->next->offset - current->offset,
 											cudaMemcpyHostToDevice, 
 											gpu_storage->str ) );
 
