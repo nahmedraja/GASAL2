@@ -14,10 +14,6 @@
 
 using namespace std;
 
-
-// #define GPU_BATCH_SIZE 10000
-// not used anymore.
-
 #define NB_STREAMS 2
 
 #define DEBUG
@@ -118,8 +114,11 @@ int main(int argc, char *argv[]) {
 	uint32_t query_seqs_len = 0;
 	cerr << "Loading files...." << endl;
 
-	/* Warning : test program does not comply with generic FASTA files. Modifying.
-	   the following code concatenates each sequence into a single line, every time it reads a >
+	/*
+		Reads FASTA files and fill the corresponding buffers.
+		FASTA files contain sequences that are usually on separate lines.
+		The file reader detects a '>' then concatenates all the following lines into one sequence, until the next '>' or EOF.
+		See more about FASTA format : https://en.wikipedia.org/wiki/FASTA_format
 	*/
 	
 	int seq_begin=0;
@@ -154,40 +153,15 @@ int main(int argc, char *argv[]) {
 	}
 
 
-	// do it once more for the final value
+	// Check maximum sequence length one more time, to check the last read sequence:
 	target_seqs_len += (target_seqs.back()).length();
 	query_seqs_len += (query_seqs.back()).length();
 	maximum_sequence_length = MAX((target_seqs.back()).length(), maximum_sequence_length);
 	maximum_sequence_length = MAX((query_seqs.back()).length(), maximum_sequence_length);
 
-	
-	/*
-	while (getline(query_batch_fasta, query_batch_line) && getline(target_batch_fasta, target_batch_line)) { //load sequences from the files
-		if (query_batch_line[0] == '>' && target_batch_line[0] == '>') {
-			query_headers.push_back(query_batch_line.substr(1));
-			target_headers.push_back(target_batch_line.substr(1));
-			getline(query_batch_fasta, query_batch_line);
-			query_seqs.push_back(query_batch_line);
-			getline(target_batch_fasta, target_batch_line);
-			target_seqs.push_back(target_batch_line);
-
-			target_seqs_len += (target_seqs.back()).length();
-			query_seqs_len += (query_seqs.back()).length();
-			maximum_sequence_length = MAX((target_seqs.back()).length(), maximum_sequence_length);
-			maximum_sequence_length = MAX((query_seqs.back()).length(), maximum_sequence_length);
-
-			total_seqs++;
-		} else {
-			cerr << "Batch1 and target_batch files should be fasta having same number of sequences" << endl;
-			exit(EXIT_FAILURE);
-		}
-
-	}
-	*/
-
-
-	fprintf(stderr, "Size of read batches are: query=%d, target=%d. maximum_sequence_length=%d\n", query_seqs_len, target_seqs_len, maximum_sequence_length);
-
+	#ifdef DEBUG
+		fprintf(stderr, "Size of read batches are: query=%d, target=%d. maximum_sequence_length=%d\n", query_seqs_len, target_seqs_len, maximum_sequence_length);
+	 #endif
 	
 	// here you should know all your data size.
 
@@ -218,26 +192,22 @@ int main(int argc, char *argv[]) {
 	gasal_gpu_storage_v *gpu_storage_vecs =  (gasal_gpu_storage_v*)calloc(n_threads, sizeof(gasal_gpu_storage_v));
 	for (int z = 0; z < n_threads; z++) {
 		gpu_storage_vecs[z] = gasal_init_gpu_storage_v(NB_STREAMS);// creating NB_STREAMS streams per thread
-		//initializing the streams by allocating the required CPU and GPU memory
 
-		/* actually , the memory every stream need is the total length of the batch, divided by the NB_STREAM ! You allocate just what you need.µ
-		 * But GASAL needs a bit more memory that this exact size, this is probably because of the padding.
-		 * Worst case scenario is if every sequence needs 7 bytes padding for every sequence, so we should add this size of memory allocation.
-		 */
-
-		/* 	WARNING  : the allocated and used sizes across all the library and the program are highly inconsistent!!! I don't understand why the sizes are not allocated BY STREAM, so I changed it.
-			All across the program, every stream has the whole memory of the whole batches allocated, while only a fraction (/NB_STREAMS) is sufficient.
-			This is all the more problematic when even the warning messages from GASAL don't even make sense, like :
-
-			[GASAL WARNING:] actual_query_batch_bytes(1520000) > Allocated GPU memory (gpu_max_query_batch_bytes=3000000). Therefore, allocating 6000000 bytes on GPU (gpu_max_query_batch_bytes=6000000). Performance may be lost if this is repeated many times.
+		/* 
+			About memory sizes:
+			The required memory is the total size of the batch + its padding, divided by the number of streams. 
+			The worst case would be that every sequence has to be padded with 7 'N', since they must have a length multiple of 8.
+			Even though the memory can be dynamically expanded both for Host and Device, it is advised to start with a memory large enough so that these expansions rarely occur (for better performance.)
+			Modifying the factor '1' in front of each size lets you see how GASAL2 expands the memory when needed.
 		*/
 
+		//initializing the streams by allocating the required CPU and GPU memory
 		// note: the calculations of the detailed sizes to allocate could be done on the library side (to hide it from the user's perspective)
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
-							0.1 * (query_seqs_len +7*total_seqs) / (NB_STREAMS) , 
-							0.5 * (query_seqs_len +7*total_seqs)  / (NB_STREAMS) , 
-							0.4 * (target_seqs_len +7*total_seqs)/ (NB_STREAMS),
-							0.1 * (target_seqs_len +7*total_seqs) / (NB_STREAMS) , 
+							0.4 * (query_seqs_len +7*total_seqs) / (NB_STREAMS) , 
+							1 * (query_seqs_len +7*total_seqs)  / (NB_STREAMS) , 
+							1 * (target_seqs_len +7*total_seqs)/ (NB_STREAMS),
+							1 * (target_seqs_len +7*total_seqs) / (NB_STREAMS) , 
 							(target_seqs.size() / NB_STREAMS), // maximum number of alignments is bigger on target than on query side.
 							(target_seqs.size() / NB_STREAMS), 
 							LOCAL, 
@@ -291,10 +261,12 @@ int main(int argc, char *argv[]) {
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;
 
-						// filling the host here. careful on memory copies
-						// I WANT TO RAISE A SEGFAULT HERE. EDIT: GOT IT. ERROR 139
-						// moving the filling on the library size, to take care of the memory size.
-						
+						/*
+							All the filling is moved on the library size, to take care of the memory size and expansions (when needed).
+							The function gasal_host_batch_fill takes care of how to fill, how much to pad with 'N', and how to deal with memory. 
+							It's the same function for query and target, and you only need to set the final flag to either ; this avoides code duplication.
+							The way the host memory is filled changes the current _idx (it's increased by size, and by the padding). That's why it's returned by the function.
+						*/
 
 						query_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
 										query_batch_idx, 
@@ -307,9 +279,6 @@ int main(int argc, char *argv[]) {
 										target_seqs[i].c_str(), 
 										target_seqs[i].size(),
 										TARGET);
-
-						// Padding is done on the library side. 
-						// Since the library changes the idx with the sequence size and the padding, it has to return it !
 						
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_lens[j] = query_seqs[i].size();
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_lens[j] = target_seqs[i].size();

@@ -31,12 +31,10 @@ enum algo_type{
 // data structure of linked list to allow extension of memory on host side
 struct host_batch{
 	uint8_t *data;
-	uint32_t data_offset;
+	uint32_t offset;
 	struct host_batch* next;
 };
 typedef struct host_batch host_batch_t;
-// *ctors done.
-// need (printer), reader, writer
 
 //stream data
 typedef struct {
@@ -126,13 +124,14 @@ void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec);
 
 void gasal_destroy_gpu_storage_v(gasal_gpu_storage_v *gpu_storage_vec);
 
-// host data structure methods
-host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t offset);
-void gasal_host_batch_destroy(host_batch_t *res);
 
-host_batch_t *gasal_host_batch_getlast(host_batch_t *arg);
-int gasal_host_batch_fill(gasal_gpu_storage_t *t, int idx, const char* data, int size, data_source SRC );
-void gasal_host_batch_print(host_batch_t *res);
+// host data structure methods
+host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t offset); 								// constructor
+void gasal_host_batch_destroy(host_batch_t *res); 																		// destructor
+host_batch_t *gasal_host_batch_getlast(host_batch_t *arg); 																// get last item of chain
+int gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const char* data, int size, data_source SRC ); 	// fill the data
+void gasal_host_batch_print(host_batch_t *res); 																		// printer 
+void gasal_host_batch_printall(host_batch_t *res);																		// printer for the whole linked list
 
 
 

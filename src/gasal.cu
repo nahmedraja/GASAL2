@@ -44,7 +44,7 @@ host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t
 	cudaError_t err;
 	host_batch_t *res = (host_batch_t *)calloc(1, sizeof(host_batch_t));
 	CHECKCUDAERROR(cudaMallocHost(&(res->data), host_max_query_batch_bytes));
-	res->data_offset = offset;
+	res->offset = offset;
 	res->next = NULL;
 	return res;
 }
@@ -68,21 +68,20 @@ host_batch_t *gasal_host_batch_getlast(host_batch_t *arg)
 }
 
 
-int gasal_host_batch_fill(gasal_gpu_storage_t *t, int idx, const char* data, int size, data_source SRC )
-{
-	// Here, we can take care of whatever should be taken care of, memory-speaking.
-	
+int gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const char* data, int size, data_source SRC )
+{	
+	// since query and target are very symmetric here, we use pointers to route the data where it has to, while keeping the actual memory management 'source-agnostic'.
 	host_batch_t *cur_page = NULL;
 	uint32_t *p_batch_bytes = NULL;
 
 	switch(SRC) {
 		case QUERY:
-			cur_page = gasal_host_batch_getlast((t)->extensible_host_unpacked_query_batch);
-			p_batch_bytes = &(t->host_max_query_batch_bytes);
+			cur_page = gasal_host_batch_getlast(gpu_storage_t->extensible_host_unpacked_query_batch);
+			p_batch_bytes = &(gpu_storage_t->host_max_query_batch_bytes);
 		break;
 		case TARGET:
-			cur_page = gasal_host_batch_getlast((t)->extensible_host_unpacked_target_batch);
-			p_batch_bytes = &(t->host_max_target_batch_bytes);
+			cur_page = gasal_host_batch_getlast(gpu_storage_t->extensible_host_unpacked_target_batch);
+			p_batch_bytes = &(gpu_storage_t->host_max_target_batch_bytes);
 		break;
 		default:
 		break;
@@ -93,22 +92,28 @@ int gasal_host_batch_fill(gasal_gpu_storage_t *t, int idx, const char* data, int
 	{
 		if (*p_batch_bytes >= idx + size)
 		{
-			memcpy(&(cur_page->data[idx - cur_page->data_offset]), data, size);
+			memcpy(&(cur_page->data[idx - cur_page->offset]), data, size);
 	
 			idx = idx + size;
 	
 			while(idx%8)
 			{
-				cur_page->data[idx - cur_page->data_offset] = 'N';
+				cur_page->data[idx - cur_page->offset] = 'N';
 				idx++;
 			}
 			is_done = 1;
 		} else {
-			fprintf(stderr, "GASAL Error: host memory for %s too small. adding another page.\n", (SRC == QUERY ? "query":"target"));
+			fprintf(stderr,"[GASAL WARNING:] Trying to write %d bytes at position %d on host memory (%s) while only  %d bytes are available. Therefore, allocating %d bytes more on CPU. Repeating this many times can provoke a degradation of performance.\n",
+					size,
+					idx,
+					(SRC == QUERY ? "query":"target"),
+					*p_batch_bytes,
+					*p_batch_bytes * 2);
+			
 	
 			*p_batch_bytes += *p_batch_bytes;
 
-			// corner case: we allocated less than a single sequence length... shouldn't be allowed actually, but anyway.
+			// corner case: if we allocated less than a single sequence length to begin with... it shouldn't be allowed actually, but at least it's caught here.
 			while (*p_batch_bytes < size)
 				*p_batch_bytes += *p_batch_bytes;
 
@@ -116,19 +121,17 @@ int gasal_host_batch_fill(gasal_gpu_storage_t *t, int idx, const char* data, int
 	
 			cur_page->next = res;
 			
-			// call the function again to see if it's sufficient now.
 			cur_page = cur_page->next;
 		}
-		//gasal_host_batch_print(cur_page);
 	}
 	
 	return idx;
 }
 
-// this printer is a bit heavy and shouldn't be called when you have more than a couple sequences.
+// this printer displays the whole sequence. It is heavy and shouldn't be called when you have more than a couple sequences.
 void gasal_host_batch_print(host_batch_t *res) 
 {
-	fprintf(stderr, "[GASAL PRINT] Page with offset %d, next page has offset %d\n",res->data_offset, (res->next == NULL? -1 : (int)res->next->data_offset));
+	fprintf(stderr, "[GASAL PRINT] Page with offset %d, next page has offset %d\n",res->offset, (res->next == NULL? -1 : (int)res->next->offset));
 	fprintf(stderr, "[GASAL PRINT] Page contains: ");
 	for (int i = 0; i < strlen((char*)res->data); i++)
 		fprintf(stderr, "%c", res->data[i]);
@@ -139,12 +142,11 @@ void gasal_host_batch_print(host_batch_t *res)
 void gasal_host_batch_printall(host_batch_t *res)
 {
 	int len = strlen((char*) res->data);
-	fprintf(stderr, "[GASAL PRINT] Page data: offset=%d, next_offset=%d, data size=%d, data=%c%c%c%c...%c%c%c%c\n", res->data_offset, (res->next == NULL? -1 : (int)res->next->data_offset), (unsigned int)len, res->data[0], res->data[1], res->data[2], res->data[3], res->data[len-4], res->data[len-3], res->data[len-2], res->data[len-1]);
+	fprintf(stderr, "[GASAL PRINT] Page data: offset=%d, next_offset=%d, data size=%d, data=%c%c%c%c...%c%c%c%c\n", res->offset, (res->next == NULL? -1 : (int)res->next->offset), (unsigned int)len, res->data[0], res->data[1], res->data[2], res->data[3], res->data[len-4], res->data[len-3], res->data[len-2], res->data[len-1]);
 	if (res->next != NULL)
 	{
 		fprintf(stderr, "+--->");
 		gasal_host_batch_printall(res->next);
-		
 	}
 }
 
@@ -509,24 +511,25 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 	//------------------------------------------
 
 	//------------------------launch copying of sequence batches from CPU to GPU---------------------------
+
+	// here you can track the evolution of your data structure processing with the printer: gasal_host_batch_printall(current);
+
 	host_batch_t *current = gpu_storage->extensible_host_unpacked_query_batch;
 	while (current != NULL)
 	{
-		gasal_host_batch_printall(current);
-		fprintf(stderr, "Actual_target=%d\n", actual_query_batch_bytes);
 		if (current->next != NULL ) {
-			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->data_offset]), 
+			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->offset]), 
 											current->data, 
-											current->next->data_offset - current->data_offset, // I have 64 bytes exceeding...
+											current->next->offset - current->offset, // I have 64 bytes exceeding...
 											cudaMemcpyHostToDevice, 
 											gpu_storage->str ) );
 			
 		} else {
 			// it's the last page to copy
 
-			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->data_offset]), 
+			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->offset]), 
 											current->data, 
-											actual_query_batch_bytes - current->data_offset, 
+											actual_query_batch_bytes - current->offset, 
 											cudaMemcpyHostToDevice, 
 											gpu_storage->str ) );
 		}
@@ -537,28 +540,23 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 	while (current != NULL)
 	{
 		if (current->next != NULL ) {
-			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_target_batch[current->data_offset]), 
+			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_target_batch[current->offset]), 
 											current->data, 
-											current->next->data_offset - current->data_offset, // I have 234 bytes exceeding...
+											current->next->offset - current->offset, // I have 234 bytes exceeding...
 											cudaMemcpyHostToDevice, 
 											gpu_storage->str ) );
 
 		} else {
 			// it's the last page to copy
-			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_target_batch[current->data_offset]), 
+			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_target_batch[current->offset]), 
 											current->data, 
-											actual_target_batch_bytes - current->data_offset, 
+											actual_target_batch_bytes - current->offset, 
 											cudaMemcpyHostToDevice, 
 											gpu_storage->str ) );
 		}
 		current = current->next;
 	}
-	// original copy was:
-	/* 
-		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->unpacked_query_batch, gpu_storage->host_unpacked_query_batch, actual_query_batch_bytes, cudaMemcpyHostToDevice, gpu_storage->str));
-		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->unpacked_target_batch, gpu_storage->host_unpacked_target_batch, actual_target_batch_bytes, cudaMemcpyHostToDevice, gpu_storage->str));
-	*/
-	
+
 	//-----------------------------------------------------------------------------------------------------------
 
     uint32_t BLOCKDIM = 128;
