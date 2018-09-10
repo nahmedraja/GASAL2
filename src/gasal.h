@@ -129,7 +129,7 @@ void gasal_destroy_gpu_storage_v(gasal_gpu_storage_v *gpu_storage_vec);
 host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t offset); 								// constructor
 void gasal_host_batch_destroy(host_batch_t *res); 																		// destructor
 host_batch_t *gasal_host_batch_getlast(host_batch_t *arg); 																// get last item of chain
-int gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const char* data, int size, data_source SRC ); 	// fill the data
+uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx, const char* data, uint32_t size, data_source SRC ); 	// fill the data
 void gasal_host_batch_print(host_batch_t *res); 																		// printer 
 void gasal_host_batch_printall(host_batch_t *res);																		// printer for the whole linked list
 

@@ -68,7 +68,7 @@ host_batch_t *gasal_host_batch_getlast(host_batch_t *arg)
 }
 
 
-int gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, int idx, const char* data, int size, data_source SRC )
+uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx, const char* data, uint32_t size, data_source SRC )
 {	
 	// since query and target are very symmetric here, we use pointers to route the data where it has to, while keeping the actual memory management 'source-agnostic'.
 	host_batch_t *cur_page = NULL;
