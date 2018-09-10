@@ -234,10 +234,10 @@ int main(int argc, char *argv[]) {
 
 		// note: the calculations of the detailed sizes to allocate could be done on the library side (to hide it from the user's perspective)
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
-							0.4 * (query_seqs_len +7*total_seqs) / (NB_STREAMS) , 
-							1 * (query_seqs_len +7*total_seqs)  / (NB_STREAMS) , 
-							1 * (target_seqs_len +7*total_seqs)/ (NB_STREAMS),
-							1 * (target_seqs_len +7*total_seqs) / (NB_STREAMS) , 
+							0.1 * (query_seqs_len +7*total_seqs) / (NB_STREAMS) , 
+							0.5 * (query_seqs_len +7*total_seqs)  / (NB_STREAMS) , 
+							0.4 * (target_seqs_len +7*total_seqs)/ (NB_STREAMS),
+							0.1 * (target_seqs_len +7*total_seqs) / (NB_STREAMS) , 
 							(target_seqs.size() / NB_STREAMS), // maximum number of alignments is bigger on target than on query side.
 							(target_seqs.size() / NB_STREAMS), 
 							LOCAL, 

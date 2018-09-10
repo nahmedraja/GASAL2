@@ -55,21 +55,16 @@ void gasal_host_batch_destroy(host_batch_t *res)
 	// recursive function to destroy all the linked list
 	if (res->next != NULL)
 		gasal_host_batch_destroy(res->next);
-	if (res->data != NULL) CHECKCUDAERROR(cudaFreeHost(res->data));
+	if (res->data != NULL) 
+		CHECKCUDAERROR(cudaFreeHost(res->data));
 	
+	free(res);
 }
 
 host_batch_t *gasal_host_batch_getlast(host_batch_t *arg)
 {
-
-	host_batch_t* res = arg;
-	while (res->next != NULL)
-	{
-		res = res->next;
-	}
-	//fprintf(stderr, "GetLast called, last page is: ");
-	//gasal_host_batch_print(res);
-	return res;
+	return (arg->next == NULL ? arg : gasal_host_batch_getlast(arg->next) );
+	
 }
 
 
@@ -96,7 +91,7 @@ int gasal_host_batch_fill(gasal_gpu_storage_t *t, int idx, const char* data, int
 
 	while (!is_done)
 	{
-		if (*p_batch_bytes >= idx)
+		if (*p_batch_bytes >= idx + size)
 		{
 			memcpy(&(cur_page->data[idx - cur_page->data_offset]), data, size);
 	
@@ -108,23 +103,23 @@ int gasal_host_batch_fill(gasal_gpu_storage_t *t, int idx, const char* data, int
 				idx++;
 			}
 			is_done = 1;
-		}
-		else {
+		} else {
 			fprintf(stderr, "GASAL Error: host memory for %s too small. adding another page.\n", (SRC == QUERY ? "query":"target"));
 	
-			// create a new page with the same size.
+			*p_batch_bytes += *p_batch_bytes;
+
+			// corner case: we allocated less than a single sequence length... shouldn't be allowed actually, but anyway.
+			while (*p_batch_bytes < size)
+				*p_batch_bytes += *p_batch_bytes;
+
 			host_batch_t *res = gasal_host_batch_new(*p_batch_bytes, idx);
 	
-			fprintf(stderr, "new page created. extending account size.\n");
-			*p_batch_bytes *= 2;
-	
-			fprintf(stderr, "account size extended. Linking the new page.\n");
 			cur_page->next = res;
 			
 			// call the function again to see if it's sufficient now.
-			fprintf(stderr, "Page extended. Trying again to fill...\n");
 			cur_page = cur_page->next;
 		}
+		//gasal_host_batch_print(cur_page);
 	}
 	
 	return idx;
@@ -134,13 +129,17 @@ int gasal_host_batch_fill(gasal_gpu_storage_t *t, int idx, const char* data, int
 void gasal_host_batch_print(host_batch_t *res) 
 {
 	fprintf(stderr, "[GASAL PRINT] Page with offset %d, next page has offset %d\n",res->data_offset, (res->next == NULL? -1 : (int)res->next->data_offset));
-	fprintf(stderr, "[GASAL PRINT] Page contains: %s\n", res->data );
+	fprintf(stderr, "[GASAL PRINT] Page contains: ");
+	for (int i = 0; i < strlen((char*)res->data); i++)
+		fprintf(stderr, "%c", res->data[i]);
+	fprintf(stderr, "\n");
 }
 
 // this printer allows to see the linked list easily.
 void gasal_host_batch_printall(host_batch_t *res)
 {
-	fprintf(stderr, "[GASAL PRINT] Page data: offset=%d, next_offset=%d, data size=%d\n", res->data_offset, (res->next == NULL? -1 : (int)res->next->data_offset), (unsigned int)strlen((char*) res->data));
+	int len = strlen((char*) res->data);
+	fprintf(stderr, "[GASAL PRINT] Page data: offset=%d, next_offset=%d, data size=%d, data=%c%c%c%c...%c%c%c%c\n", res->data_offset, (res->next == NULL? -1 : (int)res->next->data_offset), (unsigned int)len, res->data[0], res->data[1], res->data[2], res->data[3], res->data[len-4], res->data[len-3], res->data[len-2], res->data[len-1]);
 	if (res->next != NULL)
 	{
 		fprintf(stderr, "+--->");
@@ -540,7 +539,7 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		if (current->next != NULL ) {
 			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_target_batch[current->data_offset]), 
 											current->data, 
-											current->next->data_offset - current->data_offset, // below 250, doesn't run
+											current->next->data_offset - current->data_offset, // I have 234 bytes exceeding...
 											cudaMemcpyHostToDevice, 
 											gpu_storage->str ) );
 
