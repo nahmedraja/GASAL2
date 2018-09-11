@@ -286,7 +286,7 @@ void gasal_aln(gasal_gpu_storage_t *gpu_storage, const uint8_t *query_batch, con
     int target_batch_tasks_per_thread = (int)ceil((double)actual_target_batch_bytes/(8*BLOCKDIM*N_BLOCKS));
 
     //launch packing kernel
-    gasal_pack_kernel<<<N_BLOCKS, BLOCKDIM>>>((uint32_t*)(gpu_storage->unpacked_query_batch),
+    gasal_pack_kernel<<<N_BLOCKS, BLOCKDIM>>>   ((uint32_t*)(gpu_storage->unpacked_query_batch),
     						(uint32_t*)(gpu_storage->unpacked_target_batch), gpu_storage->packed_query_batch, gpu_storage->packed_target_batch,
     					    query_batch_tasks_per_thread, target_batch_tasks_per_thread, actual_query_batch_bytes/4, actual_target_batch_bytes/4);
     cudaError_t pack_kernel_err = cudaGetLastError();
@@ -516,21 +516,22 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 	host_batch_t *current = gpu_storage->extensible_host_unpacked_query_batch;
 	while (current != NULL)
 	{
-		if (current->next != NULL ) {
+		if (current->next != NULL ) 
+		{
 			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->offset]), 
-											current->data, 
-											current->next->offset - current->offset,
-											cudaMemcpyHostToDevice, 
-											gpu_storage->str ) );
+							current->data, 
+							current->next->offset - current->offset,
+							cudaMemcpyHostToDevice, 
+							gpu_storage->str ) );
 			
 		} else {
 			// it's the last page to copy
 
 			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->offset]), 
-											current->data, 
-											actual_query_batch_bytes - current->offset, 
-											cudaMemcpyHostToDevice, 
-											gpu_storage->str ) );
+							current->data, 
+							actual_query_batch_bytes - current->offset, 
+							cudaMemcpyHostToDevice, 
+							gpu_storage->str ) );
 		}
 		current = current->next;
 	}
@@ -723,9 +724,6 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 	int i;
 	for (i = 0; i < gpu_storage_vec->n; i++) {
 
-		
-		CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_unpacked_query_batch), host_max_query_batch_bytes * sizeof(uint8_t)));
-		CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_unpacked_target_batch), host_max_target_batch_bytes * sizeof(uint8_t)));
 		gpu_storage_vec->a[i].extensible_host_unpacked_query_batch = gasal_host_batch_new(host_max_query_batch_bytes, 0);
 		gpu_storage_vec->a[i].extensible_host_unpacked_target_batch = gasal_host_batch_new(host_max_target_batch_bytes, 0);
 
@@ -861,8 +859,6 @@ void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec) {
 	int i;
 	for (i = 0; i < gpu_storage_vec->n; i ++) {
 		// destructors. Should be directly replaced.
-		if (gpu_storage_vec->a[i].host_unpacked_query_batch != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_unpacked_query_batch));
-		if (gpu_storage_vec->a[i].host_unpacked_target_batch != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_unpacked_target_batch));
 		
 		gasal_host_batch_destroy(gpu_storage_vec->a[i].extensible_host_unpacked_query_batch);
 		gasal_host_batch_destroy(gpu_storage_vec->a[i].extensible_host_unpacked_target_batch);
