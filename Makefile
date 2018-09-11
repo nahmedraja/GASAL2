@@ -1,7 +1,7 @@
-GPU_SM_ARCH=sm_20
+GPU_SM_ARCH=
 MAX_SEQ_LEN=
-N_CODE=0x4E
-N_PENALTY=-2
+N_CODE=
+N_PENALTY=
 
 GPU_COMPUTE_ARCH=$(subst sm,compute,$(GPU_SM_ARCH))
 NVCC=/usr/lib/nvidia-cuda-toolkit/bin/nvcc
