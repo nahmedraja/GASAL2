@@ -47,11 +47,6 @@ typedef struct {
 	uint32_t *query_batch_lens;
 	uint32_t *target_batch_lens;
 	
-	
-	uint8_t *host_unpacked_query_batch;
-	uint8_t *host_unpacked_target_batch;
-	
-
 	host_batch *extensible_host_unpacked_query_batch;
 	host_batch *extensible_host_unpacked_target_batch;
 
