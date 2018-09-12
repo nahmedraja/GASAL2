@@ -7,8 +7,8 @@ def main(fixed_length, varia_before, varia_after, nbr_seqs, proba_muta):
 	
 	values=["A", "C", "G", "T"]
 	modif=["insertion", "deletion", "mutation"]
-	query=open("query_batch.fasta", "w+")
-	target=open("target_batch.fasta", "w+")
+	query=open("../test_prog/query_batch.fasta", "w+")
+	target=open("../test_prog/target_batch.fasta", "w+")
 	completion = 0
 	
 	for line in range (nbr_seqs):
