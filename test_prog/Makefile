@@ -14,7 +14,7 @@ clean:
 test_prog.o: Timer.h
 
 run: all
-	optirun ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta > out.log
+	optirun ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta  
 
 fullrun: all
 	optirun ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta > out.log
@@ -26,7 +26,7 @@ cuda-gdb: all
 	optirun cuda-gdb --args ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
 
 valgrind: all
-	optirun valgrind ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
+	optirun valgrind ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta
 
 gdb: all
 	optirun gdb --args ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta
