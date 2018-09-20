@@ -39,11 +39,28 @@ gasal_gpu_storage_v gasal_init_gpu_storage_v(int n_streams) {
 
 }
 
+void gasal_op_fill(gasal_gpu_storage_t *gpu_storage_t, uint8_t *data, uint32_t nbr_seqs_in_stream, data_source SRC)
+{
+	uint8_t *host_op = NULL;
+	switch(SRC)
+	{
+		case QUERY:
+			host_op = (gpu_storage_t->host_query_op);
+		break;
+		case TARGET:
+			host_op = (gpu_storage_t->host_target_op);
+		break;
+		default:
+		break;
+	}
+	memcpy(host_op, data, nbr_seqs_in_stream);
+}
+
 host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t offset)
 {
 	cudaError_t err;
 	host_batch_t *res = (host_batch_t *)calloc(1, sizeof(host_batch_t));
-	CHECKCUDAERROR(cudaMallocHost(&(res->data), host_max_query_batch_bytes));
+	CHECKCUDAERROR(cudaMallocHost(&(res->data), host_max_query_batch_bytes*sizeof(uint8_t)));
 	res->offset = offset;
 	res->next = NULL;
 	return res;
@@ -56,7 +73,9 @@ void gasal_host_batch_destroy(host_batch_t *res)
 	if (res->next != NULL)
 		gasal_host_batch_destroy(res->next);
 	if (res->data != NULL) 
+	{
 		CHECKCUDAERROR(cudaFreeHost(res->data));
+	}
 	
 	free(res);
 }
@@ -519,19 +538,19 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		if (current->next != NULL ) 
 		{
 			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->offset]), 
-							current->data, 
-							current->next->offset - current->offset,
-							cudaMemcpyHostToDevice, 
-							gpu_storage->str ) );
+											current->data, 
+											current->next->offset - current->offset,
+											cudaMemcpyHostToDevice, 
+											gpu_storage->str ) );
 			
 		} else {
 			// it's the last page to copy
 
 			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->offset]), 
-							current->data, 
-							actual_query_batch_bytes - current->offset, 
-							cudaMemcpyHostToDevice, 
-							gpu_storage->str ) );
+											current->data, 
+											actual_query_batch_bytes - current->offset, 
+											cudaMemcpyHostToDevice, 
+											gpu_storage->str ) );
 		}
 		current = current->next;
 	}
@@ -557,6 +576,8 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		current = current->next;
 	}
 
+
+
 	//-----------------------------------------------------------------------------------------------------------
 
     uint32_t BLOCKDIM = 128;
@@ -575,7 +596,7 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
     //---------------------------------------------------------------------------------------------------------------
 
 	// I think we should reverse-complement before packing in a separate kernel. 
-	// Either this or I need to understand how thinges work with sequences lengths operating on packed batches...
+	// Either this or I need to understand how thinges work with sequences lengths operating on packed batches, and it seems like a pain.
 
 	
 
@@ -589,7 +610,15 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
     {
     	 fprintf(stderr, "[GASAL CUDA ERROR:] %s(CUDA error no.=%d). Line no. %d in file %s\n", cudaGetErrorString(pack_kernel_err), pack_kernel_err,  __LINE__, __FILE__);
          exit(EXIT_FAILURE);
-    }
+	}
+	
+	// TODO : printer for ops, should be removed at some point.
+	fprintf(stderr, "GASAL DEBUG: actual_n_alns=%d. displaying host_query_op: ", actual_n_alns);
+	for (int i = 0; i < actual_n_alns; i++)
+	{
+		fprintf(stderr, "%d, ", gpu_storage->host_query_op[i]);
+	}
+	fprintf(stderr, "\n");
 
     //--------------------------------------launch alignment kernels--------------------------------------------------------------
         if(algo == LOCAL) {
@@ -666,14 +695,14 @@ int gasal_is_aln_async_done(gasal_gpu_storage_t *gpu_storage) {
 void gasal_gpu_mem_alloc(gasal_gpu_storage_t *gpu_storage, int gpu_max_query_batch_bytes, int gpu_max_target_batch_bytes, int gpu_max_n_alns, int algo, int start) {
 
 	cudaError_t err;
-//	if (gpu_storage->gpu_max_query_batch_bytes % 8) {
-//		fprintf(stderr, "[GASAL ERROR:] max_query_batch_bytes=%d is not a multiple of 8\n", gpu_storage->gpu_max_query_batch_bytes % 8);
-//		exit(EXIT_FAILURE);
-//	}
-//	if (gpu_storage->gpu_max_target_batch_bytes % 8) {
-//		fprintf(stderr, "[GASAL ERROR:] max_target_batch_bytes=%d is not a multiple of 8\n", gpu_storage->gpu_max_target_batch_bytes % 8);
-//		exit(EXIT_FAILURE);
-//	}
+	//	if (gpu_storage->gpu_max_query_batch_bytes % 8) {
+	//		fprintf(stderr, "[GASAL ERROR:] max_query_batch_bytes=%d is not a multiple of 8\n", gpu_storage->gpu_max_query_batch_bytes % 8);
+	//		exit(EXIT_FAILURE);
+	//	}
+	//	if (gpu_storage->gpu_max_target_batch_bytes % 8) {
+	//		fprintf(stderr, "[GASAL ERROR:] max_target_batch_bytes=%d is not a multiple of 8\n", gpu_storage->gpu_max_target_batch_bytes % 8);
+	//		exit(EXIT_FAILURE);
+	//	}
 
 	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->unpacked_query_batch), gpu_max_query_batch_bytes * sizeof(uint8_t)));
 	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->unpacked_target_batch), gpu_max_target_batch_bytes * sizeof(uint8_t)));
@@ -735,9 +764,15 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 		gpu_storage_vec->a[i].extensible_host_unpacked_query_batch = gasal_host_batch_new(host_max_query_batch_bytes, 0);
 		gpu_storage_vec->a[i].extensible_host_unpacked_target_batch = gasal_host_batch_new(host_max_target_batch_bytes, 0);
 
-
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].unpacked_query_batch), gpu_max_query_batch_bytes * sizeof(uint8_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].unpacked_target_batch), gpu_max_target_batch_bytes * sizeof(uint8_t)));
+
+
+		CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_query_op), host_max_n_alns * sizeof(uint8_t)));
+		CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_target_op), host_max_n_alns * sizeof(uint8_t)));
+		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].query_op), gpu_max_n_alns * sizeof(uint8_t)));
+		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_op), gpu_max_n_alns * sizeof(uint8_t)));
+
 
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].packed_query_batch), (gpu_max_query_batch_bytes/8) * sizeof(uint32_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].packed_target_batch), (gpu_max_target_batch_bytes/8) * sizeof(uint32_t)));
@@ -870,6 +905,11 @@ void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec) {
 		
 		gasal_host_batch_destroy(gpu_storage_vec->a[i].extensible_host_unpacked_query_batch);
 		gasal_host_batch_destroy(gpu_storage_vec->a[i].extensible_host_unpacked_target_batch);
+
+		if (gpu_storage_vec->a[i].query_op != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].query_op));
+		if (gpu_storage_vec->a[i].target_op != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].target_op));
+		if (gpu_storage_vec->a[i].host_query_op != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_query_op));
+		if (gpu_storage_vec->a[i].host_target_op != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_target_op));
 
 		if (gpu_storage_vec->a[i].host_query_batch_offsets != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_query_batch_offsets));
 		if (gpu_storage_vec->a[i].host_target_batch_offsets != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_target_batch_offsets));
