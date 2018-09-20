@@ -8,7 +8,7 @@
 #include <math.h>
 #include <omp.h>
 #include "Timer.h"
-
+#include <string.h>
 
 #include "../include/gasal.h"
 
@@ -122,10 +122,45 @@ int main(int argc, char *argv[]) {
 	*/
 	
 	int seq_begin=0;
+
+	uint32_t query_nbr_to_reverse = 0;
+	uint32_t target_nbr_to_reverse = 0;
+	std::vector<char> query_isreversed;
+	std::vector<char> target_isreversed;
+	std::vector<uint32_t> query_id;
+	std::vector<uint32_t> target_id;
+	char line_starts[5] = "></+";
+	/* Simulation of the reverse, complement (or both) information. 
+	 * From the header of every sequence:
+	 * - 0b00 (0) = Forward, direct
+	 * - 0b01 (1) = Reverse, direct
+	 * - 0b10 (2) = Forward, complemented
+	 * - 0b11 (3) = Reverse, complemented
+	 * No protection is done, so any other number will only have its two first bytes counted as above.	 
+	 */
+
 	while (getline(query_batch_fasta, query_batch_line) && getline(target_batch_fasta, target_batch_line)) { 
 
 		//load sequences from the files
-		if (query_batch_line[0] == '>' && target_batch_line[0] == '>') {
+		char *q = NULL;
+		q = strchr(line_starts, (int) (query_batch_line[0]));
+		char *t = NULL;
+		t = strchr(line_starts, (int) (target_batch_line[0]));
+
+		if (q != NULL && t != NULL) {
+			total_seqs++;
+
+			if (q-line_starts > 0) {
+				query_isreversed.push_back(q-line_starts);
+				query_nbr_to_reverse ++;
+				query_id.push_back(total_seqs);
+			}
+			if (t-line_starts > 0) {
+				target_isreversed.push_back(t-line_starts);
+				target_nbr_to_reverse ++;
+				target_id.push_back(total_seqs);
+			}
+
 			query_headers.push_back(query_batch_line.substr(1));
 			target_headers.push_back(target_batch_line.substr(1));
 
@@ -137,7 +172,7 @@ int main(int argc, char *argv[]) {
 				maximum_sequence_length = MAX((query_seqs.back()).length(), maximum_sequence_length);
 			}
 			seq_begin = 1;
-			total_seqs++;
+			
 		} else if (seq_begin == 1) {
 			query_seqs.push_back(query_batch_line);
 			target_seqs.push_back(target_batch_line);
@@ -151,6 +186,30 @@ int main(int argc, char *argv[]) {
 			exit(EXIT_FAILURE);
 		}
 	}
+
+	// transforming the isreversed into a char* array (to be passed to GASAL, which deals with C types)
+	char *target_seq_state = (char*) malloc(target_nbr_to_reverse * sizeof(char) );
+	char *query_seq_state  = (char*) malloc(query_nbr_to_reverse * sizeof(char) );
+
+
+#ifdef DEBUG
+	fprintf(stderr, "DEBUG: target_nbr_to_reverse=%d, query_nbr_to_reverse=%d\n", target_nbr_to_reverse, query_nbr_to_reverse);
+	fprintf(stderr, "DEBUG: query_seq_state=");
+#endif
+	for (uint32_t i = 0; i < query_nbr_to_reverse; i++)
+	{
+		query_seq_state[i] = query_isreversed.at(i);
+#ifdef DEBUG
+		fprintf(stderr, "%d", query_seq_state[i]);
+#endif
+	}
+
+	for (uint32_t i = 0; i < target_nbr_to_reverse; i++)
+		target_seq_state[i] = target_isreversed.at(i);
+
+#ifdef DEBUG
+	fprintf(stderr, "\n");
+#endif
 
 
 	// Check maximum sequence length one more time, to check the last read sequence:
@@ -204,7 +263,7 @@ int main(int argc, char *argv[]) {
 		//initializing the streams by allocating the required CPU and GPU memory
 		// note: the calculations of the detailed sizes to allocate could be done on the library side (to hide it from the user's perspective)
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
-							0.4 * (query_seqs_len +7*total_seqs) / (NB_STREAMS) , 
+							1 * (query_seqs_len +7*total_seqs) / (NB_STREAMS) , 
 							1 * (query_seqs_len +7*total_seqs)  / (NB_STREAMS) , 
 							1 * (target_seqs_len +7*total_seqs)/ (NB_STREAMS),
 							1 * (target_seqs_len +7*total_seqs) / (NB_STREAMS) , 

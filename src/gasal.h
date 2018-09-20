@@ -28,6 +28,13 @@ enum algo_type{
 	SEMI_GLOBAL
 };
 
+enum operation_on_seq{
+	FORWARD_NATURAL,
+	REVERSE_NATURAL,
+	FORWARD_COMPLEMENT,
+	REVERSE_COMPLEMENT,
+};
+
 // data structure of linked list to allow extension of memory on host side
 struct host_batch{
 	uint8_t *data;
@@ -35,6 +42,14 @@ struct host_batch{
 	struct host_batch* next;
 };
 typedef struct host_batch host_batch_t;
+
+
+struct modify_seqs{
+	uint32_t* seq_id;
+	uint32_t nbr_of_seqs;
+	operation_on_seq op;
+};
+typedef struct modify_seqs modify_seqs_t;
 
 //stream data
 typedef struct {
@@ -47,8 +62,11 @@ typedef struct {
 	uint32_t *query_batch_lens;
 	uint32_t *target_batch_lens;
 	
-	host_batch *extensible_host_unpacked_query_batch;
-	host_batch *extensible_host_unpacked_target_batch;
+	host_batch_t *extensible_host_unpacked_query_batch;
+	host_batch_t *extensible_host_unpacked_target_batch;
+
+	modify_seqs_t *query_mod;
+	modify_seqs_t *target_mod;
 
 	uint32_t *host_query_batch_offsets;
 	uint32_t *host_target_batch_offsets;
