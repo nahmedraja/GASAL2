@@ -1,5 +1,12 @@
 #include <stdio.h>
 
+#define A_PAK ('A'&0x0F)
+#define C_PAK ('C'&0x0F)
+#define G_PAK ('G'&0x0F)
+#define T_PAK ('T'&0x0F)
+#define N_PAK ('N'&0x0F)
+
+
 
 __global__ void gasal_pack_kernel(uint32_t* unpacked_query_batch,
 		uint32_t* unpacked_target_batch, uint32_t *packed_query_batch, uint32_t* packed_target_batch,
@@ -50,7 +57,7 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 		const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
 
 		if (tid >= n_tasks) return;
-		if (query_op[tid] == 0 && target_op[tid] == 0) return;		// if there's nothing to do (op=0, meaning sequence is Forward Natural), just exit the kernel. 
+		if (query_op[tid] == 0 && target_op[tid] == 0) return;		// if there's nothing to do (op=0, meaning sequence is Forward Natural), just exit the kernel ASAP. 
 
 
 		uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3;//starting index of the target_batch sequence
@@ -65,24 +72,49 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 
 		if (query_op[tid] & 0x01) // reverse
 		{
-			//printf("KERNEL DEBUG: op[%d]=%d, reverse asked. regs to swap=%d\n", tid, query_op[tid], query_batch_regs_to_swap);
-			for (uint32_t i = 0; i < (query_batch_regs_to_swap); i++)
+			// deal with N's : read last word, find how many N's, store that number as offset, and pad with that many for the last 
+			uint8_t nbr_N = 0;
+			for (int j = 0; j < 32; j = j + 4)
+			{
+				nbr_N += (((packed_query_batch[packed_query_batch_idx + query_batch_regs-1] & (0x0F << j)) >> j) == N_PAK);
+			}
+			printf("KERNEL_DEBUG: nbr_N=%d\n", nbr_N);
+			nbr_N = nbr_N << 2; // we operate on nibbles so we will need to do our shifts 4 bits by 4 bits, so 4*nbr_N
+
+			for (uint32_t i = 0; i < (query_batch_regs_to_swap); i++) // do all words except the middle (where it can be messy because of irregular sizes caused by N's.)
 			{
 				uint32_t rpac_1 = packed_query_batch[packed_query_batch_idx + i]; //load 8 packed bases from head
-				uint32_t rpac_2 = packed_query_batch[packed_query_batch_idx + query_batch_regs-1 - i];//load 8 packed bases from queue
+				uint32_t rpac_2 = ((packed_query_batch[packed_query_batch_idx + query_batch_regs-2 - i]) << (32-nbr_N)) | ((packed_query_batch[packed_query_batch_idx + query_batch_regs-1 - i]) >> nbr_N);
+
+
 				uint32_t reverse_rpac_1 = 0;
 				uint32_t reverse_rpac_2 = 0;
-				
-				for(int k = 28; k >= 0; k = k - 4)		// reverse 32-bits word... could be pragma-unrolled.
+
+
+	#pragma unroll 8
+				for(int k = 28; k >= 0; k = k - 4)		// reverse 32-bits word... is pragma-unrolled. 
 				{
 					reverse_rpac_1 |= ((rpac_1 & (0x0F << k)) >> (k)) << (28-k);
 					reverse_rpac_2 |= ((rpac_2 & (0x0F << k)) >> (k)) << (28-k);
 				}
-				
-				printf("KERNEL DEBUG: Word before reverse: %x, after: %x\n", rpac_1, reverse_rpac_1 );
-				printf("KERNEL DEBUG: Word before reverse: %x, after: %x\n", rpac_2, reverse_rpac_2 );
+				// last swap operated manually, because of its irregular size (32 - 4*nbr_N bits, hence 8 - nbr_N nibbles)
+
+
+				uint32_t to_queue_1 = (reverse_rpac_1 << nbr_N) | (packed_query_batch[packed_query_batch_idx + query_batch_regs-1 - i] & ((1<<nbr_N) - 1));
+				uint32_t to_queue_2 = (packed_query_batch[packed_query_batch_idx + query_batch_regs-2 - i] & (0xFFFFFFFF - ((1<<nbr_N) - 1))) | (reverse_rpac_1 >> (32-nbr_N));
+				//packed_query_batch[packed_query_batch_idx + i] = reverse_rpac_2;
+				//packed_query_batch[packed_query_batch_idx + query_batch_regs-1 - i] = reverse_rpac_1;
+
+								
+				printf("KERNEL DEBUG: rpac_1 Word before reverse: %x, after: %x, split into %x + %x \n", rpac_1, reverse_rpac_1, to_queue_2, to_queue_1 );
+				printf("KERNEL DEBUG: rpac_2 Word before reverse: %x, after: %x\n", rpac_2, reverse_rpac_2 );
+
+
 				packed_query_batch[packed_query_batch_idx + i] = reverse_rpac_2;
-				packed_query_batch[packed_query_batch_idx + query_batch_regs - i] = reverse_rpac_1;
+				packed_query_batch[packed_query_batch_idx + query_batch_regs-1 - i] = to_queue_1;
+				if (i!=query_batch_regs_to_swap-1)
+					packed_query_batch[packed_query_batch_idx + query_batch_regs-2 - i] = to_queue_2;
+				
 
 			}
 		}
