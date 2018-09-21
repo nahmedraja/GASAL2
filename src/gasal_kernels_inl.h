@@ -1,4 +1,4 @@
-
+#include <stdio.h>
 
 
 __global__ void gasal_pack_kernel(uint32_t* unpacked_query_batch,
@@ -43,6 +43,53 @@ __global__ void gasal_pack_kernel(uint32_t* unpacked_query_batch,
 	}
 
 }
+
+__global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint32_t *packed_target_batch, uint32_t *query_batch_lens,
+		uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, uint8_t *query_op, uint8_t *target_op, uint32_t  n_tasks){
+			
+		const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
+
+		if (tid >= n_tasks) return;
+		if (query_op[tid] == 0 && target_op[tid] == 0) return;		// if there's nothing to do (op=0, meaning sequence is Forward Natural), just exit the kernel. 
+
+
+		uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3;//starting index of the target_batch sequence
+		uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
+		uint32_t read_len = query_batch_lens[tid];
+		uint32_t ref_len = target_batch_lens[tid];
+		uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding sequence of query_batch
+		uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding sequence of target_batch
+
+		uint32_t query_batch_regs_to_swap = (query_batch_regs >> 1) + (query_batch_regs & 1); // that's (query_batch_regs / 2) + 1 if it's odd, + 0 otherwise.
+
+
+		if (query_op[tid] & 0x01) // reverse
+		{
+			//printf("KERNEL DEBUG: op[%d]=%d, reverse asked. regs to swap=%d\n", tid, query_op[tid], query_batch_regs_to_swap);
+			for (uint32_t i = 0; i < (query_batch_regs_to_swap); i++)
+			{
+				uint32_t rpac_1 = packed_query_batch[packed_query_batch_idx + i]; //load 8 packed bases from head
+				uint32_t rpac_2 = packed_query_batch[packed_query_batch_idx + query_batch_regs-1 - i];//load 8 packed bases from queue
+				uint32_t reverse_rpac_1 = 0;
+				uint32_t reverse_rpac_2 = 0;
+				
+				for(int k = 28; k >= 0; k = k - 4)		// reverse 32-bits word... could be pragma-unrolled.
+				{
+					reverse_rpac_1 |= ((rpac_1 & (0x0F << k)) >> (k)) << (28-k);
+					reverse_rpac_2 |= ((rpac_2 & (0x0F << k)) >> (k)) << (28-k);
+				}
+				
+				printf("KERNEL DEBUG: Word before reverse: %x, after: %x\n", rpac_1, reverse_rpac_1 );
+				printf("KERNEL DEBUG: Word before reverse: %x, after: %x\n", rpac_2, reverse_rpac_2 );
+				packed_query_batch[packed_query_batch_idx + i] = reverse_rpac_2;
+				packed_query_batch[packed_query_batch_idx + query_batch_regs - i] = reverse_rpac_1;
+
+			}
+		}
+
+		return;
+}
+
 
 __constant__ int32_t _cudaGapO; /*gap open penalty*/
 __constant__ int32_t _cudaGapOE; /*sum of gap open and extension penalties*/
@@ -130,7 +177,7 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
 						e = HD.y;
 						//-------------------------------------------
 						int32_t prev_hm_diff = h[0] - _cudaGapOE;
-#pragma unroll 8
+	#pragma unroll 8
 						for (l = 28, m = 1; m < 9; l -= 4, m++) {
 							uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 							DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
@@ -219,7 +266,7 @@ __global__ void gasal_local_with_start_kernel(uint32_t *packed_query_batch, uint
 						h[0] = HD.x;
 						e = HD.y;
 						//------------------------------------------------
-#pragma unroll 8
+	#pragma unroll 8
 
 						for (l = 28, m = 1; l >= 0; l -= 4, m++) {
 							uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
