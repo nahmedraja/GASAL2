@@ -67,7 +67,7 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 		uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding sequence of query_batch
 		uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding sequence of target_batch
 
-		uint32_t query_batch_regs_to_swap = (query_batch_regs >> 1) + (query_batch_regs & 1); // that's (query_batch_regs / 2) + 1 if it's odd, + 0 otherwise.
+		uint32_t query_batch_regs_to_swap = (query_batch_regs >> 1) + (query_batch_regs & 1); // that's (query_batch_regs / 2) + 1 if it's odd, + 0 otherwise. Used for reverse (we start a both ends, and finish at the center of the sequence)
 
 
 		if (query_op[tid] & 0x01) // reverse
@@ -81,7 +81,7 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 			printf("KERNEL_DEBUG: nbr_N=%d\n", nbr_N);
 			nbr_N = nbr_N << 2; // we operate on nibbles so we will need to do our shifts 4 bits by 4 bits, so 4*nbr_N
 
-			for (uint32_t i = 0; i < (query_batch_regs_to_swap); i++) // do all words except the middle (where it can be messy because of irregular sizes caused by N's.)
+			for (uint32_t i = 0; i < (query_batch_regs_to_swap); i++) // reverse all words. There's a catch with the last word (in the middle of the sequence), see final if.
 			{
 				uint32_t rpac_1 = packed_query_batch[packed_query_batch_idx + i]; //load 8 packed bases from head
 				uint32_t rpac_2 = ((packed_query_batch[packed_query_batch_idx + query_batch_regs-2 - i]) << (32-nbr_N)) | ((packed_query_batch[packed_query_batch_idx + query_batch_regs-1 - i]) >> nbr_N);
@@ -91,7 +91,7 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 				uint32_t reverse_rpac_2 = 0;
 
 
-	#pragma unroll 8
+			#pragma unroll 8
 				for(int k = 28; k >= 0; k = k - 4)		// reverse 32-bits word... is pragma-unrolled. 
 				{
 					reverse_rpac_1 |= ((rpac_1 & (0x0F << k)) >> (k)) << (28-k);
@@ -102,13 +102,11 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 
 				uint32_t to_queue_1 = (reverse_rpac_1 << nbr_N) | (packed_query_batch[packed_query_batch_idx + query_batch_regs-1 - i] & ((1<<nbr_N) - 1));
 				uint32_t to_queue_2 = (packed_query_batch[packed_query_batch_idx + query_batch_regs-2 - i] & (0xFFFFFFFF - ((1<<nbr_N) - 1))) | (reverse_rpac_1 >> (32-nbr_N));
-				//packed_query_batch[packed_query_batch_idx + i] = reverse_rpac_2;
-				//packed_query_batch[packed_query_batch_idx + query_batch_regs-1 - i] = reverse_rpac_1;
 
-								
+				/*				
 				printf("KERNEL DEBUG: rpac_1 Word before reverse: %x, after: %x, split into %x + %x \n", rpac_1, reverse_rpac_1, to_queue_2, to_queue_1 );
 				printf("KERNEL DEBUG: rpac_2 Word before reverse: %x, after: %x\n", rpac_2, reverse_rpac_2 );
-
+				*/
 
 				packed_query_batch[packed_query_batch_idx + i] = reverse_rpac_2;
 				packed_query_batch[packed_query_batch_idx + query_batch_regs-1 - i] = to_queue_1;
@@ -117,6 +115,44 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 				
 
 			}
+		}
+
+		if (query_op[tid] & 0x02) // complement
+		{
+			for (uint32_t i = 0; i < (query_batch_regs); i++) // reverse all words. There's a catch with the last word (in the middle of the sequence), see final if.
+			{
+				uint32_t rpac = packed_query_batch[packed_query_batch_idx + i]; //load 8 packed bases from head
+				uint32_t nucleotide = 0;
+
+				#pragma unroll 8
+				for(int k = 28; k >= 0; k = k - 4)		// complement 32-bits word... is pragma-unrolled. 
+				{
+					nucleotide = (rpac & (0x0F << k)) >> (k);
+					switch(nucleotide)
+					{
+						case A_PAK:
+							nucleotide = T_PAK;
+						break;
+						case C_PAK:
+							nucleotide = G_PAK;
+						break;
+						case T_PAK:
+							nucleotide = A_PAK;
+						break;
+						case G_PAK:
+							nucleotide = C_PAK;
+						break;
+						default:
+						break;
+					}
+					rpac = (rpac & (0xFFFFFFFF - (0x0F << k))) | nucleotide << k;
+				}
+				printf("KERNEL DEBUG: Word read : %x, after complement: %x\n", packed_query_batch[packed_query_batch_idx + i], rpac);
+				packed_query_batch[packed_query_batch_idx + i] = rpac;
+
+			}
+
+
 		}
 
 		return;
