@@ -611,16 +611,22 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 	CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->query_op, gpu_storage->host_query_op, actual_n_alns * sizeof(uint8_t), cudaMemcpyHostToDevice,  gpu_storage->str));
 	CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->target_op, gpu_storage->host_target_op, actual_n_alns * sizeof(uint8_t), cudaMemcpyHostToDevice,  gpu_storage->str));
 
-	/*
-	// TODO : printer for ops, should be removed at some point.
-	fprintf(stderr, "GASAL DEBUG: actual_n_alns=%d. displaying host_query_op: ", actual_n_alns);
-	for (int i = 0; i < actual_n_alns; i++)
-	{
-		fprintf(stderr, "%d, ", gpu_storage->host_query_op[i]);
-	}
-	fprintf(stderr, "\n");
-	*/
-
+	
+	// Printers, can be removed. the DEBUG is set in gasal_kernels_inl.h
+	#ifdef DEBUG
+		fprintf(stderr, "[GASAL DEBUG]: actual_n_alns=%d. displaying host_query_op: ", actual_n_alns);
+		for (int i = 0; i < actual_n_alns; i++)
+		{
+			fprintf(stderr, "%d, ", gpu_storage->host_query_op[i]);
+		}
+		fprintf(stderr, "\n");
+		fprintf(stderr, "[GASAL DEBUG]: actual_n_alns=%d. displaying host_target_op: ", actual_n_alns);
+		for (int i = 0; i < actual_n_alns; i++)
+		{
+			fprintf(stderr, "%d, ", gpu_storage->host_target_op[i]);
+		}
+		fprintf(stderr, "\n");
+	#endif
 
 	//--------------------------------------launch reverse-complement kernel------------------------------------------------------
 	gasal_reversecomplement_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,

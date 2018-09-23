@@ -16,7 +16,7 @@ using namespace std;
 
 #define NB_STREAMS 2
 
-#define DEBUG
+//#define DEBUG
 
 #define MAX(a,b) (a>b ? a : b)
 
@@ -356,6 +356,7 @@ int main(int argc, char *argv[]) {
 #endif
 					
 					gasal_op_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_seq_mod + seqs_done - j, j, QUERY);
+					gasal_op_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, target_seq_mod + seqs_done - j, j, TARGET);
 
 					gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch = j;
 					uint32_t query_batch_bytes = query_batch_idx;
