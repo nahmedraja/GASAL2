@@ -140,6 +140,7 @@ host_batch_t *gasal_host_batch_getlast(host_batch_t *arg); 																// ge
 uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx, const char* data, uint32_t size, data_source SRC ); 	// fill the data
 void gasal_host_batch_print(host_batch_t *res); 																		// printer 
 void gasal_host_batch_printall(host_batch_t *res);																		// printer for the whole linked list
+void gasal_host_batch_recycle(gasal_gpu_storage_t *gpu_storage_t);
 
 void gasal_op_fill(gasal_gpu_storage_t *gpu_storage_t, uint8_t *data, uint32_t nbr_seqs_in_stream, data_source SRC);
 

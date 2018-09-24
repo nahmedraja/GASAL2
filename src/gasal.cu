@@ -69,6 +69,11 @@ host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t
 void gasal_host_batch_destroy(host_batch_t *res)
 {
 	cudaError_t err;
+	if (res==NULL)
+	{
+		fprintf(stderr, "[GASAL ERROR] Trying to free a NULL pointer\n");
+		exit(1);
+	}
 	// recursive function to destroy all the linked list
 	if (res->next != NULL)
 		gasal_host_batch_destroy(res->next);
@@ -86,10 +91,20 @@ host_batch_t *gasal_host_batch_getlast(host_batch_t *arg)
 	
 }
 
+void gasal_host_batch_recycle(gasal_gpu_storage_t *gpu_storage_t)
+{	
+	// hard re-allocation.
+	gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_query_batch);
+	gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_target_batch);
+	gpu_storage_t->extensible_host_unpacked_query_batch = gasal_host_batch_new(gpu_storage_t->host_max_query_batch_bytes, 0);
+	gpu_storage_t->extensible_host_unpacked_target_batch = gasal_host_batch_new(gpu_storage_t->host_max_target_batch_bytes, 0);
+}
+
 
 uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx, const char* data, uint32_t size, data_source SRC )
 {	
-	// since query and target are very symmetric here, we use pointers to route the data where it has to, while keeping the actual memory management 'source-agnostic'.
+	// since query and target are very symmetric here, we use pointers to route the data where it has to, 
+	// while keeping the actual memory management 'source-agnostic'.
 	host_batch_t *cur_page = NULL;
 	uint32_t *p_batch_bytes = NULL;
 
@@ -545,7 +560,6 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 			
 		} else {
 			// it's the last page to copy
-
 			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->offset]), 
 											current->data, 
 											actual_query_batch_bytes - current->offset, 
@@ -575,8 +589,6 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		}
 		current = current->next;
 	}
-
-
 
 	//-----------------------------------------------------------------------------------------------------------
 
