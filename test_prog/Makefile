@@ -19,6 +19,10 @@ run: all
 fullrun: all
 	optirun ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta > out.log
 
+nvprof: all
+	optirun nvprof -f -o analysis.nvvp ./test_prog.out -p -y semi_global query_batch_rc.fasta target_batch_rc.fasta > out.log
+
+
 cuda-memcheck: all
 	optirun cuda-memcheck ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
 
