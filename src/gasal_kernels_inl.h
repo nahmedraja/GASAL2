@@ -55,6 +55,7 @@ __global__ void gasal_pack_kernel(uint32_t* unpacked_query_batch,
 
 }
 
+
 __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint32_t *packed_target_batch, uint32_t *query_batch_lens,
 		uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, uint8_t *query_op, uint8_t *target_op, uint32_t  n_tasks){
 			
