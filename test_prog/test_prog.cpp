@@ -129,12 +129,13 @@ int main(int argc, char *argv[]) {
 	std::vector<uint32_t> target_id;
 
 	char line_starts[5] = "></+";
-	/* Simulation of the reverse, complement (or both) information. 
+	/* The information of reverse-complementing is simulated by changing the first character of the sequence.
+	 * This is not explicitly FASTA-compliant, although regular FASTA files will simply be interpreted as Forward-Natural direction.
 	 * From the header of every sequence:
-	 * - 0b00 (0) = Forward, direct
-	 * - 0b01 (1) = Reverse, direct
-	 * - 0b10 (2) = Forward, complemented
-	 * - 0b11 (3) = Reverse, complemented
+	 * - '>' translates to 0b00 (0) = Forward, natural
+	 * - '<' translates to 0b01 (1) = Reverse, natural
+	 * - '/' translates to 0b10 (2) = Forward, complemented
+	 * - '+' translates to 0b11 (3) = Reverse, complemented
 	 * No protection is done, so any other number will only have its two first bytes counted as above.	 
 	 */
 
@@ -142,13 +143,14 @@ int main(int argc, char *argv[]) {
 
 		//load sequences from the files
 		char *q = NULL;
-		q = strchr(line_starts, (int) (query_batch_line[0]));
 		char *t = NULL;
+		q = strchr(line_starts, (int) (query_batch_line[0]));
 		t = strchr(line_starts, (int) (target_batch_line[0]));
 
 		/*  t and q are pointers to the first occurence of the first read character in the line_starts array.
 			so if I compare the address of these pointers with the address of the pointer to line_start, then...
-			I can get which character was found, so which modifier is required.*/
+			I can get which character was found, so which modifier is required. 
+		*/
 
 		if (q != NULL && t != NULL) {
 			total_seqs++;
@@ -198,7 +200,7 @@ int main(int argc, char *argv[]) {
 	 #endif
 
 
-	// transforming the mod into a char* array (to be passed to GASAL, which deals with C types)
+	// transforming the _mod into a char* array (to be passed to GASAL, which deals with C types)
 	uint8_t *target_seq_mod = (uint8_t*) malloc(total_seqs * sizeof(uint8_t) );
 	uint8_t *query_seq_mod  = (uint8_t*) malloc(total_seqs * sizeof(uint8_t) );
 	uint32_t *target_seq_id = (uint32_t*) malloc(total_seqs * sizeof(uint32_t) );
@@ -225,9 +227,6 @@ int main(int argc, char *argv[]) {
 		target_seq_id[i] = target_id.at(i);
 	}
 
-	
-	// here you should know all your data size.
-
 	int *thread_seqs_idx = (int*)malloc(n_threads*sizeof(int));
 	int *thread_n_seqs = (int*)malloc(n_threads*sizeof(int));
 	int *thread_n_batchs = (int*)malloc(n_threads*sizeof(int));
@@ -244,10 +243,7 @@ int main(int argc, char *argv[]) {
 
 	}
 
-	// shit gets real here
-
 	cerr << "Processing..." << endl;
-
 
 	Timer total_time;
 	total_time.Start();
@@ -314,19 +310,20 @@ int main(int argc, char *argv[]) {
 				gpu_batch_arr_idx++;
 			}
 			//---------------------------------------------------------------------------
+			// Needs to re-allocate the linked list in case the stream is recycled.
+			gasal_host_batch_recycle((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage));
+
 			if (seqs_done < n_seqs && gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n) {
-
-					
-
 					uint32_t query_batch_idx = 0;
 					uint32_t target_batch_idx = 0;
 					unsigned int j = 0;
 					//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
+
+
 					for (int i = curr_idx; seqs_done < n_seqs && j < (target_seqs.size() / NB_STREAMS); i++, j++, seqs_done++) {
 
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;
-
 						/*
 							All the filling is moved on the library size, to take care of the memory size and expansions (when needed).
 							The function gasal_host_batch_fill takes care of how to fill, how much to pad with 'N', and how to deal with memory. 
@@ -334,12 +331,13 @@ int main(int argc, char *argv[]) {
 							The way the host memory is filled changes the current _idx (it's increased by size, and by the padding). That's why it's returned by the function.
 						*/
 
+
 						query_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
 										query_batch_idx, 
 										query_seqs[i].c_str(), 
 										query_seqs[i].size(),
 										QUERY);
-										
+
 						target_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
 										target_batch_idx, 
 										target_seqs[i].c_str(), 
@@ -351,12 +349,15 @@ int main(int argc, char *argv[]) {
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_lens[j] = target_seqs[i].size();
 
 					}
-#ifdef DEBUG
-					fprintf(stderr, "Stream %d: j = %d, seqs_done = %d\n", gpu_batch_arr_idx, j, seqs_done);
-#endif
-					
+
+					#ifdef DEBUG
+						fprintf(stderr, "Stream %d: j = %d, seqs_done = %d, query_batch_idx=%d, target_batch_idx=%d\n", gpu_batch_arr_idx, j, seqs_done, query_batch_idx, target_batch_idx);
+					#endif
+
+					// Here, we fill the operations arrays for the current batch to be processed by the stream
 					gasal_op_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_seq_mod + seqs_done - j, j, QUERY);
 					gasal_op_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, target_seq_mod + seqs_done - j, j, TARGET);
+
 
 					gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch = j;
 					uint32_t query_batch_bytes = query_batch_idx;
