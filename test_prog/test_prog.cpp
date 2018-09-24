@@ -181,10 +181,7 @@ int main(int argc, char *argv[]) {
 
 	}
 
-	// shit gets real here
-
 	cerr << "Processing..." << endl;
-
 
 	Timer total_time;
 	total_time.Start();
@@ -233,7 +230,7 @@ int main(int argc, char *argv[]) {
 
 	#ifdef DEBUG
 		fprintf(stderr, "Number of gpu_batch in gpu_batch_arr : %d\n", gpu_storage_vecs[omp_get_thread_num()].n);
-		fprintf(stderr, "Number of gpu_storage_vecs in a gpu_batch : %d\n", omp_get_thread_num());
+		fprintf(stderr, "Number of gpu_storage_vecs in a gpu_batch : %d\n", omp_get_thread_num()+1);
 	#endif
 
 	gpu_batch gpu_batch_arr[gpu_storage_vecs[omp_get_thread_num()].n];
@@ -251,6 +248,9 @@ int main(int argc, char *argv[]) {
 				gpu_batch_arr_idx++;
 			}
 			//---------------------------------------------------------------------------
+			// Needs to re-allocate the linked list in case the stream is recycled.
+			gasal_host_batch_recycle((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage));
+
 			if (seqs_done < n_seqs && gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n) {
 					uint32_t query_batch_idx = 0;
 					uint32_t target_batch_idx = 0;
@@ -273,13 +273,13 @@ int main(int argc, char *argv[]) {
 										query_seqs[i].c_str(), 
 										query_seqs[i].size(),
 										QUERY);
-										
+
 						target_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
 										target_batch_idx, 
 										target_seqs[i].c_str(), 
 										target_seqs[i].size(),
 										TARGET);
-						
+
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_lens[j] = query_seqs[i].size();
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_lens[j] = target_seqs[i].size();
 

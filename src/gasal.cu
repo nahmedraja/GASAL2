@@ -43,7 +43,7 @@ host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t
 {
 	cudaError_t err;
 	host_batch_t *res = (host_batch_t *)calloc(1, sizeof(host_batch_t));
-	CHECKCUDAERROR(cudaMallocHost(&(res->data), host_max_query_batch_bytes));
+	CHECKCUDAERROR(cudaMallocHost(&(res->data), host_max_query_batch_bytes*sizeof(uint8_t)));
 	res->offset = offset;
 	res->next = NULL;
 	return res;
@@ -52,11 +52,18 @@ host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t
 void gasal_host_batch_destroy(host_batch_t *res)
 {
 	cudaError_t err;
+	if (res==NULL)
+	{
+		fprintf(stderr, "[GASAL ERROR] Trying to free a NULL pointer\n");
+		exit(1);
+	}
 	// recursive function to destroy all the linked list
 	if (res->next != NULL)
 		gasal_host_batch_destroy(res->next);
 	if (res->data != NULL) 
+	{
 		CHECKCUDAERROR(cudaFreeHost(res->data));
+	}
 	
 	free(res);
 }
@@ -65,6 +72,15 @@ host_batch_t *gasal_host_batch_getlast(host_batch_t *arg)
 {
 	return (arg->next == NULL ? arg : gasal_host_batch_getlast(arg->next) );
 	
+}
+
+void gasal_host_batch_recycle(gasal_gpu_storage_t *gpu_storage_t)
+{	
+	// hard re-allocation.
+	gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_query_batch);
+	gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_target_batch);
+	gpu_storage_t->extensible_host_unpacked_query_batch = gasal_host_batch_new(gpu_storage_t->host_max_query_batch_bytes, 0);
+	gpu_storage_t->extensible_host_unpacked_target_batch = gasal_host_batch_new(gpu_storage_t->host_max_target_batch_bytes, 0);
 }
 
 
