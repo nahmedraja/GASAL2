@@ -14,9 +14,9 @@
 
 using namespace std;
 
-#define NB_STREAMS 2
+#define NB_STREAMS 3
 
-#define GPU_BATCH_SIZE 4000
+#define GPU_BATCH_SIZE 6000
 //#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
 
 #define DEBUG
@@ -281,7 +281,7 @@ int main(int argc, char *argv[]) {
 		
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
-						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE, 
+						0.3 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE, 
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE,
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
 						GPU_BATCH_SIZE, // maximum number of alignments is bigger on target than on query side.
@@ -406,7 +406,7 @@ int main(int argc, char *argv[]) {
 					}
 					//---------------------------------------------------------------------------------
 					// Needs to re-allocate the linked list in case the stream is recycled.
-					gasal_host_batch_recycle((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage));
+					//gasal_host_batch_recycle((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage));
 			}
 
 

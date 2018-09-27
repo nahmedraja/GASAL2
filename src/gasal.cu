@@ -118,22 +118,28 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx,
 
 	switch(SRC) {
 		case QUERY:
-			cur_page = gasal_host_batch_getlast(gpu_storage_t->extensible_host_unpacked_query_batch);
+			cur_page = (gpu_storage_t->extensible_host_unpacked_query_batch);
 			p_batch_bytes = &(gpu_storage_t->host_max_query_batch_bytes);
 		break;
 		case TARGET:
-			cur_page = gasal_host_batch_getlast(gpu_storage_t->extensible_host_unpacked_target_batch);
+			cur_page = (gpu_storage_t->extensible_host_unpacked_target_batch);
 			p_batch_bytes = &(gpu_storage_t->host_max_target_batch_bytes);
 		break;
 		default:
 		break;
 	}
+	
+	int nbr_N = 0;
+	while((size+nbr_N)%8)
+		nbr_N++;
+
 	int is_done = 0;
 
 	while (!is_done)
 	{
-		if (*p_batch_bytes >= idx + size)
+		if (*p_batch_bytes >= idx + size + nbr_N && (cur_page->next == NULL || (cur_page->next->offset >= idx + size + nbr_N)) )
 		{
+
 			memcpy(&(cur_page->data[idx - cur_page->offset]), data, size);
 	
 			idx = idx + size;
@@ -144,6 +150,10 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx,
 				idx++;
 			}
 			is_done = 1;
+		} else if ((*p_batch_bytes >= idx + size + nbr_N) && (cur_page->next != NULL) && (cur_page->next->offset < idx + size + nbr_N)) {
+			 
+			cur_page = cur_page->next;
+
 		} else {
 			fprintf(stderr,"[GASAL WARNING:] Trying to write %d bytes at position %d on host memory (%s) while only  %d bytes are available. Therefore, allocating %d bytes more on CPU. Repeating this many times can provoke a degradation of performance.\n",
 					size,
