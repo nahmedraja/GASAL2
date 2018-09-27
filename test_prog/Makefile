@@ -20,7 +20,11 @@ fullrun: all
 	 ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta > out.log
 
 nvprof: all
-	nvprof -f -o analysis.nvvp ./test_prog.out -p -y semi_global query_batch_rc.fasta target_batch_rc.fasta > out.log
+	nvprof -f -o analysis.nvprof ./test_prog.out -p -y semi_global query_batch_rc.fasta target_batch_rc.fasta > out.log
+
+nvprof-262k: all
+	nvprof -f -o analysis.nvprof ./test_prog.out -n 2 -p -y semi_global reads_150.fasta ref_150.fasta > out.log
+
 
 cuda-memcheck: all
 	 cuda-memcheck ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta

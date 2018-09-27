@@ -91,10 +91,18 @@ host_batch_t *gasal_host_batch_getlast(host_batch_t *arg)
 void gasal_host_batch_recycle(gasal_gpu_storage_t *gpu_storage_t)
 {	
 	// hard re-allocation.
-	gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_query_batch);
-	gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_target_batch);
-	gpu_storage_t->extensible_host_unpacked_query_batch = gasal_host_batch_new(gpu_storage_t->host_max_query_batch_bytes, 0);
-	gpu_storage_t->extensible_host_unpacked_target_batch = gasal_host_batch_new(gpu_storage_t->host_max_target_batch_bytes, 0);
+
+	if (gpu_storage_t != NULL)
+	{
+		#ifdef DEBUG
+			fprintf(stderr, "[GASAL DEBUG] Recycling linked list\n");
+		#endif
+		gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_query_batch);
+		gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_target_batch);
+		gpu_storage_t->extensible_host_unpacked_query_batch = gasal_host_batch_new(gpu_storage_t->host_max_query_batch_bytes, 0);
+		gpu_storage_t->extensible_host_unpacked_target_batch = gasal_host_batch_new(gpu_storage_t->host_max_target_batch_bytes, 0);
+	
+	}
 }
 
 
@@ -107,22 +115,28 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx,
 
 	switch(SRC) {
 		case QUERY:
-			cur_page = gasal_host_batch_getlast(gpu_storage_t->extensible_host_unpacked_query_batch);
+			cur_page = (gpu_storage_t->extensible_host_unpacked_query_batch);
 			p_batch_bytes = &(gpu_storage_t->host_max_query_batch_bytes);
 		break;
 		case TARGET:
-			cur_page = gasal_host_batch_getlast(gpu_storage_t->extensible_host_unpacked_target_batch);
+			cur_page = (gpu_storage_t->extensible_host_unpacked_target_batch);
 			p_batch_bytes = &(gpu_storage_t->host_max_target_batch_bytes);
 		break;
 		default:
 		break;
 	}
+	
+	int nbr_N = 0;
+	while((size+nbr_N)%8)
+		nbr_N++;
+
 	int is_done = 0;
 
 	while (!is_done)
 	{
-		if (*p_batch_bytes >= idx + size)
+		if (*p_batch_bytes >= idx + size + nbr_N && (cur_page->next == NULL || (cur_page->next->offset >= idx + size + nbr_N)) )
 		{
+
 			memcpy(&(cur_page->data[idx - cur_page->offset]), data, size);
 	
 			idx = idx + size;
@@ -133,6 +147,10 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx,
 				idx++;
 			}
 			is_done = 1;
+		} else if ((*p_batch_bytes >= idx + size + nbr_N) && (cur_page->next != NULL) && (cur_page->next->offset < idx + size + nbr_N)) {
+			 
+			cur_page = cur_page->next;
+
 		} else {
 			fprintf(stderr,"[GASAL WARNING:] Trying to write %d bytes at position %d on host memory (%s) while only  %d bytes are available. Therefore, allocating %d bytes more on CPU. Repeating this many times can provoke a degradation of performance.\n",
 					size,
@@ -620,22 +638,6 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 	CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->query_op, gpu_storage->host_query_op, actual_n_alns * sizeof(uint8_t), cudaMemcpyHostToDevice,  gpu_storage->str));
 	CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->target_op, gpu_storage->host_target_op, actual_n_alns * sizeof(uint8_t), cudaMemcpyHostToDevice,  gpu_storage->str));
 
-	
-	// Printers, can be removed. the DEBUG is set in gasal_kernels_inl.h
-	#ifdef DEBUG
-		fprintf(stderr, "[GASAL DEBUG]: actual_n_alns=%d. displaying host_query_op: ", actual_n_alns);
-		for (int i = 0; i < actual_n_alns; i++)
-		{
-			fprintf(stderr, "%d, ", gpu_storage->host_query_op[i]);
-		}
-		fprintf(stderr, "\n");
-		fprintf(stderr, "[GASAL DEBUG]: actual_n_alns=%d. displaying host_target_op: ", actual_n_alns);
-		for (int i = 0; i < actual_n_alns; i++)
-		{
-			fprintf(stderr, "%d, ", gpu_storage->host_target_op[i]);
-		}
-		fprintf(stderr, "\n");
-	#endif
 
 	//--------------------------------------launch reverse-complement kernel------------------------------------------------------
 	gasal_reversecomplement_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
