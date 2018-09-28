@@ -23,9 +23,11 @@ enum data_source{
 };
 
 enum algo_type{
+	UNKNOWN, 
 	LOCAL,
 	GLOBAL,
-	SEMI_GLOBAL
+	SEMI_GLOBAL,
+	BANDED,
 };
 
 enum operation_on_seq{
@@ -142,6 +144,7 @@ void gasal_host_batch_print(host_batch_t *res); 																		// printer
 void gasal_host_batch_printall(host_batch_t *res);																		// printer for the whole linked list
 void gasal_host_batch_recycle(gasal_gpu_storage_t *gpu_storage_t);
 
+// operation filler method (field in the gasal_gpu_storage_t field)
 void gasal_op_fill(gasal_gpu_storage_t *gpu_storage_t, uint8_t *data, uint32_t nbr_seqs_in_stream, data_source SRC);
 
 

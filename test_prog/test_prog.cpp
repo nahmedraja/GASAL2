@@ -14,9 +14,9 @@
 
 using namespace std;
 
-#define NB_STREAMS 12
+#define NB_STREAMS 2
 
-#define GPU_BATCH_SIZE 262144
+#define GPU_BATCH_SIZE 6000
 //#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
 
 #define DEBUG
@@ -29,10 +29,12 @@ using namespace std;
 int main(int argc, char *argv[]) {
 	int32_t c, sa = 1, sb = 4;
 	int32_t gapo = 6, gape = 1;
-	int start_pos = 0;
+	comp_start start_pos = WITHOUT_START;
 	int print_out = 0;
 	int n_threads = 1;
 	std::string al_type;
+	uint32_t banded_upper = 4;
+	uint32_t banded_lower = 4;
 
 // parse command line
 	while ((c = getopt(argc, argv, "a:b:q:r:n:y:sp")) >= 0) {
@@ -51,7 +53,7 @@ int main(int argc, char *argv[]) {
 			break;
 			break;
 		case 's':
-			start_pos = 1;
+			start_pos = WITH_START;
 			break;
 		case 'p':
 			print_out = 1;
@@ -61,8 +63,7 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'y':
 			al_type = std::string(optarg);
-			break;
-
+		break;
 		}
 	}
 
@@ -75,7 +76,8 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "         -s        also find the start position \n");
 		fprintf(stderr, "         -p        print the alignment results \n");
 		fprintf(stderr, "         -n        Number of threads \n");
-		fprintf(stderr, "         -y        Alignment type . Must be \"local\", \"semi_global\" or \"global\"  \n");
+		fprintf(stderr, "         -y        Alignment type . Must be \"local\", \"semi_global\", \"global\"  \"banded\" \n");
+		fprintf(stderr, "		  ");
 		fprintf(stderr, "\n");
 		return 1;
 	}
@@ -84,10 +86,22 @@ int main(int argc, char *argv[]) {
 		return 1;
 
 	}
-	if ( al_type.compare("local") != 0 && al_type.compare("semi_global") != 0 && al_type.compare("global") != 0) {
-		fprintf(stderr, "Unknown alignment type. Must be either \"local\" or \"semi_global\" or \"global\")\n");
+	algo_type algo = UNKNOWN;
+	if (!al_type.compare("local"))
+		algo = LOCAL;
+	else if (!al_type.compare("semi_global"))
+		algo = SEMI_GLOBAL;
+	else if (!al_type.compare("global"))
+		algo = GLOBAL;
+	else if (!al_type.compare("banded"))
+		algo = BANDED;
+
+	if ( algo == UNKNOWN) {
+		fprintf(stderr, "Unknown alignment type. Must be either \"local\" or \"semi_global\", \"global\", or \"banded\" (fixed width of 4--4)\n");
 		return 1;
 	}
+
+	fprintf(stderr, "Alignment entered: %s. If banded, bands: lower=%d, upper=%d\n", al_type.c_str(), banded_lower, banded_upper);
 
 	//--------------copy substitution scores to GPU--------------------
 	gasal_subst_scores sub_scores;
@@ -384,29 +398,12 @@ int main(int argc, char *argv[]) {
 
 
 					//-----------------calling the GASAL2 non-blocking alignment function---------------------------------
-					if (al_type.compare("local") == 0){
-						if(start_pos){
-							gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch,  LOCAL, WITH_START);
-						}
-						else {
-							gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch, LOCAL, WITHOUT_START);
-						}
-					}
-					else if (al_type.compare("semi_global") == 0) {
-						if (start_pos) {
-							gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch, SEMI_GLOBAL, WITH_START);
+					
+						
+					gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch,  algo, start_pos);
+						
 
-						} else {
-							gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch, SEMI_GLOBAL, WITHOUT_START);
-
-						}
-					} else {
-						gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch, GLOBAL, WITHOUT_START);
-
-					}
 					//---------------------------------------------------------------------------------
-					// Needs to re-allocate the linked list in case the stream is recycled.
-					//gasal_host_batch_recycle((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage));
 			}
 
 
@@ -459,7 +456,7 @@ int main(int argc, char *argv[]) {
 	}
 	free(gpu_storage_vecs);
 	total_time.Stop();
-	string algo = al_type;
+	string algorithm = al_type;
 	string start_type[2] = {"without_start", "with_start"};
 	al_type += "_";
 	al_type += start_type[start_pos];
