@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	fprintf(stderr, "Alignment entered: %s. If banded, bands: lower=%d, upper=%d\n", al_type.c_str(), banded_lower, banded_upper);
+	fprintf(stderr, "Options: algo=%d, start_pos=%d, upper band=%d, lower band=%d\n", algo, start_pos, banded_upper, banded_lower);
 
 	//--------------copy substitution scores to GPU--------------------
 	gasal_subst_scores sub_scores;
@@ -295,8 +295,8 @@ int main(int argc, char *argv[]) {
 		
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
-						0.3 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE, 
-						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE,
+						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
+						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE ,
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
 						GPU_BATCH_SIZE, // maximum number of alignments is bigger on target than on query side.
 						GPU_BATCH_SIZE, 
@@ -418,7 +418,7 @@ int main(int argc, char *argv[]) {
 #pragma omp critical
 						for (int i = gpu_batch_arr[gpu_batch_arr_idx].batch_start; j < gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch; i++, j++) {
 							if(al_type.compare("local") == 0) {
-								if (start_pos){
+								if (start_pos == WITH_START){
 									fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\tquery_batch_start=%d\ttarget_batch_start=%d\tquery_batch_end=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(),(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_start[j],
 											(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_start[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_end[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
 								}
@@ -426,7 +426,7 @@ int main(int argc, char *argv[]) {
 									fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\tquery_batch_end=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_end[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
 								}
 							} else if(al_type.compare("semi_global") == 0) {
-								if (start_pos){
+								if (start_pos == WITH_START){
 									fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\ttarget_batch_start=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_start[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
 
 								}
@@ -459,7 +459,7 @@ int main(int argc, char *argv[]) {
 	string algorithm = al_type;
 	string start_type[2] = {"without_start", "with_start"};
 	al_type += "_";
-	al_type += start_type[start_pos];
+	al_type += start_type[start_pos==WITH_START];
 	double av_misc_time = 0.0;
 	for (int i = 0; i < n_threads; ++i){
 		av_misc_time += (thread_misc_time[i]/n_threads);
