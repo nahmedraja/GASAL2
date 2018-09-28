@@ -23,8 +23,10 @@ nvprof: all
 	optirun nvprof -f -o analysis.nvprof ./test_prog.out -p -y semi_global query_batch_rc.fasta target_batch_rc.fasta > out.log
 
 nvprof-262k: all
-	optirun nvprof -f -o analysis.nvprof ./test_prog.out -n 2 -p -y semi_global reads_150.fasta ref_150.fasta > out.log
+	optirun nvprof -f -o analysis.nvprof ./test_prog.out -p -y semi_global reads_150.fasta ref_150.fasta > out.log
 
+262k: all
+	optirun ./test_prog.out -p -y semi_global reads_150.fasta ref_150.fasta > out.log
 
 cuda-memcheck: all
 	optirun cuda-memcheck ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
