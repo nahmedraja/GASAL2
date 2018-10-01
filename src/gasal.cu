@@ -653,36 +653,42 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 	}
 
     //--------------------------------------launch alignment kernels--------------------------------------------------------------
-        if(algo == LOCAL) {
-        	if (start == WITH_START) {
-        		gasal_local_with_start_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
-        				gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
-        				gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start,
-        				gpu_storage->target_batch_start, actual_n_alns);
-        	} else {
-        		gasal_local_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
-        				gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
-        				gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns);
-        	}
-        } else if (algo == SEMI_GLOBAL) {
-        	if (start == WITH_START) {
-        		gasal_semi_global_with_start_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
-        				gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->target_batch_end,
-        				gpu_storage->target_batch_start, actual_n_alns);
-        	} else {
-        		gasal_semi_global_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
-        				gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->target_batch_end,
-        				actual_n_alns);
-        	}
-
-        } else if (algo == GLOBAL) {
-        	gasal_global_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
-        			gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, actual_n_alns);
-        }
-        else {
-        	fprintf(stderr, "[GASAL ERROR:] Algo type invalid\n");
-        	exit(EXIT_FAILURE);
-        }
+	switch(algo){
+		case LOCAL:
+			if (start == WITH_START) {
+				gasal_local_with_start_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
+						gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
+						gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start,
+						gpu_storage->target_batch_start, actual_n_alns);
+			} else {
+				gasal_local_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
+						gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
+						gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns);
+			}
+		break;
+		case SEMI_GLOBAL:
+			if (start == WITH_START) {
+				gasal_semi_global_with_start_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
+						gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->target_batch_end,
+						gpu_storage->target_batch_start, actual_n_alns);
+			} else {
+				gasal_semi_global_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
+						gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->target_batch_end,
+						actual_n_alns);
+			}
+		break;
+		case GLOBAL:
+			gasal_global_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
+				gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, actual_n_alns);
+		break;
+		case BANDED:
+			
+		break;
+		default:
+			fprintf(stderr, "[GASAL ERROR:] Algo type invalid\n");
+			exit(EXIT_FAILURE);
+		break;
+	}
         //-----------------------------------------------------------------------------------------------------------------------
     cudaError_t aln_kernel_err = cudaGetLastError();
     if ( cudaSuccess != aln_kernel_err )

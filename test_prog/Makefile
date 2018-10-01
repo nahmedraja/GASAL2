@@ -1,4 +1,5 @@
 CUDA_LD_LIBRARY=/usr/lib/x86_64-linux-gnu/
+ANALYSIS_FILENAME=analysis
 
 .cpp.o:
 	g++ -g -c -O3 -Wall -Werror -fopenmp -I ../include  -o test_prog.o test_prog.cpp
@@ -20,10 +21,12 @@ fullrun: all
 	optirun ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta > out.log
 
 nvprof: all
-	optirun nvprof -f -o analysis.nvprof ./test_prog.out -p -y semi_global query_batch_rc.fasta target_batch_rc.fasta > out.log
+	optirun nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y semi_global query_batch_rc.fasta target_batch_rc.fasta > out.log
+	nvvp $(ANALYSIS_FILENAME).nvprof
 
 nvprof-262k: all
-	optirun nvprof -f -o analysis.nvprof ./test_prog.out -p -y semi_global reads_150.fasta ref_150.fasta > out.log
+	optirun nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y semi_global reads_150.fasta ref_150.fasta > out.log
+	nvvp $(ANALYSIS_FILENAME).nvprof
 
 262k: all
 	optirun ./test_prog.out -p -y semi_global reads_150.fasta ref_150.fasta > out.log
