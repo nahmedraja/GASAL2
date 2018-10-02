@@ -15,30 +15,36 @@ clean:
 test_prog.o: Timer.h
 
 run: all
-	optirun ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta  
+	optirun ./test_prog.out -p -y local short_query_batch.fasta short_target_batch.fasta  
+
+run2: all
+	optirun ./test_prog.out -p -y banded short_query_batch.fasta short_target_batch.fasta  
 
 fullrun: all
-	optirun ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta > out.log
+	optirun ./test_prog.out -p -y local query_batch.fasta target_batch.fasta > out.log
+
+fullrun2: all
+	optirun ./test_prog.out -p -y banded query_batch.fasta target_batch.fasta > out.log
 
 nvprof: all
-	optirun nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y semi_global query_batch_rc.fasta target_batch_rc.fasta > out.log
+	optirun nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y local query_batch_rc.fasta target_batch_rc.fasta > out.log
 	nvvp $(ANALYSIS_FILENAME).nvprof
 
 nvprof-262k: all
-	optirun nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y semi_global reads_150.fasta ref_150.fasta > out.log
+	optirun nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y local reads_150.fasta ref_150.fasta > out.log
 	nvvp $(ANALYSIS_FILENAME).nvprof
 
 262k: all
-	optirun ./test_prog.out -p -y semi_global reads_150.fasta ref_150.fasta > out.log
+	optirun ./test_prog.out -p -y local reads_150.fasta ref_150.fasta > out.log
 
 cuda-memcheck: all
-	optirun cuda-memcheck ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
+	optirun cuda-memcheck ./test_prog.out -p -y local query_batch.fasta target_batch.fasta
 
 cuda-gdb: all
-	optirun cuda-gdb --args ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta
+	optirun cuda-gdb --args ./test_prog.out -p -y local query_batch.fasta target_batch.fasta
 
 valgrind: all
-	optirun valgrind ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta
+	optirun valgrind ./test_prog.out -p -y local short_query_batch.fasta short_target_batch.fasta
 
 gdb: all
-	optirun gdb --args ./test_prog.out -p -y semi_global short_query_batch.fasta short_target_batch.fasta
+	optirun gdb --args ./test_prog.out -p -y local short_query_batch.fasta short_target_batch.fasta

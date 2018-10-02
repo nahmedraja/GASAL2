@@ -300,8 +300,8 @@ int main(int argc, char *argv[]) {
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
 						GPU_BATCH_SIZE, // maximum number of alignments is bigger on target than on query side.
 						GPU_BATCH_SIZE, 
-							LOCAL, 
-							WITH_START);
+						LOCAL, 
+						WITH_START);
 
 	}
 	#ifdef DEBUG
@@ -417,7 +417,7 @@ int main(int argc, char *argv[]) {
 
 #pragma omp critical
 						for (int i = gpu_batch_arr[gpu_batch_arr_idx].batch_start; j < gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch; i++, j++) {
-							if(al_type.compare("local") == 0) {
+							if(al_type.compare("local") == 0 || al_type.compare("banded") == 0) {
 								if (start_pos == WITH_START){
 									fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\tquery_batch_start=%d\ttarget_batch_start=%d\tquery_batch_end=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(),(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_start[j],
 											(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_start[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_end[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);

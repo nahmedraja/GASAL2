@@ -682,7 +682,15 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 				gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, actual_n_alns);
 		break;
 		case BANDED:
-			
+		if (start == WITH_START) {
+		
+			fprintf(stderr, "[GASAL ERROR] Not yet implemented :(\nTerminating.");
+			exit(1);
+		} else {
+
+			fprintf(stderr, "[GASAL WARNING] Running banded alignment - consider it experimental.\n");
+			gasal_banded_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns, 15);
+		}
 		break;
 		default:
 			fprintf(stderr, "[GASAL ERROR:] Algo type invalid\n");
