@@ -33,11 +33,10 @@ int main(int argc, char *argv[]) {
 	int print_out = 0;
 	int n_threads = 1;
 	std::string al_type;
-	uint32_t banded_upper = 4;
-	uint32_t banded_lower = 4;
+	int32_t k_band = 20;
 
 // parse command line
-	while ((c = getopt(argc, argv, "a:b:q:r:n:y:sp")) >= 0) {
+	while ((c = getopt(argc, argv, "a:b:q:r:n:y:k:sp")) >= 0) {
 		switch (c) {
 		case 'a':
 			sa = atoi(optarg);
@@ -63,7 +62,11 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'y':
 			al_type = std::string(optarg);
-		break;
+			break;
+		case 'k':
+			k_band = atoi(optarg);
+			break;
+
 		}
 	}
 
@@ -76,7 +79,8 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "         -s        also find the start position \n");
 		fprintf(stderr, "         -p        print the alignment results \n");
 		fprintf(stderr, "         -n        Number of threads \n");
-		fprintf(stderr, "         -y        Alignment type . Must be \"local\", \"semi_global\", \"global\"  \"banded\" \n");
+		fprintf(stderr, "         -y        Alignment type . Must be \"local\", \"semi_global\", \"global\"  \"banded INT\" (size of band) \n");
+		fprintf(stderr, "         -k INT    Band width in case \"banded\" is selected.\n");
 		fprintf(stderr, "		  ");
 		fprintf(stderr, "\n");
 		return 1;
@@ -101,7 +105,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	fprintf(stderr, "Options: algo=%d, start_pos=%d, upper band=%d, lower band=%d\n", algo, start_pos, banded_upper, banded_lower);
+	fprintf(stderr, "Options: algo=%d, start_pos=%d, band k_band=%d\n", algo, start_pos, k_band);
 
 	//--------------copy substitution scores to GPU--------------------
 	gasal_subst_scores sub_scores;
@@ -353,13 +357,13 @@ int main(int argc, char *argv[]) {
 
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;
+
 						/*
 							All the filling is moved on the library size, to take care of the memory size and expansions (when needed).
 							The function gasal_host_batch_fill takes care of how to fill, how much to pad with 'N', and how to deal with memory. 
 							It's the same function for query and target, and you only need to set the final flag to either ; this avoides code duplication.
 							The way the host memory is filled changes the current _idx (it's increased by size, and by the padding). That's why it's returned by the function.
 						*/
-
 
 						query_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
 										query_batch_idx, 
@@ -400,7 +404,7 @@ int main(int argc, char *argv[]) {
 					//-----------------calling the GASAL2 non-blocking alignment function---------------------------------
 					
 						
-					gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch,  algo, start_pos);
+					gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch,  algo, start_pos, k_band);
 						
 
 					//---------------------------------------------------------------------------------

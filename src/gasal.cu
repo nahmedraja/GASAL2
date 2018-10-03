@@ -410,7 +410,7 @@ void gasal_aln(gasal_gpu_storage_t *gpu_storage, const uint8_t *query_batch, con
 
 
 //GASAL2 asynchronous (a.k.a non-blocking) alignment function
-void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_query_batch_bytes, const uint32_t actual_target_batch_bytes, const uint32_t actual_n_alns, algo_type algo, comp_start start) {
+void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_query_batch_bytes, const uint32_t actual_target_batch_bytes, const uint32_t actual_n_alns, algo_type algo, comp_start start, int32_t k_band) {
 
 	cudaError_t err;
 	if (actual_n_alns <= 0) {
@@ -688,8 +688,8 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 			exit(1);
 		} else {
 
-			fprintf(stderr, "[GASAL WARNING] Running banded alignment - consider it experimental.\n");
-			gasal_banded_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns, 15);
+			fprintf(stderr, "[GASAL WARNING] Running banded alignment - consider it experimental!\n");
+			gasal_banded_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns, k_band);
 		}
 		break;
 		default:
