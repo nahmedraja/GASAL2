@@ -941,28 +941,32 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 	int32_t p[9];
 	//--------------------------------------------
 
-	// table of retained and left cells
+	// table of cells (don't use it with sequences larger than ~50 bases)
 	
-		#ifdef DEBUG
-		if (tid==0) {
-			for (j = 0; j < query_batch_regs*8; j+=1) {
-				printf("%03d", j);
-				for (i = 0; i < target_batch_regs*8; i++) {
-					int x = i;
-					int y = j;
-					if (y > k_band_width + x || x > y + (target_batch_regs*8 - (query_batch_regs*8 - k_band_width)))
-					{
-						printf("_");
-					} else {
-						printf("#");
-					}
+	#ifdef DEBUG
+	if (tid==0) {
+		for (j = 1; j <= query_batch_regs*8; j+=1) {
+			printf("%03d\t", j);
+			for (i = 1; i <= target_batch_regs*8; i++) {
+				int x = i;
+				int y = j;
+				if (y > k_band_width + x || x > y + (target_batch_regs*8 - (query_batch_regs*8 - k_band_width)))
+				{
+					printf("_");
+				} else {
+					printf("#");
 				}
-				printf("\n");
-				
+				if (i%8 == 0)
+					printf(" ");
 			}
+			printf("\n");
+			if (j%8 == 0)
+				printf("\n");
+			
 		}
-		#endif
-
+	}
+	#endif
+	
 
 	//------------------------
 	for (i = 0; i < MAX_SEQ_LEN; i++) {
@@ -980,7 +984,7 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 		gidx = i << 3;
 		ridx = 0;
 
-		for (j = 0; j < query_batch_regs; j+=1) { //query_batch sequence in columns
+		for (j = 0; j < query_batch_regs; j++) { //query_batch sequence in columns
 			register uint32_t rpac =packed_query_batch[packed_query_batch_idx + j];//load 8 bases from query_batch sequence
 
 			//--------------compute a tile of 8x8 cells-------------------
@@ -993,23 +997,29 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 				//-------------------------------------------
 				int32_t prev_hm_diff = h[0] - _cudaGapOE;
 
-				#ifdef DEBUG
-				if (tid==0)
-					//printf("%03d>\t", i);
-				#endif
-
-#pragma unroll 8
+				#pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 					// let x,y be the coordinates of the cell in the DP matrix.
 					int32_t x = ((i) << 3) + ((28-k)>>2);
 					int32_t y = ((j) << 3) + ((28-l)>>2);
+					/*
+					// display ALL CELLS
+					if (tid==0)
+						printf("(%d, %d) - ", x, y);
+					*/
 
 					if (y > k_band_width + x || x > y + (target_batch_regs*8 - (query_batch_regs*8 - k_band_width)))
 					{
-						p[m] = MINUS_INF;
-						h[m] = 0;
-					} else {
+						#ifdef DEBUG
+						if(tid==0)
+						{
+							printf("(%d, %d) - ",x, y);
+						}
+						#endif
 
+						h[m] = 0;
+
+					} else {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
 					int32_t curr_hm_diff = h[m]- _cudaGapOE;
@@ -1020,10 +1030,14 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 					e = max(prev_hm_diff, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
 					prev_hm_diff = curr_hm_diff;
 					h[m] = max(h[m], e);
-					FIND_MAX(h[m], gidx + (m-1))//the current maximum score and corresponding end position on target_batch sequence
-						p[m] = h[m-1];
-					}
+					
+					
+					//FIND_MAX(h[m], gidx + (m-1))//the current maximum score and corresponding end position on target_batch sequence
+					maxXY_y = (maxHH < h[m]) ? (gidx + (m-1)) : maxXY_y;
+					maxHH = (maxHH < h[m]) ? h[m] : maxHH;
 
+					p[m] = h[m-1];
+					}
 				}
 				//----------save intermediate values------------
 				HD.x = h[m-1];
@@ -1033,10 +1047,13 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 				maxXY_x = (prev_maxHH < maxHH) ? ridx : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
 				prev_maxHH = max(maxHH, prev_maxHH);
 				ridx++;
-
 			}
 			//-------------------------------------------------------
-
+			// 8*8 patch done
+			#ifdef DEBUG
+			if(tid==0)
+			printf("\n");
+			#endif
 		}
 
 	}
@@ -1047,7 +1064,5 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 
 	return;
 
-
 }
-
 
