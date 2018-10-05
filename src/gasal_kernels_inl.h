@@ -289,18 +289,18 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
 				h[0] = HD.x;
 				e = HD.y;
 				//-------------------------------------------
-				int32_t prev_hm_diff = h[0] - _cudaGapOE;
+				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
 #pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
-					int32_t curr_hm_diff = h[m]- _cudaGapOE;
-					f[m] = max(curr_hm_diff, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
+					//int32_t curr_hm_diff = h[m] - _cudaGapOE;
+					f[m] = max(h[m]- _cudaGapOE, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
 					h[m] = p[m] + subScore;//score if rbase is aligned to gbase
 					h[m] = max(h[m], f[m]);
 					h[m] = max(h[m], 0);
-					e = max(prev_hm_diff, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
-					prev_hm_diff = curr_hm_diff;
+					e = max(h[m - 1] - _cudaGapOE, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
+					//prev_hm_diff=curr_hm_diff;
 					h[m] = max(h[m], e);
 					FIND_MAX(h[m], gidx + (m-1))//the current maximum score and corresponding end position on target_batch sequence
 						p[m] = h[m-1];
@@ -556,17 +556,17 @@ __global__ void gasal_global_kernel(uint32_t *packed_query_batch, uint32_t *pack
 				h[0] = HD.x;
 				e = HD.y;
 				//----------------------------------------------------------
-				int32_t prev_hm_diff = h[0] - _cudaGapOE;
+				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
 #pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_GLOBAL(subScore, rbase, gbase);//check the equality of rbase and gbase
-					int32_t curr_hm_diff = h[m]- _cudaGapOE;
-					f[m] = max(curr_hm_diff, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
+					//int32_t curr_hm_diff = h[m] - _cudaGapOE;
+					f[m] = max(h[m]- _cudaGapOE, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
 					h[m] = p[m] + subScore;//score if gbase is aligned to rbase
 					h[m] = max(h[m], f[m]);
-					e = max(prev_hm_diff, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
-					prev_hm_diff = curr_hm_diff;
+					e = max(h[m - 1] - _cudaGapOE, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
+					//prev_hm_diff=curr_hm_diff;
 					h[m] = max(h[m], e);
 					p[m] = h[m-1];
 
@@ -651,17 +651,17 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 				h[0] = HD.x;
 				e = HD.y;
 				//----------------------------------------------------------
-				int32_t prev_hm_diff = h[0] - _cudaGapOE;
+				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
 #pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_GLOBAL(subScore, rbase, gbase);//check the equality of rbase and gbase
-					int32_t curr_hm_diff = h[m]- _cudaGapOE;
-					f[m] = max(curr_hm_diff, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
+					//int32_t curr_hm_diff = h[m] - _cudaGapOE;
+					f[m] = max(h[m]- _cudaGapOE, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
 					h[m] = p[m] + subScore;//score if gbase is aligned to rbase
 					h[m] = max(h[m], f[m]);
-					e = max(prev_hm_diff, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
-					prev_hm_diff = curr_hm_diff;
+					e = max(h[m - 1] - _cudaGapOE, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
+					//prev_hm_diff=curr_hm_diff;
 					h[m] = max(h[m], e);
 					p[m] = h[m-1];
 				}
@@ -748,18 +748,18 @@ __global__ void gasal_semi_global_with_start_kernel(uint32_t *packed_query_batch
 				h[0] = HD.x;
 				e = HD.y;
 				//----------------------------------------------------------
-				int32_t prev_hm_diff = h[0] - _cudaGapOE;
+				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
 #pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_GLOBAL(subScore, rbase, gbase);//check the equality of rbase and gbase
-					int32_t curr_hm_diff = h[m]- _cudaGapOE;
-					f[m] = max(curr_hm_diff, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
+					//int32_t curr_hm_diff = h[m] - _cudaGapOE;
+					f[m] = max(h[m]- _cudaGapOE, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
 					h[m] = p[m] + subScore;//score if gbase is aligned to rbase
 					h[m] = max(h[m], f[m]);
-					e = max(prev_hm_diff, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
-					prev_hm_diff = curr_hm_diff;
+					e = max(h[m - 1] - _cudaGapOE, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
+					//prev_hm_diff=curr_hm_diff;
 					h[m] = max(h[m], e);
 					p[m] = h[m-1];
 				}
@@ -868,17 +868,17 @@ __global__ void gasal_semi_global_with_start_kernel(uint32_t *packed_query_batch
 				h[0] = HD.x;
 				e = HD.y;
 				//--------------------------------------------------------
-				int32_t prev_hm_diff = h[0] - _cudaGapOE;
+				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
 #pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_GLOBAL(subScore, rbase, gbase);//check the equality of rbase and gbase
-					int32_t curr_hm_diff = h[m]- _cudaGapOE;
-					f[m] = max(curr_hm_diff, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
+					//int32_t curr_hm_diff = h[m] - _cudaGapOE;
+					f[m] = max(h[m]- _cudaGapOE, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
 					h[m] = p[m] + subScore;//score if gbase is aligned to rbase
 					h[m] = max(h[m], f[m]);
-					e = max(prev_hm_diff, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
-					prev_hm_diff = curr_hm_diff;
+					e = max(h[m - 1] - _cudaGapOE, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
+					//prev_hm_diff=curr_hm_diff;
 					h[m] = max(h[m], e);
 					p[m] = h[m-1];
 				}
@@ -996,7 +996,7 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 				h[0] = HD.x;
 				e = HD.y;
 				//-------------------------------------------
-				int32_t prev_hm_diff = h[0] - _cudaGapOE;
+				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
 
 				#pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
@@ -1023,13 +1023,13 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 					} else {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
-					int32_t curr_hm_diff = h[m]- _cudaGapOE;
-					f[m] = max(curr_hm_diff, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
+					//int32_t curr_hm_diff = h[m] - _cudaGapOE;
+					f[m] = max(h[m]- _cudaGapOE, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
 					h[m] = p[m] + subScore;//score if rbase is aligned to gbase
 					h[m] = max(h[m], f[m]);
 					h[m] = max(h[m], 0);
-					e = max(prev_hm_diff, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
-					prev_hm_diff = curr_hm_diff;
+					e = max(h[m - 1] - _cudaGapOE, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
+					//prev_hm_diff=curr_hm_diff;
 					h[m] = max(h[m], e);
 					
 					
@@ -1149,7 +1149,7 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 				h[0] = HD.x;
 				e = HD.y;
 				//-------------------------------------------
-				int32_t prev_hm_diff = h[0] - _cudaGapOE;
+				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
 
 				#pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
@@ -1176,13 +1176,13 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 					} else {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
-					int32_t curr_hm_diff = h[m]- _cudaGapOE;
-					f[m] = max(curr_hm_diff, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
+					//int32_t curr_hm_diff = h[m] - _cudaGapOE;
+					f[m] = max(h[m]- _cudaGapOE, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
 					h[m] = p[m] + subScore;//score if rbase is aligned to gbase
 					h[m] = max(h[m], f[m]);
 					h[m] = max(h[m], 0);
-					e = max(prev_hm_diff, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
-					prev_hm_diff = curr_hm_diff;
+					e = max(h[m - 1] - _cudaGapOE, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
+					//prev_hm_diff=curr_hm_diff;
 					h[m] = max(h[m], e);
 						
 					FIND_MAX(h[m], gidx + (m-1))//the current maximum score and corresponding end position on target_batch sequence
