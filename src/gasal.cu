@@ -654,6 +654,7 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 
     //--------------------------------------launch alignment kernels--------------------------------------------------------------
 	switch(algo){
+
 		case LOCAL:
 			if (start == WITH_START) {
 				gasal_local_with_start_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
@@ -684,11 +685,12 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		case BANDED:
 		if (start == WITH_START) {
 		
-			fprintf(stderr, "[GASAL ERROR] Not yet implemented :(\nTerminating.");
-			exit(1);
+			fprintf(stderr, "[GASAL WARNING] Running banded local alignment - consider it experimental!\n");
+			gasal_banded_with_start_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start, gpu_storage->target_batch_start, actual_n_alns, k_band);
+			
 		} else {
 
-			fprintf(stderr, "[GASAL WARNING] Running banded alignment - consider it experimental!\n");
+			fprintf(stderr, "[GASAL WARNING] Running banded local alignment - consider it experimental!\n");
 			gasal_banded_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns, k_band);
 		}
 		break;
@@ -697,6 +699,7 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 			exit(EXIT_FAILURE);
 		break;
 	}
+
         //-----------------------------------------------------------------------------------------------------------------------
     cudaError_t aln_kernel_err = cudaGetLastError();
     if ( cudaSuccess != aln_kernel_err )

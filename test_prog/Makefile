@@ -15,16 +15,16 @@ clean:
 test_prog.o: Timer.h
 
 run: all
-	optirun ./test_prog.out -p -y local short_query_batch.fasta short_target_batch.fasta  
+	optirun ./test_prog.out -s -p -y local short_query_batch.fasta short_target_batch.fasta  
 
 run2: all
-	optirun ./test_prog.out -p -y banded short_query_batch.fasta short_target_batch.fasta  
+	optirun ./test_prog.out -s -p -y banded -k 152 short_query_batch.fasta short_target_batch.fasta  
 
 fullrun: all
-	optirun ./test_prog.out -p -y local query_batch.fasta target_batch.fasta > out.log
+	optirun ./test_prog.out -s -p -y local query_batch.fasta target_batch.fasta > out.log
 
 fullrun2: all
-	optirun ./test_prog.out -p -y banded -k 140 query_batch.fasta target_batch.fasta > out.log
+	optirun ./test_prog.out -s -p -y banded -k 151 query_batch.fasta target_batch.fasta > out.log
 
 nvprof: all
 	optirun nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y local query_batch_rc.fasta target_batch_rc.fasta > out.log
