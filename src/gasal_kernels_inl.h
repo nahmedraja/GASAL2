@@ -939,6 +939,8 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 	int32_t h[9];
 	int32_t f[9];
 	int32_t p[9];
+	int32_t k_band_width_loc = k_band_width<<3;
+	int32_t k_other_band_width = (target_batch_regs*8 - (query_batch_regs*8 - k_band_width));
 	//--------------------------------------------
 
 	// table of cells (don't use it with sequences larger than ~50 bases)
@@ -990,7 +992,7 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 
 			//--------------compute a tile of 8x8 cells-------------------
 			for (k = 28; k >= 0; k -= 4) {
-				uint32_t rbase = (rpac >> k) & 0x0F;//get a base from query_batch sequence
+				register uint32_t rbase = (rpac >> k) & 0x0F;//get a base from query_batch sequence
 				//-----load intermediate values--------------
 				HD = global[ridx];
 				h[0] = HD.x;
@@ -1001,15 +1003,14 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 				#pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 					// let x,y be the coordinates of the cell in the DP matrix.
-					int32_t x = ((i) << 3) + ((28-k)>>2);
-					int32_t y = ((j) << 3) + ((28-l)>>2);
+					int32_t x_minus_y = ((i) << 3) + (((28-k)>>2) - (((j) << 3) + ((28-l)>>2)));
 					/*
 					// display ALL CELLS
 					if (tid==0)
 						printf("(%d, %d) - ", x, y);
 					*/
 
-					if (y > k_band_width + x || x > y + (target_batch_regs*8 - (query_batch_regs*8 - k_band_width)))
+					if (-x_minus_y > k_band_width || x_minus_y > k_other_band_width)
 					{
 						#ifdef DEBUG
 						if(tid==0)
@@ -1021,7 +1022,7 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 						h[m] = 0;
 
 					} else {
-					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
+					register uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
 					//int32_t curr_hm_diff = h[m] - _cudaGapOE;
 					f[m] = max(h[m]- _cudaGapOE, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
