@@ -1259,8 +1259,27 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 				//-----------------------------------------------
 #pragma unroll 8
 				for (l = 0, m = 1; l <= 28; l += 4, m++) {
-					
+					// let x,y be the coordinates of the cell in the DP matrix.
+					int32_t x = ((i) << 3) + ((28-k)>>2);
+					int32_t y = ((j) << 3) + ((28-l)>>2);
+					/*
+					// display ALL CELLS
+					if (tid==0)
+						printf("(%d, %d) - ", x, y);
+					*/
 
+					if (y > k_band_width + x || x > y + (target_batch_regs*8 - (query_batch_regs*8 - k_band_width)))
+					{
+						#ifdef DEBUG
+						if(tid==0)
+						{
+							printf("(%d, %d) - ",x, y);
+						}
+						#endif
+
+						h[m] = 0;
+
+					} else {
 						uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 						DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
 						f[m] = max(h[m]- _cudaGapOE, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
@@ -1273,8 +1292,7 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 
 						FIND_MAX(h[m], gidx - (m -1));//the current maximum score and corresponding start position on target_batch sequence
 						p[m] = h[m-1];
-
-					
+					}
 				}
 				//------------save intermediate values----------------
 				HD.x = h[m-1];
