@@ -290,7 +290,7 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
 				e = HD.y;
 				//-------------------------------------------
 				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
-#pragma unroll 8
+	#pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
@@ -379,7 +379,7 @@ __global__ void gasal_local_with_start_kernel(uint32_t *packed_query_batch, uint
 				h[0] = HD.x;
 				e = HD.y;
 				//------------------------------------------------
-#pragma unroll 8
+	#pragma unroll 8
 
 				for (l = 28, m = 1; l >= 0; l -= 4, m++) {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
@@ -458,7 +458,7 @@ __global__ void gasal_local_with_start_kernel(uint32_t *packed_query_batch, uint
 				h[0] = HD.x;
 				e = HD.y;
 				//-----------------------------------------------
-#pragma unroll 8
+	#pragma unroll 8
 				for (l = 0, m = 1; l <= 28; l += 4, m++) {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
@@ -557,7 +557,7 @@ __global__ void gasal_global_kernel(uint32_t *packed_query_batch, uint32_t *pack
 				e = HD.y;
 				//----------------------------------------------------------
 				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
-#pragma unroll 8
+	#pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_GLOBAL(subScore, rbase, gbase);//check the equality of rbase and gbase
@@ -652,7 +652,7 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 				e = HD.y;
 				//----------------------------------------------------------
 				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
-#pragma unroll 8
+	#pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_GLOBAL(subScore, rbase, gbase);//check the equality of rbase and gbase
@@ -749,7 +749,7 @@ __global__ void gasal_semi_global_with_start_kernel(uint32_t *packed_query_batch
 				e = HD.y;
 				//----------------------------------------------------------
 				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
-#pragma unroll 8
+	#pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
@@ -869,7 +869,7 @@ __global__ void gasal_semi_global_with_start_kernel(uint32_t *packed_query_batch
 				e = HD.y;
 				//--------------------------------------------------------
 				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
-#pragma unroll 8
+	#pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_GLOBAL(subScore, rbase, gbase);//check the equality of rbase and gbase
@@ -1258,7 +1258,7 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 				h[0] = HD.x;
 				e = HD.y;
 				//-----------------------------------------------
-#pragma unroll 8
+	#pragma unroll 8
 				for (l = 0, m = 1; l <= 28; l += 4, m++) {
 					// let x,y be the coordinates of the cell in the DP matrix.
 					int32_t x = ((i) << 3) + ((28-k)>>2);
