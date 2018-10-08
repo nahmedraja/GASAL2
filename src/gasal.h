@@ -45,7 +45,6 @@ struct host_batch{
 };
 typedef struct host_batch host_batch_t;
 
-
 //stream data
 typedef struct {
 	uint8_t *unpacked_query_batch;

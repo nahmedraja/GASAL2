@@ -24,8 +24,6 @@ using namespace std;
 #define MAX(a,b) (a>b ? a : b)
 
 
-
-
 int main(int argc, char *argv[]) {
 	int32_t c, sa = 1, sb = 4;
 	int32_t gapo = 6, gape = 1;

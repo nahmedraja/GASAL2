@@ -1,8 +1,5 @@
 #include "gasal.h"
 
-
-
-
 #define CHECKCUDAERROR(error) \
 		do{\
 			err = error;\

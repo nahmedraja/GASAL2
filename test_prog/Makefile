@@ -15,45 +15,45 @@ clean:
 test_prog.o: Timer.h
 
 run: all
-	optirun ./test_prog.out -p -y local short_query_batch.fasta short_target_batch.fasta  
+	./test_prog.out -p -y local short_query_batch.fasta short_target_batch.fasta  
 
 run2: all
-	optirun ./test_prog.out -p -y banded -k 150 short_query_batch.fasta short_target_batch.fasta  
+	./test_prog.out -p -y banded -k 150 short_query_batch.fasta short_target_batch.fasta  
 
 fullrun: all
-	optirun ./test_prog.out -p -y local query_batch.fasta target_batch.fasta > golden.log
+	./test_prog.out -p -y local query_batch.fasta target_batch.fasta > golden.log
 
 fullrun2: all
-	optirun ./test_prog.out -p -y banded -k 110 query_batch.fasta target_batch.fasta > out.log
+	./test_prog.out -p -y banded -k 110 query_batch.fasta target_batch.fasta > out.log
 
 nvprof: all
-	optirun nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y local query_batch.fasta target_batch.fasta > golden.log
+	nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y local query_batch.fasta target_batch.fasta > golden.log
 
 nvprof2: all
-	optirun nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y banded -k 90 query_batch.fasta target_batch.fasta > out.log
+	nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y banded -k 90 query_batch.fasta target_batch.fasta > out.log
 
 nvprof-262k: all
-	optirun nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y local reads_150.fasta ref_150.fasta > out.log
+	nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y local reads_150.fasta ref_150.fasta > out.log
 	nvvp $(ANALYSIS_FILENAME).nvprof
 
 nvprof-262k-banded: all
-	optirun nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y banded -k 90 reads_150.fasta ref_150.fasta > out.log
+	nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y banded -k 90 reads_150.fasta ref_150.fasta > out.log
 	nvvp $(ANALYSIS_FILENAME).nvprof
 
 262k: all
-	optirun ./test_prog.out -p -y local reads_150.fasta ref_150.fasta > golden.log
+	./test_prog.out -p -y local reads_150.fasta ref_150.fasta > golden.log
 
 262k-banded: all
-	optirun ./test_prog.out -p -y banded -k 90 reads_150.fasta ref_150.fasta > out.log
+	./test_prog.out -p -y banded -k 90 reads_150.fasta ref_150.fasta > out.log
 
 cuda-memcheck: all
-	optirun cuda-memcheck ./test_prog.out -p -y banded short_query_batch.fasta short_target_batch.fasta
+	cuda-memcheck ./test_prog.out -p -y banded short_query_batch.fasta short_target_batch.fasta
 
 cuda-gdb: all
-	optirun cuda-gdb --args ./test_prog.out -p -y local query_batch.fasta target_batch.fasta
+	cuda-gdb --args ./test_prog.out -p -y local query_batch.fasta target_batch.fasta
 
 valgrind: all
-	optirun valgrind ./test_prog.out -p -y local short_query_batch.fasta short_target_batch.fasta
+	valgrind ./test_prog.out -p -y local short_query_batch.fasta short_target_batch.fasta
 
 gdb: all
-	optirun gdb --args ./test_prog.out -p -y local short_query_batch.fasta short_target_batch.fasta
+	gdb --args ./test_prog.out -p -y local short_query_batch.fasta short_target_batch.fasta
