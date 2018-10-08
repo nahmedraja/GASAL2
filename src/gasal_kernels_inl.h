@@ -1397,24 +1397,28 @@ __global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t
 			f[m] = 0;
 			p[m] = 0;
 		}
-		register uint32_t gpac =packed_target_batch[packed_target_batch_idx + i];//load 8 packed bases from target_batch sequence
+		
+		uint32_t gpac =packed_target_batch[packed_target_batch_idx + i];//load 8 packed bases from target_batch sequence
 		gidx = i << 3;
-		ridx = 0;
+		ridx = MAX(0, i - k_other_band_width+1) << 3;
 
-		for (j = MAX(0, i - k_other_band_width)  ; j < MIN( k_band_width_loc + i, (int32_t)query_batch_regs); j++) { //query_batch sequence in columns
+		for (j = MAX(0, i - k_other_band_width+1)  ; j < MIN( k_band_width_loc + i, (int32_t)query_batch_regs); j++) { //query_batch sequence in columns
 
 
 			#ifdef DEBUG
-			if(tid==0)
+			if(tid==1)
 			{
-				printf("i,j = (%d, %d) \n",i, j);
+				if (j == MAX(0, i - k_other_band_width+1) || j == MIN( k_band_width_loc + i, (int32_t)query_batch_regs) - 1)
+				printf("i,j = (%d, %d) - ",i, j);
+				if ( j == MIN( k_band_width_loc + i, (int32_t)query_batch_regs) - 1)
+					printf("\n");
 			}
 			#endif
-			register uint32_t rpac =packed_query_batch[packed_query_batch_idx + j];//load 8 bases from query_batch sequence
+			uint32_t rpac =packed_query_batch[packed_query_batch_idx + j];//load 8 bases from query_batch sequence
 
 				//--------------compute a tile of 8x8 cells-------------------
 				for (k = 28; k >= 0; k -= 4) {
-					register uint32_t rbase = (rpac >> k) & 0x0F;//get a base from query_batch sequence
+					uint32_t rbase = (rpac >> k) & 0x0F;//get a base from query_batch sequence
 					//-----load intermediate values--------------
 					HD = global[ridx];
 					h[0] = HD.x;
@@ -1424,7 +1428,7 @@ __global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t
 
 					#pragma unroll 8
 					for (l = 28, m = 1; m < 9; l -= 4, m++) {
-						register uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
+						uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 						DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
 						//int32_t curr_hm_diff = h[m] - _cudaGapOE;
 						f[m] = max(h[m]- _cudaGapOE, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
@@ -1435,10 +1439,7 @@ __global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t
 						//prev_hm_diff=curr_hm_diff;
 						h[m] = max(h[m], e);
 						
-						
-						//FIND_MAX(h[m], gidx + (m-1))//the current maximum score and corresponding end position on target_batch sequence
-						maxXY_y = (maxHH < h[m]) ? (gidx + (m-1)) : maxXY_y;
-						maxHH = (maxHH < h[m]) ? h[m] : maxHH;
+						FIND_MAX(h[m], gidx + (m-1))//the current maximum score and corresponding end position on target_batch sequence
 
 						p[m] = h[m-1];
 					}

@@ -19,7 +19,7 @@ using namespace std;
 #define GPU_BATCH_SIZE 6000 
 //#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
 
-#define DEBUG
+//#define DEBUG
 
 #define MAX(a,b) (a>b ? a : b)
 
@@ -412,13 +412,13 @@ int main(int argc, char *argv[]) {
 
 
 			//-------------------------------print alignment results----------------------------------------
-			if(print_out) {
+			
 				gpu_batch_arr_idx = 0;
 				while (gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n) {//loop through all the streams and print the results
 																					  //of the finished streams.
 					if (gasal_is_aln_async_done(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage) == 0) {
 						int j = 0;
-
+						if(print_out) {
 #pragma omp critical
 						for (int i = gpu_batch_arr[gpu_batch_arr_idx].batch_start; j < gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch; i++, j++) {
 							if(al_type.compare("local") == 0 || al_type.compare("banded") == 0) {
@@ -441,6 +441,7 @@ int main(int argc, char *argv[]) {
 								fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j]);
 							}
 						}
+						}
 						n_batchs_done++;
 					}
 					gpu_batch_arr_idx++;
@@ -448,7 +449,7 @@ int main(int argc, char *argv[]) {
 			}
 			//----------------------------------------------------------------------------------------------------
 
-		}
+		
 
 	}
 
