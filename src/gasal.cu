@@ -691,11 +691,11 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		} else {
 
 			//fprintf(stderr, "[GASAL WARNING] Running banded local alignment - consider it experimental!\n");
-			gasal_banded_tiled_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns, k_band);
+			gasal_banded_tiled_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns, k_band>>3); // the band is already divided by 8.
 		}
 		break;
 		default:
-			fprintf(stderr, "[GASAL ERROR:] Algo type invalid\n");
+			fprintf(stderr, "[GASAL ERROR:] Algo type is invalid\n");
 			exit(EXIT_FAILURE);
 		break;
 	}

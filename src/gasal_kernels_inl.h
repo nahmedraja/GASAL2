@@ -1323,7 +1323,7 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 
 }
 
-__global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks, int32_t k_band_width) {
+__global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks, const int32_t k_band_width) {
 	int32_t i, j, k, m, l;
 	int32_t e;
 	int32_t maxHH = 0;//initialize the maximum score to zero
@@ -1347,8 +1347,7 @@ __global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t
 	int32_t h[9];
 	int32_t f[9];
 	int32_t p[9];
-	int32_t k_band_width_loc = k_band_width>>3;
- 	int32_t k_other_band_width = (target_batch_regs - (query_batch_regs - k_band_width_loc));
+ 	const int32_t k_other_band_width = (target_batch_regs - (query_batch_regs - k_band_width));
 	#ifdef DEBUG
 	if(tid==0)
 	{
@@ -1400,10 +1399,10 @@ __global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t
 		
 		uint32_t gpac =packed_target_batch[packed_target_batch_idx + i];//load 8 packed bases from target_batch sequence
 		gidx = i << 3;
+
 		ridx = MAX(0, i - k_other_band_width+1) << 3;
-
-		for (j = MAX(0, i - k_other_band_width+1)  ; j < MIN( k_band_width_loc + i, (int32_t)query_batch_regs); j++) { //query_batch sequence in columns
-
+		int32_t last_tile =  MIN( k_band_width + i, (int32_t)query_batch_regs);
+		for (j = ridx >> 3  ; j < last_tile; j++) { //query_batch sequence in columns --- the beginning and end are defined with the tile-based band, to avoid unneccessary calculations.
 
 			#ifdef DEBUG
 			if(tid==1)

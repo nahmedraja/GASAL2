@@ -19,7 +19,7 @@ using namespace std;
 #define GPU_BATCH_SIZE 6000 
 //#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
 
-#define DEBUG
+//#define DEBUG
 
 #define MAX(a,b) (a>b ? a : b)
 
