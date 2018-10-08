@@ -24,7 +24,7 @@ fullrun: all
 	optirun ./test_prog.out -p -y local query_batch.fasta target_batch.fasta > out.log
 
 fullrun2: all
-	optirun ./test_prog.out -p -y banded -k 80 query_batch.fasta target_batch.fasta > out.log
+	optirun ./test_prog.out -p -y banded -k 120 query_batch.fasta target_batch.fasta > out.log
 
 nvprof: all
 	optirun nvprof -f -o $(ANALYSIS_FILENAME).nvprof ./test_prog.out -p -y local query_batch_rc.fasta target_batch_rc.fasta > out.log
