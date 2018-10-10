@@ -4,7 +4,7 @@ N_CODE=
 N_PENALTY=
 
 GPU_COMPUTE_ARCH=$(subst sm,compute,$(GPU_SM_ARCH))
-NVCC=/usr/lib/nvidia-cuda-toolkit/bin/nvcc
+NVCC=/usr/local/cuda-9.2/bin/nvcc
 SRC_DIR=./src/
 OBJ_DIR=./obj/
 LIB_DIR=./lib/
