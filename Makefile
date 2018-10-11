@@ -70,6 +70,6 @@ endif
 clean:
 	rm -f -r $(OBJ_DIR) $(LIB_DIR) $(INCLUDE_DIR)  *~ *.exe *.o *.txt *~
 
-gasal.o: gasal.h gasal_kernels_inl.h
+gasal.o: gasal.h gasal_kernels.h
 
 

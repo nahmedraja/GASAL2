@@ -25,7 +25,7 @@ inline int CudaCheckKernelLaunch()
 
 
 
-#include "gasal_kernels_inl.h"
+#include "gasal_kernels.h"
 
 
 gasal_gpu_storage_v gasal_init_gpu_storage_v(int n_streams) {
