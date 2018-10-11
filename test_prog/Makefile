@@ -2,8 +2,8 @@ CUDA_LD_LIBRARY=/usr/local/cuda-9.2/targets/x86_64-linux/lib
 ANALYSIS_FILENAME=analysis
 # prefix1 can be optirun in case you need to run it from an optimus-enabled laptop.
 PREFIX1=
-# prefix2 can bear "nvprof" as well as nvprof with its parameters: "-f -o $(ANALYSIS_FILENAME).nvprof"
-PREFIX2=nvprof
+#i prefix2 can bear "nvprof" as well as nvprof with its parameters: "-f -o $(ANALYSIS_FILENAME).nvprof"
+PREFIX2=nvprof --profile-api-trace none -s -f -o /tmp/.nvprof/$(ANALYSIS_FILENAME).nvprof
 #suffix1 and 2 can be an output file.
 SUFFIX1=
 SUFFIX2=
@@ -11,7 +11,7 @@ SUFFIX2=
 PRGM=test_prog.out
 
 OPTARGS1=-y local 
-OPTARGS2=-y banded -k 8
+OPTARGS2=-y banded -k 304
 
 FILES_HUMAN600=reads_600_human_10M.fasta ref_600_human_10M.fasta
 FILES_HUMAN300=reads_300_human_10M.fasta ref_300_human_10M.fasta
@@ -23,7 +23,7 @@ FILES_SHORT=short_query_batch.fasta short_target_batch.fasta
 .cpp.o:
 	g++ -g -c -O3 -Wall -Werror -fopenmp -I ../include  -o test_prog.o test_prog.cpp
 
-all: test_prog.out
+all: clean test_prog.out
 
 test_prog.out: test_prog.o
 	g++ -O3 -o test_prog.out -L$(CUDA_LD_LIBRARY) -L../lib test_prog.o -fopenmp -lcudart -lgasal
@@ -47,7 +47,7 @@ human300banded: all
 	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS2) $(FILES_HUMAN300) $(SUFFIX2)
 
 human600: all
-	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS1) $(FILES_HUMAN600 )$(SUFFIX1)
+	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS1) $(FILES_HUMAN600) $(SUFFIX1)
 
 human600banded: all
 	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS2) $(FILES_HUMAN600) $(SUFFIX2)
@@ -65,6 +65,13 @@ fullrun: all
 
 fullrun2: all
 	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS2) $(FILES_20K) $(SUFFIX2)
+
+
+262k: all
+	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS1) $(FILES_262K) $(SUFFIX1)
+
+262k2: all
+	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS2) $(FILES_262K) $(SUFFIX2)
 
 
 

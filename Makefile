@@ -48,7 +48,7 @@ else
 	$(NVCC) -c -g -O3 -Xcompiler -Wall,-DMAX_SEQ_LEN=$(MAX_SEQ_LEN),-DN_CODE=$(N_CODE),-DN_PENALTY=$(N_PENALTY) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
 	
 endif
-all: makedir libgasal.a
+all: clean makedir libgasal.a
 
 makedir:
 	@mkdir -p $(OBJ_DIR)
