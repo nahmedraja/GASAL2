@@ -19,6 +19,7 @@ run: all
 fullrun: all
 	 ./test_prog.out -p -y semi_global query_batch.fasta target_batch.fasta > out.log
 
+
 nvprof: all
 	nvprof -f -o analysis.nvprof ./test_prog.out -p -y semi_global query_batch_rc.fasta target_batch_rc.fasta > out.log
 

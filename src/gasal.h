@@ -28,13 +28,6 @@ enum algo_type{
 	SEMI_GLOBAL
 };
 
-enum operation_on_seq{
-	FORWARD_NATURAL,
-	REVERSE_NATURAL,
-	FORWARD_COMPLEMENT,
-	REVERSE_COMPLEMENT,
-};
-
 // data structure of linked list to allow extension of memory on host side
 struct host_batch{
 	uint8_t *data;
@@ -57,10 +50,6 @@ typedef struct {
 	host_batch_t *extensible_host_unpacked_query_batch;
 	host_batch_t *extensible_host_unpacked_target_batch;
 
-	uint8_t *host_query_op;
-	uint8_t *host_target_op;
-	uint8_t *query_op;
-	uint8_t *target_op;
 
 	uint32_t *host_query_batch_offsets;
 	uint32_t *host_target_batch_offsets;
@@ -141,7 +130,6 @@ void gasal_host_batch_print(host_batch_t *res); 																		// printer
 void gasal_host_batch_printall(host_batch_t *res);																		// printer for the whole linked list
 void gasal_host_batch_recycle(gasal_gpu_storage_t *gpu_storage_t);
 
-void gasal_op_fill(gasal_gpu_storage_t *gpu_storage_t, uint8_t *data, uint32_t nbr_seqs_in_stream, data_source SRC);
 
 
 #ifdef __cplusplus

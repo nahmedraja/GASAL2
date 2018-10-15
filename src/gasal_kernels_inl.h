@@ -1,14 +1,3 @@
-//#define DEBUG
-
-#ifdef DEBUG
-	#include <stdio.h>
-#endif
-
-#define A_PAK ('A'&0x0F)
-#define C_PAK ('C'&0x0F)
-#define G_PAK ('G'&0x0F)
-#define T_PAK ('T'&0x0F)
-#define N_PAK ('N'&0x0F)
 
 
 
@@ -203,8 +192,6 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 
 		return;
 }
-
-
 __constant__ int32_t _cudaGapO; /*gap open penalty*/
 __constant__ int32_t _cudaGapOE; /*sum of gap open and extension penalties*/
 __constant__ int32_t _cudaGapExtend; /*sum of gap extend*/
@@ -291,7 +278,7 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
 						e = HD.y;
 						//-------------------------------------------
 						int32_t prev_hm_diff = h[0] - _cudaGapOE;
-	#pragma unroll 8
+#pragma unroll 8
 						for (l = 28, m = 1; m < 9; l -= 4, m++) {
 							uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 							DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);//check equality of rbase and gbase
@@ -380,7 +367,7 @@ __global__ void gasal_local_with_start_kernel(uint32_t *packed_query_batch, uint
 						h[0] = HD.x;
 						e = HD.y;
 						//------------------------------------------------
-	#pragma unroll 8
+#pragma unroll 8
 
 						for (l = 28, m = 1; l >= 0; l -= 4, m++) {
 							uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
