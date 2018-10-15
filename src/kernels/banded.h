@@ -565,7 +565,7 @@ __global__ void gasal_banded_fixed_kernel(uint32_t *packed_query_batch, uint32_t
 	uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3; //starting index of the target_batch sequence
 	uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
 	uint32_t read_len = query_batch_lens[tid];
-	uint32_t ref_len = target_batch_lens[tid];
+	//uint32_t ref_len = target_batch_lens[tid];  // - unused in case of square matrix computation.
 	uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence 
 	//uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence - unused in case of square matrix computation.
 	//-----arrays for saving intermediate values------
