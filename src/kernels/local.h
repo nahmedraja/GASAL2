@@ -1,3 +1,5 @@
+#ifndef KERNEL_LOCAL
+#define KERNEL_LOCAL
 
 __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks) {
 	int32_t i, j, k, m, l;
@@ -352,3 +354,4 @@ __global__ void gasal_microlocal_kernel(uint32_t *packed_query_batch, uint32_t *
 
 
 }
+#endif

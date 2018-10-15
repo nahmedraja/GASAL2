@@ -1,3 +1,6 @@
+#ifndef KERNEL_BANDED
+#define KERNEL_BANDED
+
 #define BAND_SIZE (24)
 #define __MOD(a) (a & (BAND_SIZE-1))
 
@@ -653,3 +656,4 @@ __global__ void gasal_banded_fixed_kernel(uint32_t *packed_query_batch, uint32_t
 	return;
 
 }
+#endif

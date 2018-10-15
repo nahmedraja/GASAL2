@@ -1,3 +1,6 @@
+#ifndef KERNEL_SEQPAK
+#define KERNEL_SEQPAK
+
 
 #define A_PAK ('A'&0x0F)
 #define C_PAK ('C'&0x0F)
@@ -198,3 +201,4 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 
 	return;
 }
+#endif

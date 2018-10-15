@@ -1,4 +1,5 @@
-
+#ifndef KERNEL_SEMIGLOBAL
+#define KERNEL_SEMIGLOBAL
 
 
 __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *target_batch_end, int n_tasks) {
@@ -315,3 +316,4 @@ __global__ void gasal_semi_global_with_start_kernel(uint32_t *packed_query_batch
 
 
 }
+#endif
