@@ -3,15 +3,15 @@ ANALYSIS_FILENAME=analysis
 # prefix1 can be optirun in case you need to run it from an optimus-enabled laptop.
 PREFIX1=
 #i prefix2 can bear "nvprof" as well as nvprof with its parameters: nvprof --profile-api-trace none -s -f -o /tmp/.nvprof/$(ANALYSIS_FILENAME).nvprof
-PREFIX2=
+PREFIX2= nvprof --profile-api-trace none -s -f -o /tmp/.nvprof/$(ANALYSIS_FILENAME).nvprof
 #suffix1 and 2 can be an output file.
-SUFFIX1=
-SUFFIX2=
+SUFFIX1=> golden.log
+SUFFIX2=> out.log
 
 PRGM=test_prog.out
 
 OPTARGS1=-y local 
-OPTARGS2=-y banded -k 304
+OPTARGS2=-y microloc
 
 FILES_HUMAN600=reads_600_human_10M.fasta ref_600_human_10M.fasta
 FILES_HUMAN300=reads_300_human_10M.fasta ref_300_human_10M.fasta
@@ -37,19 +37,19 @@ test_prog.o: Timer.h
 human150: all
 	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS1) $(FILES_HUMAN150) $(SUFFIX1)
 
-human150banded: all
+human150-2: all
 	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS2) $(FILES_HUMAN150) $(SUFFIX2)
 
 human300: all
 	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS1) $(FILES_HUMAN300) $(SUFFIX1)
 
-human300banded: all
+human300-2: all
 	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS2) $(FILES_HUMAN300) $(SUFFIX2)
 
 human600: all
 	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS1) $(FILES_HUMAN600) $(SUFFIX1)
 
-human600banded: all
+human600-2: all
 	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS2) $(FILES_HUMAN600) $(SUFFIX2)
 
 

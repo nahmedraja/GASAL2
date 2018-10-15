@@ -27,6 +27,8 @@ enum algo_type{
 	GLOBAL,
 	SEMI_GLOBAL,
 	BANDED,
+	MICROLOCAL,
+	FIXEDBAND,
 	UNKNOWN
 };
 
