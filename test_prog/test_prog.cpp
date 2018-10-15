@@ -16,7 +16,7 @@ using namespace std;
 
 #define NB_STREAMS 2
 
-#define GPU_BATCH_SIZE (262144>>2)
+#define GPU_BATCH_SIZE (262144<<1)
 //#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
 
 //#define DEBUG

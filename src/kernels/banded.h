@@ -1,5 +1,5 @@
 #define BAND_SIZE (24)
-#define MOD_64(a) (a & (BAND_SIZE-1))
+#define __MOD(a) (a & (BAND_SIZE-1))
 
 __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks, int32_t k_band_width) {
 	int32_t i, j, k, m, l;
@@ -566,15 +566,13 @@ __global__ void gasal_banded_fixed_kernel(uint32_t *packed_query_batch, uint32_t
 	uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
 	uint32_t read_len = query_batch_lens[tid];
 	uint32_t ref_len = target_batch_lens[tid];
-	uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
-	uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
+	uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence 
+	//uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence - unused in case of square matrix computation.
 	//-----arrays for saving intermediate values------
 	short2 global[BAND_SIZE];
 	int32_t h[9];
 	int32_t f[9];
 	int32_t p[9];
-
-
 
 
 	//------------------------
@@ -583,7 +581,7 @@ __global__ void gasal_banded_fixed_kernel(uint32_t *packed_query_batch, uint32_t
 	}
 
 
-	for (i = 0; i < target_batch_regs; i++) { //QUERY instead of TARGET because we're only calculating as if it was a SQUARE MATRIX. --- target_batch sequence in rows
+	for (i = 0; i < query_batch_regs; i++) { //QUERY instead of TARGET because we're only calculating as if it was a SQUARE MATRIX. --- target_batch sequence in rows
 		for (m = 0; m < 9; m++) {
 			h[m] = 0;
 			f[m] = 0;
@@ -592,23 +590,23 @@ __global__ void gasal_banded_fixed_kernel(uint32_t *packed_query_batch, uint32_t
 
 		register uint32_t gpac =packed_target_batch[packed_target_batch_idx + i];//load 8 packed bases from target_batch sequence
 		gidx = i << 3;
-		ridx = MOD_64(i<<3);
+		ridx = __MOD(i<<3);
 		
 		#pragma unroll 8
 		for (int b = 0; b < 8; b++)
 		{
-			global[MOD_64((i-1)<<3)] = initHD;
+			global[__MOD((i-1)<<3)] = initHD;
 		}
 		
-		#pragma unroll 24
-		for (int b = 0, j = MIN(i, BAND_SIZE) ; b < BAND_SIZE; j++, b++) { //query_batch sequence in columns
+		
+		for (j = MIN(i, BAND_SIZE) ; j < BAND_SIZE ; j++ ) { //query_batch sequence in columns
 			register uint32_t rpac =packed_query_batch[packed_query_batch_idx + j];//load 8 bases from query_batch sequence
 
 			//--------------compute a tile of 8x8 cells-------------------
 			for (k = 28; k >= 0; k -= 4) {
 				register uint32_t rbase = (rpac >> k) & 0x0F;//get a base from query_batch sequence
 				//-----load intermediate values--------------
-				HD = global[MOD_64(ridx)];
+				HD = global[__MOD(ridx)];
 				h[0] = HD.x;
 				e = HD.y;
 				//-------------------------------------------
@@ -638,7 +636,7 @@ __global__ void gasal_banded_fixed_kernel(uint32_t *packed_query_batch, uint32_t
 				HD.y = e;
 				global[ridx] = HD;
 				//---------------------------------------------
-				maxXY_x = (prev_maxHH < maxHH) ? ((j<<3)+MOD_64(ridx)) : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
+				maxXY_x = (prev_maxHH < maxHH) ? ((j<<3)+__MOD(ridx)) : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
 				prev_maxHH = max(maxHH, prev_maxHH);
 				ridx++;
 			}

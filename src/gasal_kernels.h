@@ -44,8 +44,8 @@ maxHH = (maxHH < curr) ? curr : maxHH;
 
 
 
-#include "gasal_kernels_seqpak.h"
-#include "gasal_kernels_global.h"
-#include "gasal_kernels_semiglobal.h"
-#include "gasal_kernels_local.h"
-#include "gasal_kernels_banded.h"
+#include "kernels/seqpak.h"
+#include "kernels/global.h"
+#include "kernels/semiglobal.h"
+#include "kernels/local.h"
+#include "kernels/banded.h"
