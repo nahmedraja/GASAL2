@@ -1,4 +1,13 @@
 
+# GASAL 2.1: adding features to the GASAL2 library
+
+## List of new features:
+
+- Added expandable memory management on host side: the user doesn't have to guess the memory size they will take up anymore,
+- Added kernel to reverse-complement sequences. This kernel runs on GPU. It hasn't been optimized and polished for speed (yet!),
+- Added banded alignment operating by tile to try to speedup (only speeds up with small (e.g. 150) sequence lengths)
+- Cleaned up, inconsistencies fixed, and a first small optimization is being tested (will be added everywhere shortly)
+
 # GASAL2
 
 GASAL2 is an easy to use CUDA library for DNA/RNA sequence alignment algorithms. Currently it supports the following sequence alignment functions.
