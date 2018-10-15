@@ -17,3 +17,5 @@ include/*
 *.log
 
 src/\.vscode/
+
+*.nvvp

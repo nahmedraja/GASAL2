@@ -14,13 +14,15 @@
 
 using namespace std;
 
-#define NB_STREAMS 2
+#define NB_STREAMS 3
+
+#define GPU_BATCH_SIZE 6000
+//#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
+
 
 #define DEBUG
 
 #define MAX(a,b) (a>b ? a : b)
-
-
 
 
 int main(int argc, char *argv[]) {
@@ -125,7 +127,26 @@ int main(int argc, char *argv[]) {
 	while (getline(query_batch_fasta, query_batch_line) && getline(target_batch_fasta, target_batch_line)) { 
 
 		//load sequences from the files
-		if (query_batch_line[0] == '>' && target_batch_line[0] == '>') {
+		char *q = NULL;
+		char *t = NULL;
+		q = strchr(line_starts, (int) (query_batch_line[0]));
+		t = strchr(line_starts, (int) (target_batch_line[0]));
+
+		/*  
+			t and q are pointers to the first occurence of the first read character in the line_starts array.
+			so if I compare the address of these pointers with the address of the pointer to line_start, then...
+			I can get which character was found, so which modifier is required. 
+		*/
+
+		if (q != NULL && t != NULL) {
+			total_seqs++;
+
+			query_mod.push_back((uint8_t) (q-line_starts));
+			query_id.push_back(total_seqs);
+
+			target_mod.push_back((uint8_t)(t-line_starts));
+			target_id.push_back(total_seqs);
+
 			query_headers.push_back(query_batch_line.substr(1));
 			target_headers.push_back(target_batch_line.substr(1));
 
@@ -176,7 +197,7 @@ int main(int argc, char *argv[]) {
 		thread_seqs_idx[i] = n_seqs_alloc;
 		if (n_seqs_alloc + thread_batch_size < total_seqs) thread_n_seqs[i] = thread_batch_size;
 		else thread_n_seqs[i] = total_seqs - n_seqs_alloc;
-		thread_n_batchs[i] = (int)ceil((double)thread_n_seqs[i]/(target_seqs.size() / NB_STREAMS));
+		thread_n_batchs[i] = (int)ceil((double)thread_n_seqs[i]/(GPU_BATCH_SIZE));
 		n_seqs_alloc += thread_n_seqs[i];
 
 	}
@@ -200,13 +221,27 @@ int main(int argc, char *argv[]) {
 
 		//initializing the streams by allocating the required CPU and GPU memory
 		// note: the calculations of the detailed sizes to allocate could be done on the library side (to hide it from the user's perspective)
+		
+		/*
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
-							0.4 * (query_seqs_len +7*total_seqs) / (NB_STREAMS) , 
-							1 * (query_seqs_len +7*total_seqs)  / (NB_STREAMS) , 
-							1 * (target_seqs_len +7*total_seqs)/ (NB_STREAMS),
-							1 * (target_seqs_len +7*total_seqs) / (NB_STREAMS) , 
-							(target_seqs.size() / NB_STREAMS), // maximum number of alignments is bigger on target than on query side.
-							(target_seqs.size() / NB_STREAMS), 
+							1 * ceil((double)(query_seqs_len +7*total_seqs) / (double)(NB_STREAMS)) , 
+							1 * ceil((double)(query_seqs_len +7*total_seqs) / (double)(NB_STREAMS)) , 
+							1 * ceil((double)(query_seqs_len +7*total_seqs) / (double)(NB_STREAMS)) ,
+							1 * ceil((double)(query_seqs_len +7*total_seqs) / (double)(NB_STREAMS))  , 
+							ceil((double)target_seqs.size() / (double)(NB_STREAMS)), // maximum number of alignments is bigger on target than on query side.
+							ceil((double)target_seqs.size() / (double)(NB_STREAMS)), 
+							LOCAL, 
+							WITH_START);
+		*/		
+		
+		gasal_init_streams(&(gpu_storage_vecs[z]), 
+						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
+						0.3 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE, 
+						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE,
+						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
+						GPU_BATCH_SIZE, // maximum number of alignments is bigger on target than on query side.
+						GPU_BATCH_SIZE, 
+
 							LOCAL, 
 							WITH_START);
 
@@ -248,15 +283,14 @@ int main(int argc, char *argv[]) {
 				gpu_batch_arr_idx++;
 			}
 			//---------------------------------------------------------------------------
-			// Needs to re-allocate the linked list in case the stream is recycled.
-			gasal_host_batch_recycle((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage));
 
 			if (seqs_done < n_seqs && gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n) {
 					uint32_t query_batch_idx = 0;
 					uint32_t target_batch_idx = 0;
 					unsigned int j = 0;
 					//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
-					for (int i = curr_idx; seqs_done < n_seqs && j < (target_seqs.size() / NB_STREAMS); i++, j++, seqs_done++) {
+
+					for (int i = curr_idx; seqs_done < n_seqs && j < (GPU_BATCH_SIZE); i++, j++, seqs_done++) {
 
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
 						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;
@@ -288,7 +322,7 @@ int main(int argc, char *argv[]) {
 					uint32_t query_batch_bytes = query_batch_idx;
 					uint32_t target_batch_bytes = target_batch_idx;
 					gpu_batch_arr[gpu_batch_arr_idx].batch_start = curr_idx;
-					curr_idx += (target_seqs.size() / NB_STREAMS);
+					curr_idx += (GPU_BATCH_SIZE);
 
 					//----------------------------------------------------------------------------------------------------
 					//-----------------calling the GASAL2 non-blocking alignment function---------------------------------
@@ -313,7 +347,10 @@ int main(int argc, char *argv[]) {
 
 					}
 					//---------------------------------------------------------------------------------
+					// Needs to re-allocate the linked list in case the stream is recycled.
+					//gasal_host_batch_recycle((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage));
 			}
+
 
 			//-------------------------------print alignment results----------------------------------------
 			if(print_out) {
@@ -353,6 +390,7 @@ int main(int argc, char *argv[]) {
 			//----------------------------------------------------------------------------------------------------
 
 		}
+
 	}
 
 

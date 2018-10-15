@@ -1,8 +1,5 @@
 #include "gasal.h"
 
-
-
-
 #define CHECKCUDAERROR(error) \
 		do{\
 			err = error;\
@@ -77,10 +74,18 @@ host_batch_t *gasal_host_batch_getlast(host_batch_t *arg)
 void gasal_host_batch_recycle(gasal_gpu_storage_t *gpu_storage_t)
 {	
 	// hard re-allocation.
-	gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_query_batch);
-	gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_target_batch);
-	gpu_storage_t->extensible_host_unpacked_query_batch = gasal_host_batch_new(gpu_storage_t->host_max_query_batch_bytes, 0);
-	gpu_storage_t->extensible_host_unpacked_target_batch = gasal_host_batch_new(gpu_storage_t->host_max_target_batch_bytes, 0);
+
+	if (gpu_storage_t != NULL)
+	{
+		#ifdef DEBUG
+			fprintf(stderr, "[GASAL DEBUG] Recycling linked list\n");
+		#endif
+		gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_query_batch);
+		gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_target_batch);
+		gpu_storage_t->extensible_host_unpacked_query_batch = gasal_host_batch_new(gpu_storage_t->host_max_query_batch_bytes, 0);
+		gpu_storage_t->extensible_host_unpacked_target_batch = gasal_host_batch_new(gpu_storage_t->host_max_target_batch_bytes, 0);
+	
+	}
 }
 
 
@@ -92,22 +97,28 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx,
 
 	switch(SRC) {
 		case QUERY:
-			cur_page = gasal_host_batch_getlast(gpu_storage_t->extensible_host_unpacked_query_batch);
+			cur_page = (gpu_storage_t->extensible_host_unpacked_query_batch);
 			p_batch_bytes = &(gpu_storage_t->host_max_query_batch_bytes);
 		break;
 		case TARGET:
-			cur_page = gasal_host_batch_getlast(gpu_storage_t->extensible_host_unpacked_target_batch);
+			cur_page = (gpu_storage_t->extensible_host_unpacked_target_batch);
 			p_batch_bytes = &(gpu_storage_t->host_max_target_batch_bytes);
 		break;
 		default:
 		break;
 	}
+	
+	int nbr_N = 0;
+	while((size+nbr_N)%8)
+		nbr_N++;
+
 	int is_done = 0;
 
 	while (!is_done)
 	{
-		if (*p_batch_bytes >= idx + size)
+		if (*p_batch_bytes >= idx + size + nbr_N && (cur_page->next == NULL || (cur_page->next->offset >= idx + size + nbr_N)) )
 		{
+
 			memcpy(&(cur_page->data[idx - cur_page->offset]), data, size);
 	
 			idx = idx + size;
@@ -118,6 +129,10 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx,
 				idx++;
 			}
 			is_done = 1;
+		} else if ((*p_batch_bytes >= idx + size + nbr_N) && (cur_page->next != NULL) && (cur_page->next->offset < idx + size + nbr_N)) {
+			 
+			cur_page = cur_page->next;
+
 		} else {
 			fprintf(stderr,"[GASAL WARNING:] Trying to write %d bytes at position %d on host memory (%s) while only  %d bytes are available. Therefore, allocating %d bytes more on CPU. Repeating this many times can provoke a degradation of performance.\n",
 					size,
@@ -597,7 +612,24 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
     CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->target_batch_lens, gpu_storage->host_target_batch_lens, actual_n_alns * sizeof(uint32_t), cudaMemcpyHostToDevice,  gpu_storage->str));
     CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->query_batch_offsets, gpu_storage->host_query_batch_offsets, actual_n_alns * sizeof(uint32_t), cudaMemcpyHostToDevice,  gpu_storage->str));
     CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->target_batch_offsets, gpu_storage->host_target_batch_offsets, actual_n_alns * sizeof(uint32_t), cudaMemcpyHostToDevice,  gpu_storage->str));
-    //---------------------------------------------------------------------------------------------------------------
+
+
+	//----------------------launch copying of sequence operations (reverse/complement) from CPU to GPU--------------------------
+	CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->query_op, gpu_storage->host_query_op, actual_n_alns * sizeof(uint8_t), cudaMemcpyHostToDevice,  gpu_storage->str));
+	CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->target_op, gpu_storage->host_target_op, actual_n_alns * sizeof(uint8_t), cudaMemcpyHostToDevice,  gpu_storage->str));
+
+
+	//--------------------------------------launch reverse-complement kernel------------------------------------------------------
+	gasal_reversecomplement_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
+		gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->query_op, gpu_storage->target_op, actual_n_alns);
+    cudaError_t reversecomplement_kernel_err = cudaGetLastError();
+    if ( cudaSuccess != reversecomplement_kernel_err )
+    {
+    	 fprintf(stderr, "[GASAL CUDA ERROR:] %s(CUDA error no.=%d). Line no. %d in file %s\n", cudaGetErrorString(reversecomplement_kernel_err), reversecomplement_kernel_err,  __LINE__, __FILE__);
+         exit(EXIT_FAILURE);
+	}
+
+    //--------------------------------------------------------------------------------------------------------------------------
 
     //--------------------------------------launch alignment kernels--------------------------------------------------------------
         if(algo == LOCAL) {
