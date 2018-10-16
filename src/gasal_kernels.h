@@ -44,8 +44,11 @@ maxHH = (maxHH < curr) ? curr : maxHH;
 
 
 
+
 #include "kernels/seqpak.h"
 #include "kernels/global.h"
 #include "kernels/semiglobal.h"
 #include "kernels/local.h"
 #include "kernels/banded.h"
+
+#include "kernels/nostart_kernel_template.h"
