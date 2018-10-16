@@ -681,18 +681,18 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		break;
 		case BANDED:
 			//cell-grained banded is deprecated as the calculations are far too slow for what it provides.
-			fprintf(stderr, "[GASAL WARNING] Running banded-tiled local alignment - expect inaccurate results!\n[GASAL WARNING] This kernel is only available WITHOUT START.\n");
+			//fprintf(stderr, "[GASAL WARNING] Running banded-tiled local alignment - expect inaccurate results!\n[GASAL WARNING] This kernel is only available WITHOUT START.\n");
 			gasal_banded_tiled_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns, k_band>>3); // the band is already divided by 8.
 		break;
 		case MICROLOCAL:
-			fprintf(stderr, "[GASAL WARNING] Running \"microlocal\" kernel (experimental kernel for optimizations speedups) : don't forget to check the consistency with the local kernel!\n[GASAL WARNING] This kernel is only available WITHOUT START.\n");
+			//fprintf(stderr, "[GASAL WARNING] Running \"microlocal\" kernel (experimental kernel for optimizations speedups) : don't forget to check the consistency with the local kernel!\n[GASAL WARNING] This kernel is only available WITHOUT START.\n");
 			gasal_microlocal_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
 			gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
 			gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns);
 		break;
 		case FIXEDBAND:
 			// should be deprecated, and won't be included in future developments.
-			fprintf(stderr, "[GASAL WARNING] Running \"Fixed-band\" kernel (experimental kernel) : expect utterly wrong results!\n[GASAL WARNING] This kernel is only available WITHOUT START.\n");
+			//fprintf(stderr, "[GASAL WARNING] Running \"Fixed-band\" kernel (experimental kernel) : expect utterly wrong results!\n[GASAL WARNING] This kernel is only available WITHOUT START.\n");
 			gasal_banded_fixed_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
 			gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
 			gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns);
