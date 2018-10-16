@@ -51,4 +51,4 @@ maxHH = (maxHH < curr) ? curr : maxHH;
 #include "kernels/local.h"
 #include "kernels/banded.h"
 
-#include "kernels/nostart_kernel_template.h"
+#include "kernels/local_kernel_template.h"

@@ -198,7 +198,8 @@ void gasal_host_batch_printall(host_batch_t *res)
 	}
 }
 
-//GASAL2 blocking alignment function
+//GASAL2 blocking alignment function - DEPRECATED
+/*
 void gasal_aln(gasal_gpu_storage_t *gpu_storage, const uint8_t *query_batch, const uint32_t *query_batch_offsets, const uint32_t *query_batch_lens, const uint8_t *target_batch, const uint32_t *target_batch_offsets, const uint32_t *target_batch_lens, const uint32_t actual_query_batch_bytes, const uint32_t actual_target_batch_bytes, const uint32_t actual_n_alns, int32_t *host_aln_score, int32_t *host_query_batch_start, int32_t *host_target_batch_start, int32_t *host_query_batch_end, int32_t *host_target_batch_end,  algo_type algo, comp_start start) {
 
 	cudaError_t err;
@@ -355,14 +356,14 @@ void gasal_aln(gasal_gpu_storage_t *gpu_storage, const uint8_t *query_batch, con
     //--------------------------------------launch alignment kernels--------------------------------------------------------------
     if(algo == LOCAL) {
     	if (start == WITH_START) {
-    		gasal_local_with_start_kernel<<<N_BLOCKS, BLOCKDIM>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
-    				gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
-    				gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start,
+			gasal_local_with_start_kernel<<<N_BLOCKS, BLOCKDIM>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
+					gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
+					gpu_storage->query_batch_end, gpu_storage->target_batch_end,  gpu_storage->query_batch_start,
     				gpu_storage->target_batch_start, actual_n_alns);
     	} else {
-    		gasal_local_kernel<<<N_BLOCKS, BLOCKDIM>>>(LOCAL,gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
+    		gasal_local_kernel<<<N_BLOCKS, BLOCKDIM>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
     				gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
-    				gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns);
+    				gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns, LOCAL);
     	}
     } else if (algo == SEMI_GLOBAL) {
     	if (start == WITH_START) {
@@ -405,6 +406,7 @@ void gasal_aln(gasal_gpu_storage_t *gpu_storage, const uint8_t *query_batch, con
 
 }
 
+*/
 
 //GASAL2 asynchronous (a.k.a non-blocking) alignment function
 void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_query_batch_bytes, const uint32_t actual_target_batch_bytes, const uint32_t actual_n_alns, algo_type algo, comp_start start, int32_t k_band) {
@@ -654,14 +656,15 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 
 		case LOCAL:
 			if (start == WITH_START) {
-				gasal_local_with_start_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
+				gasal_local_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
 						gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
 						gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start,
-						gpu_storage->target_batch_start, actual_n_alns);
+						gpu_storage->target_batch_start, actual_n_alns, LOCAL, WITH_START);
 			} else {
-				gasal_local_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(LOCAL, gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
+				gasal_local_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
 						gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
-						gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns);
+						gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start,
+						gpu_storage->target_batch_start, actual_n_alns, LOCAL, WITHOUT_START);
 			}
 		break;
 		case SEMI_GLOBAL:
@@ -681,18 +684,19 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		break;
 		case BANDED:
 			//cell-grained banded is deprecated as the calculations are far too slow for what it provides.
-			fprintf(stderr, "[GASAL WARNING] Running banded-tiled local alignment - expect inaccurate results!\n[GASAL WARNING] This kernel is only available WITHOUT START.\n");
+			//fprintf(stderr, "[GASAL WARNING] Running banded-tiled local alignment - expect inaccurate results!\n[GASAL WARNING] This kernel is only available WITHOUT START.\n");
 			gasal_banded_tiled_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns, k_band>>3); // the band is already divided by 8.
 		break;
 		case MICROLOCAL:
-			fprintf(stderr, "[GASAL WARNING] Running \"microlocal\" kernel (experimental kernel for optimizations speedups) : don't forget to check the consistency with the local kernel!\n[GASAL WARNING] This kernel is only available WITHOUT START.\n");
-			gasal_local_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(MICROLOCAL, gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
-			gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
-			gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns);
+			//fprintf(stderr, "[GASAL WARNING] Running \"microlocal\" kernel (experimental kernel for optimizations speedups) : don't forget to check the consistency with the local kernel!\n[GASAL WARNING] This kernel is only available WITHOUT START.\n");
+			gasal_local_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
+				gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
+				gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start,
+				gpu_storage->target_batch_start, actual_n_alns, MICROLOCAL, WITHOUT_START);
 		break;
 		case FIXEDBAND:
 			// should be deprecated, and won't be included in future developments.
-			fprintf(stderr, "[GASAL WARNING] Running \"Fixed-band\" kernel (experimental kernel) : expect utterly wrong results!\n[GASAL WARNING] This kernel is only available WITHOUT START.\n");
+			//fprintf(stderr, "[GASAL WARNING] Running \"Fixed-band\" kernel (experimental kernel) : expect utterly wrong results!\n[GASAL WARNING] This kernel is only available WITHOUT START.\n");
 			gasal_banded_fixed_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
 			gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
 			gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns);
