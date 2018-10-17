@@ -23,13 +23,13 @@ enum data_source{
 };
 
 enum algo_type{
+	UNKNOWN,
 	LOCAL,
 	GLOBAL,
 	SEMI_GLOBAL,
 	BANDED,
 	MICROLOCAL,
-	FIXEDBAND,
-	UNKNOWN
+	FIXEDBAND
 };
 
 enum operation_on_seq{
