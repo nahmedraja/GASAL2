@@ -99,17 +99,19 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
                     h[0] = HD.x;
                     e = HD.y;
 
-                    if (CUDA_TYPE_CMP(ALGO, Int2Type<MICROLOCAL>())) {
+                    if (SAMETYPE(ALGO, Int2Type<MICROLOCAL>())) 
+                    {
                         register int32_t prev_hm_diff = h[0] - _cudaGapOE;
                         #pragma unroll 8
                         for (l = 28, m = 1; m < 9; l -= 4, m++) {
-                            CORE_MICROLOCAL_COMPUTE()           
+                            CORE_MICROLOCAL_COMPUTE();           
                         }
-                    } else if (CUDA_TYPE_CMP(ALGO, Int2Type<LOCAL>())) {
+                    } else if (SAMETYPE(ALGO, Int2Type<LOCAL>())) 
+                    {
                         //int32_t prev_hm_diff = h[0] - _cudaGapOE;
                         #pragma unroll 8
                         for (l = 28, m = 1; m < 9; l -= 4, m++) {
-                            CORE_LOCAL_COMPUTE()
+                            CORE_LOCAL_COMPUTE();
                         }
                     }
 
@@ -136,10 +138,8 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
 	target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
 
 
-    // find start ?
-
     /*------------------Now to find the start position-----------------------*/
-    if (START == WITH_START)
+    if (SAMETYPE(START, Int2Type<WITH_START>()))
     {
 
         int32_t rend_pos = maxXY_x;//end position on query_batch sequence
@@ -185,18 +185,18 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
                     h[0] = HD.x;
                     e = HD.y;
 
-                    if (CUDA_TYPE_CMP(ALGO, Int2Type<MICROLOCAL>())) {
+                    if (SAMETYPE(ALGO, Int2Type<MICROLOCAL>())) {
                         register int32_t prev_hm_diff = h[0] - _cudaGapOE;
                         #pragma unroll 8
                         for (l = 28, m = 1; m < 9; l -= 4, m++) {
 
                             CORE_MICROLOCAL_COMPUTE();
                         }
-                    } else if (CUDA_TYPE_CMP(ALGO, Int2Type<LOCAL>())) {
+                    } else if (SAMETYPE(ALGO, Int2Type<LOCAL>())) {
                         //int32_t prev_hm_diff = h[0] - _cudaGapOE;
                         #pragma unroll 8
                         for (l = 28, m = 1; m < 9; l -= 4, m++) {
-                            CORE_LOCAL_COMPUTE()
+                            CORE_LOCAL_COMPUTE();
                         }
                     }
                     //------------save intermediate values----------------

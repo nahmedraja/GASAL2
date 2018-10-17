@@ -9,10 +9,10 @@
 template <int Val>
 struct Int2Type
 {
-static const int val_= Val;
+	static const int val_= Val;
 };
 
-#define CUDA_TYPE_CMP(a, b) (a.val_ == b.val_)
+#define SAMETYPE(a, b) (a.val_ == b.val_)
 
 __constant__ int32_t _cudaGapO; /*gap open penalty*/
 __constant__ int32_t _cudaGapOE; /*sum of gap open and extension penalties*/

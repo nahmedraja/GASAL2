@@ -659,12 +659,12 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 				gasal_local_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
 						gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
 						gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start,
-						gpu_storage->target_batch_start, actual_n_alns, Int2Type<LOCAL>(), WITH_START);
+						gpu_storage->target_batch_start, actual_n_alns, Int2Type<LOCAL>(), Int2Type<WITH_START>());
 			} else {
 				gasal_local_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
 						gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
 						gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start,
-						gpu_storage->target_batch_start, actual_n_alns, Int2Type<LOCAL>(), WITHOUT_START);
+						gpu_storage->target_batch_start, actual_n_alns, Int2Type<LOCAL>(), Int2Type<WITHOUT_START>());
 			}
 		break;
 		case SEMI_GLOBAL:
@@ -693,12 +693,12 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 				gasal_local_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
 						gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
 						gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start,
-						gpu_storage->target_batch_start, actual_n_alns, Int2Type<MICROLOCAL>(), WITH_START);
+						gpu_storage->target_batch_start, actual_n_alns, Int2Type<MICROLOCAL>(), Int2Type<WITH_START>());
 			} else {
 				gasal_local_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
 						gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
 						gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start,
-						gpu_storage->target_batch_start, actual_n_alns, Int2Type<MICROLOCAL>(), WITHOUT_START);
+						gpu_storage->target_batch_start, actual_n_alns, Int2Type<MICROLOCAL>(), Int2Type<WITHOUT_START>());
 			}
 		break;
 		/*
