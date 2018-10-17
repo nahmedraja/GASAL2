@@ -47,7 +47,7 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
 	int32_t i, j, k, m, l;
 	int32_t e;
 
-    int32_t maxHH = 0; //initialize the maximum score to zero --- LOCQL-MICROLOCQL ONLY
+    int32_t maxHH = 0; //initialize the maximum score to zero --- LOCAL-MICROLOCAL ONLY
 	int32_t maxXY_y = 0; // for local / microlocal only
 
     // for LOCAL / MICROLOCAL only

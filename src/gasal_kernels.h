@@ -55,11 +55,12 @@ maxHH = (maxHH < curr) ? curr : maxHH;
 
 
 
-#include "kernels/seqpak.h"
+#include "kernels/pack_rc_seqs.h"
+
 #include "kernels/global.h"
-#include "kernels/semiglobal.h"
+
+#include "kernels/semiglobal_kernel_template.h"
+
+#include "kernels/local_kernel_template.h"
 
 #include "kernels/banded.h"
-
-// force template instanciation
-#include "kernels/local_kernel_template.h"

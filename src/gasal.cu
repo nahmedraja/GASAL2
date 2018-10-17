@@ -669,13 +669,13 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		break;
 		case SEMI_GLOBAL:
 			if (start == WITH_START) {
-				gasal_semi_global_with_start_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
-						gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->target_batch_end,
-						gpu_storage->target_batch_start, actual_n_alns);
-			} else {
 				gasal_semi_global_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
 						gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->target_batch_end,
-						actual_n_alns);
+						gpu_storage->target_batch_start, actual_n_alns, Int2Type<SEMI_GLOBAL>(), Int2Type<WITH_START>());
+			} else {
+				gasal_semi_global_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
+					gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->target_batch_end,
+					gpu_storage->target_batch_start, actual_n_alns, Int2Type<SEMI_GLOBAL>(), Int2Type<WITHOUT_START>());
 			}
 		break;
 		case GLOBAL:

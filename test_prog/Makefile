@@ -10,8 +10,8 @@ SUFFIX2=> out.log
 
 PRGM=test_prog.out
  
-OPTARGS1=-s -p -y local 
-OPTARGS2=-s -p -y microloc
+OPTARGS1=-y local 
+OPTARGS2=-y microloc
 
 FILES_HUMAN600=reads_600_human_10M.fasta ref_600_human_10M.fasta
 FILES_HUMAN300=reads_300_human_10M.fasta ref_300_human_10M.fasta
