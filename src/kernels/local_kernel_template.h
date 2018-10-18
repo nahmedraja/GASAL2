@@ -37,8 +37,8 @@
 
 
 // T is the algorithm, S is WITH/WITHOUT_START
-template <typename T, typename S>
-__global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int32_t *query_batch_start, int32_t *target_batch_start, int n_tasks, T ALGO, S START ) {
+template <class T, class S>
+__global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int32_t *query_batch_start, int32_t *target_batch_start, int n_tasks) {
 
 
     const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
@@ -53,7 +53,6 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
     // for LOCAL / MICROLOCAL only
     int32_t prev_maxHH = 0;
     int32_t maxXY_x = 0;    
-    
 
 	int32_t subScore;
 	int32_t ridx, gidx;
@@ -91,40 +90,35 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
 		for (j = 0; j < query_batch_regs; j+=1) { //query_batch sequence in columns
 			register uint32_t rpac =packed_query_batch[packed_query_batch_idx + j];//load 8 bases from query_batch sequence
 
-                //--------------compute a tile of 8x8 cells-------------------
-                for (k = 28; k >= 0; k -= 4) {
-                    uint32_t rbase = (rpac >> k) & 15;//get a base from query_batch sequence
-                    //-----load intermediate values--------------
-                    HD = global[ridx];
-                    h[0] = HD.x;
-                    e = HD.y;
+            //--------------compute a tile of 8x8 cells-------------------
+            for (k = 28; k >= 0; k -= 4) {
+                uint32_t rbase = (rpac >> k) & 15;//get a base from query_batch sequence
+                //-----load intermediate values--------------
+                HD = global[ridx];
+                h[0] = HD.x;
+                e = HD.y;
 
-                    if (SAMETYPE(ALGO, Int2Type<MICROLOCAL>())) 
-                    {
-                        register int32_t prev_hm_diff = h[0] - _cudaGapOE;
-                        #pragma unroll 8
-                        for (l = 28, m = 1; m < 9; l -= 4, m++) {
-                            CORE_MICROLOCAL_COMPUTE();           
-                        }
-                    } else if (SAMETYPE(ALGO, Int2Type<LOCAL>())) 
-                    {
-                        //int32_t prev_hm_diff = h[0] - _cudaGapOE;
-                        #pragma unroll 8
-                        for (l = 28, m = 1; m < 9; l -= 4, m++) {
-                            CORE_LOCAL_COMPUTE();
-                        }
+
+                register int32_t prev_hm_diff = h[0] - _cudaGapOE;
+                #pragma unroll 8
+                for (l = 28, m = 1; m < 9; l -= 4, m++) {
+                    if (SAMETYPE(T, Int2Type<MICROLOCAL>))    {
+                        CORE_MICROLOCAL_COMPUTE();           
+                    } else if (SAMETYPE(T, Int2Type<LOCAL>))  {
+                        CORE_LOCAL_COMPUTE();
                     }
+                }
 
-                    //----------save intermediate values------------
-                    HD.x = h[m-1];
-                    HD.y = e;
-                    global[ridx] = HD;
-                    //---------------------------------------------
-                
-                    maxXY_x = (prev_maxHH < maxHH) ? ridx : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
-                    prev_maxHH = max(maxHH, prev_maxHH);
-                    ridx++;
-                    //-------------------------------------------------------
+                //----------save intermediate values------------
+                HD.x = h[m-1];
+                HD.y = e;
+                global[ridx] = HD;
+                //---------------------------------------------
+            
+                maxXY_x = (prev_maxHH < maxHH) ? ridx : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
+                prev_maxHH = max(maxHH, prev_maxHH);
+                ridx++;
+                //-------------------------------------------------------
 
                 }
 			
@@ -139,7 +133,7 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
 
 
     /*------------------Now to find the start position-----------------------*/
-    if (SAMETYPE(START, Int2Type<WITH_START>()))
+    if (SAMETYPE(S, Int2Type<WITH_START>))
     {
 
         int32_t rend_pos = maxXY_x;//end position on query_batch sequence
@@ -185,14 +179,14 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
                     h[0] = HD.x;
                     e = HD.y;
 
-                    if (SAMETYPE(ALGO, Int2Type<MICROLOCAL>())) {
+                    if (SAMETYPE(T, Int2Type<MICROLOCAL>)) {
                         register int32_t prev_hm_diff = h[0] - _cudaGapOE;
                         #pragma unroll 8
                         for (l = 28, m = 1; m < 9; l -= 4, m++) {
 
                             CORE_MICROLOCAL_COMPUTE();
                         }
-                    } else if (SAMETYPE(ALGO, Int2Type<LOCAL>())) {
+                    } else if (SAMETYPE(T, Int2Type<LOCAL>)) {
                         //int32_t prev_hm_diff = h[0] - _cudaGapOE;
                         #pragma unroll 8
                         for (l = 28, m = 1; m < 9; l -= 4, m++) {

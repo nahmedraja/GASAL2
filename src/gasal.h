@@ -32,6 +32,12 @@ enum algo_type{
 	FIXEDBAND
 };
 
+enum overlap_type{
+	HEAD_TAIL_QUERY,
+	HEAD_TARGET_TAIL_QUERY,
+	HEAD_QUERY_TAIL_TARGET
+};
+
 enum operation_on_seq{
 	FORWARD_NATURAL,
 	REVERSE_NATURAL,

@@ -9,11 +9,22 @@
 template <int Val>
 struct Int2Type
 {
-	static const int val_= Val;
+	typedef enum {val_ = Val} val__;
 };
-#define SAMETYPE(a, b) (a.val_ == b.val_)
 
+template<typename X, typename Y>
+struct SameType
+{
+   enum { result = 0 };
+};
 
+template<typename T>
+struct SameType<T, T>
+{
+   enum { result = 1 };
+};
+
+#define SAMETYPE(a, b) (SameType<a,b>::result)
 
 __constant__ int32_t _cudaGapO; /*gap open penalty*/
 __constant__ int32_t _cudaGapOE; /*sum of gap open and extension penalties*/
@@ -44,8 +55,8 @@ __constant__ int32_t _cudaMismatchScore; /*penalty for a mismatch*/
 
 #endif
 
-#define MAX(a,b) (a>b?a:b)
-#define MIN(a,b) (a>b?b:a)
+#define MAX(a,b) ((a)>(b)?(a):(b))
+#define MIN(a,b) ((a)<(b)?(a):(b))
 
 
 #define FIND_MAX(curr, gidx) \

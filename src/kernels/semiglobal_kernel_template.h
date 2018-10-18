@@ -15,7 +15,10 @@
 
 
 template <typename T, typename S>
-__global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch, uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *target_batch_end, int32_t *target_batch_start, int n_tasks, T ALGO, S START ) {
+__global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch, uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *target_batch_end, int32_t *target_batch_start, int n_tasks) {
+
+	const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
+	if (tid >= n_tasks) return;
 
 	int32_t i, j, k, l, m;
 	int32_t e;
@@ -25,8 +28,6 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 	short2 HD;
 	short2 initHD = make_short2(0, 0);
 	int32_t maxXY_y = 0;
-	const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
-	if (tid >= n_tasks) return;
 	uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3;//starting index of the target_batch sequence
 	uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
 	uint32_t read_len = query_batch_lens[tid];
@@ -94,7 +95,7 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 	target_batch_end[tid] =  maxXY_y;//copy the end position on the target_batch sequence to the output array in the GPU mem
 
 
-	if (SAMETYPE(START, Int2Type<WITH_START>()))
+	if (SAMETYPE(S, Int2Type<WITH_START>))
 	{
 
 		/*------------------Now to find the start position-----------------------*/

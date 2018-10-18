@@ -23,8 +23,8 @@ using namespace std;
 
 #define MAX(a,b) (a>b ? a : b)
 
-// Test server : 0 is for k40c, 1 is for GTX 750 Ti
-#define GPU_SELECT 1
+// Test server : 0 is for K40c, 1 is for GTX 750 Ti
+#define GPU_SELECT 0
 
 int main(int argc, char *argv[]) {
 
@@ -35,15 +35,22 @@ int main(int argc, char *argv[]) {
 	int num_devices, device;
 	cudaGetDeviceCount(&num_devices);
 	fprintf(stderr, "Found %d GPUs\n", num_devices);
-	if (num_devices > 0 && num_devices - 1 <= GPU_SELECT) {
+	if (GPU_SELECT  > num_devices-1)
+	{
+		fprintf(stderr, "Error: can't select device %d when only %d devices are selected (range from 0 to %d)\n", GPU_SELECT, num_devices, num_devices-1);
+		exit(EXIT_FAILURE);
+	}
+	if (num_devices > 0) {
 		cudaDeviceProp properties;
 		for (device = 0; device < num_devices; device++) {
 				cudaGetDeviceProperties(&properties, device);
 				fprintf(stderr, "\tGPU %d: %s\n", device, properties.name);
 		}
+		cudaGetDeviceProperties(&properties, GPU_SELECT);
 		fprintf(stderr, "Selected device %d : %s\n", GPU_SELECT, properties.name);
 		cudaSetDevice(GPU_SELECT);
 	}
+
 
 	int32_t c, sa = 1, sb = 4;
 	int32_t gapo = 6, gape = 1;
@@ -470,9 +477,6 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			//----------------------------------------------------------------------------------------------------
-
-		
-
 	}
 
 
