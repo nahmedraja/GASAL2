@@ -84,7 +84,7 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 
 	// avoid useless code duplicate thanks to pointers to route the data flow where it should be, twice.
 	#pragma unroll 2
-	for (int p = 0; p < 2; p++)
+	for (int p = QUERY; p <= TARGET; p++)
 	{
 		switch(p)
 		{
@@ -103,7 +103,7 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 				packed_batch_idx = &packed_target_batch_idx;
 				break;
 			default:
-				break;
+			break;
 		}
 
 		if (*(op + tid) & 0x01) // reverse

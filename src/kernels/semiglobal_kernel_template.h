@@ -14,7 +14,14 @@
 	p[m] = h[m-1];
 
 
-template <typename T, typename S>
+/* typename meanings:
+	T : algorithm type. Unused at the moment for semi_global as only semi_global type is run in this kernel. Can be used to create several types of computing cores, for example.
+	S : WITH_ or WITHOUT_ Start.
+	HEAD : set to QUERY, TARGET or NONE. Tells which HEAD (prefix) has to be ignored.
+	TAIL : set to QUERY, TARGET or NONE. Tells which TAIL (suffix) has to be ignored.
+*/
+
+template <typename T, typename S, typename HEAD, typename TAIL>
 __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch, uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *target_batch_end, int32_t *target_batch_start, int n_tasks) {
 
 	const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
