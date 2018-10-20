@@ -17,24 +17,28 @@
 /* typename meanings:
 	T : algorithm type. Unused at the moment for semi_global as only semi_global type is run in this kernel. Can be used to create several types of computing cores, for example.
 	S : WITH_ or WITHOUT_ Start.
-	HEAD : set to QUERY, TARGET or NONE. Tells which HEAD (prefix) has to be ignored.
-	TAIL : set to QUERY, TARGET or NONE. Tells which TAIL (suffix) has to be ignored.
+	HEAD : set to QUERY, TARGET, BOTH or NONE. Tells which HEAD (prefix) is allowed to be ignored.
+	TAIL : set to QUERY, TARGET, BOTH or NONE. Tells which TAIL (suffix) is allowed to be ignored.
 */
 
 template <typename T, typename S, typename HEAD, typename TAIL>
-__global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch, uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *target_batch_end, int32_t *target_batch_start, int n_tasks) {
+__global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch, uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int32_t *query_batch_start, int32_t *target_batch_start, int n_tasks) {
 
 	const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
 	if (tid >= n_tasks) return;
 
 	int32_t i, j, k, l, m;
 	int32_t e;
+	
 	int32_t maxHH =  MINUS_INF;//initialize the maximum score to -infinity
 	int32_t subScore;
 	int32_t ridx, gidx;
 	short2 HD;
 	short2 initHD = make_short2(0, 0);
-	int32_t maxXY_y = 0;
+	int32_t maxXY_y __attribute__((unused)) ;
+	int32_t maxXY_x __attribute__((unused)) ;
+	maxXY_x = 0;
+	maxXY_y = 0;
 	uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3;//starting index of the target_batch sequence
 	uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
 	uint32_t read_len = query_batch_lens[tid];
@@ -47,20 +51,47 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 	int32_t f[9];
 	int32_t p[9];
 	//-------------------------------------------------------
+	int32_t u __attribute__((unused)) ;	// this variable may not be used in some cases, depending on which kernel is generated.
+	u = 0; 
 
-	global[0] = make_short2(0, MINUS_INF);
-	for (i = 1; i < MAX_SEQ_LEN; i++) {
-		global[i] = make_short2(-(_cudaGapO + (_cudaGapExtend*(i))), MINUS_INF);
+
+	if (SAMETYPE(HEAD, Int2Type<QUERY>) || SAMETYPE(HEAD, Int2Type<BOTH>))
+	{
+		for (i = 0; i < MAX_SEQ_LEN; i++) {
+			global[i] = initHD;
+		}
+	} else {
+		global[0] = make_short2(0, MINUS_INF);
+		for (i = 1; i < MAX_SEQ_LEN; i++) {
+			global[i] = make_short2(-(_cudaGapO + (_cudaGapExtend*(i))), MINUS_INF);
+		}
+	}
+
+	if (SAMETYPE(HEAD, Int2Type<QUERY>) || SAMETYPE(HEAD, Int2Type<NONE>))
+	{
+		h[u++] = 0;
+		p[u++] = 0;
 	}
 
 	for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
 		gidx = i << 3;
 		ridx = 0;
-		for (m = 0; m < 9; m++) {
-			h[m] = 0;
-			f[m] = MINUS_INF;
-			p[m] = 0;
+
+		if (SAMETYPE(HEAD, Int2Type<TARGET>) || SAMETYPE(HEAD, Int2Type<BOTH>))
+		{
+			for (m = 0; m < 9; m++) {
+				h[m] = 0;
+				f[m] = MINUS_INF;
+				p[m] = 0;
+			}
+		} else {
+			for (m = 1; m < 9; m++, u++) {
+				h[m] = -(_cudaGapO + (_cudaGapExtend*(u-1))); 
+				f[m] = MINUS_INF; 
+				p[m] = -(_cudaGapO + (_cudaGapExtend*(u-1))); 
+			}
 		}
+
 
 		register uint32_t gpac =packed_target_batch[packed_target_batch_idx + i];//load 8 packed bases from target_batch sequence
 
@@ -86,7 +117,7 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 				global[ridx] = HD;
 				ridx++;
 
-				//------the last column of DP matrix------------
+				//------the last line of DP matrix------------
 				if (ridx == read_len) {
 					//----find the maximum and the corresponding end position-----------
 					for (m = 1; m < 9; m++) {
@@ -96,10 +127,11 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 				} // endif(ridx == read_len)
 			} // endfor() computing tile
 		} // endfor() on query words
-	} // endfor() on target words
+	} // endfor() on targt words
 
 	score[tid] = maxHH;//copy the max score to the output array in the GPU mem
-	target_batch_end[tid] =  maxXY_y;//copy the end position on the target_batch sequence to the output array in the GPU mem
+	target_batch_end[tid] =  maxXY_x;//copy the end position on the target_batch sequence to the output array in the GPU mem
+	query_batch_end[tid] =  maxXY_y;//copy the end position on the target_batch sequence to the output array in the GPU mem
 
 
 	if (SAMETYPE(S, Int2Type<WITH_START>))

@@ -20,7 +20,8 @@ enum comp_start{
 enum data_source{
 	NONE,
 	QUERY,
-	TARGET
+	TARGET,
+	BOTH
 };
 
 enum algo_type{
@@ -126,7 +127,9 @@ void gasal_copy_subst_scores(gasal_subst_scores *subst);
 
 gasal_gpu_storage_v gasal_init_gpu_storage_v(int n_streams);
 
-void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_query_batch_bytes, const uint32_t actual_target_batch_bytes, const uint32_t actual_n_alns, algo_type algo, comp_start start, int32_t k_band);
+void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_query_batch_bytes, const uint32_t actual_target_batch_bytes, const uint32_t actual_n_alns, algo_type algo, comp_start start, const int32_t k_band, const data_source semiglobal_skipping_head, const data_source semiglobal_skipping_tail);
+
+inline void gasal_kernel_launcher(int32_t N_BLOCKS, int32_t BLOCKDIM, algo_type algo, comp_start start, gasal_gpu_storage_t *gpu_storage, int32_t actual_n_alns, int32_t k_band);
 
 int gasal_is_aln_async_done(gasal_gpu_storage_t *gpu_storage);
 

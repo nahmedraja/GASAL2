@@ -60,8 +60,12 @@ int main(int argc, char *argv[]) {
 	std::string al_type;
 	int32_t k_band = 20;
 
+	// query head, target head, query tail, target tail
+	std::string semiglobal_bound_head;
+	std::string semiglobal_bound_tail;
+
 // parse command line
-	while ((c = getopt(argc, argv, "a:b:q:r:n:y:k:sp")) >= 0) {
+	while ((c = getopt(argc, argv, "a:b:q:r:n:y:k:x:sp")) >= 0) {
 		switch (c) {
 		case 'a':
 			sa = atoi(optarg);
@@ -91,7 +95,17 @@ int main(int argc, char *argv[]) {
 		case 'k':
 			k_band = atoi(optarg);
 			break;
+		case 'x':
+			semiglobal_bound_head = std::string(optarg);
 
+			if (optind < argc && *argv[optind] != '-'){
+				semiglobal_bound_tail = std::string(argv[optind]); 
+				optind++;
+			} else {
+				fprintf(stderr, "\n-x option require TWO arguments\n\n");
+				exit(EXIT_FAILURE);
+			}
+			break;
 		}
 	}
 
@@ -110,6 +124,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "\n");
 		return 1;
 	}
+
 	if (al_type.empty()) {
 		fprintf(stderr, "Must specify the alignment type (local, semi_global)\n");
 		return 1;
@@ -134,7 +149,27 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	data_source semiglobal_skipping_head = NONE;
+
+	if (!semiglobal_bound_head.compare("QUERY"))
+		semiglobal_skipping_head = QUERY;
+	else if (!semiglobal_bound_head.compare("TARGET"))
+		semiglobal_skipping_head = TARGET;
+	else if (!semiglobal_bound_head.compare("BOTH"))
+		semiglobal_skipping_head = BOTH;
+
+	data_source semiglobal_skipping_tail = NONE;
+	
+	if (!semiglobal_bound_tail.compare("HEAD"))
+		semiglobal_skipping_tail = QUERY;
+	else if (!semiglobal_bound_tail.compare("TAIL"))
+		semiglobal_skipping_tail = TARGET;
+	else if (!semiglobal_bound_tail.compare("BOTH"))
+		semiglobal_skipping_tail = BOTH;
+
 	fprintf(stderr, "Options: algo=%d, start_pos=%d, band k_band=%d\n", algo, start_pos, k_band);
+
+	fprintf(stderr, "Semi-global parameters: head: %s (%d), tail: %s (%d)\n", semiglobal_bound_head.c_str(), semiglobal_skipping_head, semiglobal_bound_tail.c_str(),  semiglobal_skipping_tail);
 
 	//--------------copy substitution scores to GPU--------------------
 	gasal_subst_scores sub_scores;
@@ -291,7 +326,6 @@ int main(int argc, char *argv[]) {
 		else thread_n_seqs[i] = total_seqs - n_seqs_alloc;
 		thread_n_batchs[i] = (int)ceil((double)thread_n_seqs[i]/(GPU_BATCH_SIZE));
 		n_seqs_alloc += thread_n_seqs[i];
-
 	}
 
 	cerr << "Processing..." << endl;
@@ -428,14 +462,10 @@ int main(int argc, char *argv[]) {
 					curr_idx += (GPU_BATCH_SIZE);
 
 					//----------------------------------------------------------------------------------------------------
-
-
 					//-----------------calling the GASAL2 non-blocking alignment function---------------------------------
-					
-						
-					gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch,  algo, start_pos, k_band);
-						
 
+					gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch,  algo, start_pos, k_band,  semiglobal_skipping_head,  semiglobal_skipping_tail);
+						
 					//---------------------------------------------------------------------------------
 			}
 
@@ -448,7 +478,7 @@ int main(int argc, char *argv[]) {
 					if (gasal_is_aln_async_done(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage) == 0) {
 						int j = 0;
 						if(print_out) {
-#pragma omp critical
+						#pragma omp critical
 						for (int i = gpu_batch_arr[gpu_batch_arr_idx].batch_start; j < gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch; i++, j++) {
 							if(al_type.compare("local") == 0 || al_type.compare("banded") == 0 || al_type.compare("microloc") == 0 || al_type.compare("fixedband") == 0) {
 								if (start_pos == WITH_START){

@@ -56,7 +56,7 @@ __global__ void gasal_global_kernel(uint32_t *packed_query_batch, uint32_t *pack
 				e = HD.y;
 				//----------------------------------------------------------
 				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
-	#pragma unroll 8
+				#pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 					uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
 					DEV_GET_SUB_SCORE_GLOBAL(subScore, rbase, gbase);//check the equality of rbase and gbase
