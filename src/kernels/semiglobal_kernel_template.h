@@ -14,6 +14,7 @@
 	p[m] = h[m-1];
 
 
+
 /* typename meanings:
 	T : algorithm type. Unused at the moment for semi_global as only semi_global type is run in this kernel. Can be used to create several types of computing cores, for example.
 	S : WITH_ or WITHOUT_ Start.
@@ -22,7 +23,8 @@
 */
 
 template <typename T, typename S, typename HEAD, typename TAIL>
-__global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch, uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int32_t *query_batch_start, int32_t *target_batch_start, int n_tasks) {
+__global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch, uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int32_t *query_batch_start, int32_t *target_batch_start, int n_tasks) 
+{
 
 	const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
 	if (tid >= n_tasks) return;
@@ -35,16 +37,18 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 	int32_t ridx, gidx;
 	short2 HD;
 	short2 initHD = make_short2(0, 0);
-	int32_t maxXY_y __attribute__((unused)) ;
-	int32_t maxXY_x __attribute__((unused)) ;
-	maxXY_x = 0;
-	maxXY_y = 0;
 	uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3;//starting index of the target_batch sequence
 	uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
 	uint32_t read_len = query_batch_lens[tid];
 	uint32_t ref_len = target_batch_lens[tid];
 	uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding sequence of query_batch
 	uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding sequence of target_batch
+
+	int32_t maxXY_y __attribute__((unused)) ;
+	int32_t maxXY_x __attribute__((unused)) ;
+	maxXY_x = ref_len;
+	maxXY_y = read_len;
+
 	//-------arrays to save intermediate values----------------
 	short2 global[MAX_SEQ_LEN];
 	int32_t h[9];
@@ -57,12 +61,14 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 
 	if (SAMETYPE(HEAD, Int2Type<QUERY>) || SAMETYPE(HEAD, Int2Type<BOTH>))
 	{
-		for (i = 0; i < MAX_SEQ_LEN; i++) {
+		for (i = 0; i < MAX_SEQ_LEN; i++) 
+		{
 			global[i] = initHD;
 		}
 	} else {
 		global[0] = make_short2(0, MINUS_INF);
-		for (i = 1; i < MAX_SEQ_LEN; i++) {
+		for (i = 1; i < MAX_SEQ_LEN; i++) 
+		{
 			global[i] = make_short2(-(_cudaGapO + (_cudaGapExtend*(i))), MINUS_INF);
 		}
 	}
@@ -73,19 +79,22 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 		p[u++] = 0;
 	}
 
-	for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
+	for (i = 0; i < target_batch_regs; i++) 
+	{ //target_batch sequence in rows
 		gidx = i << 3;
 		ridx = 0;
 
 		if (SAMETYPE(HEAD, Int2Type<TARGET>) || SAMETYPE(HEAD, Int2Type<BOTH>))
 		{
-			for (m = 0; m < 9; m++) {
+			for (m = 0; m < 9; m++) 
+			{
 				h[m] = 0;
 				f[m] = MINUS_INF;
 				p[m] = 0;
 			}
 		} else {
-			for (m = 1; m < 9; m++, u++) {
+			for (m = 1; m < 9; m++, u++) 
+			{
 				h[m] = -(_cudaGapO + (_cudaGapExtend*(u-1))); 
 				f[m] = MINUS_INF; 
 				p[m] = -(_cudaGapO + (_cudaGapExtend*(u-1))); 
@@ -95,11 +104,13 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 
 		register uint32_t gpac =packed_target_batch[packed_target_batch_idx + i];//load 8 packed bases from target_batch sequence
 
-		for (j = 0; j < query_batch_regs; /*++j*/ j+=1) { //query_batch sequence in columns
+		for (j = 0; j < query_batch_regs; /*++j*/ j+=1) //query_batch sequence in columns
+		{ 
 			register uint32_t rpac =packed_query_batch[packed_query_batch_idx + j];//load 8 packed bases from query_batch sequence
 
 			//--------------compute a tile of 8x8 cells-------------------
-			for (k = 28; k >= 0; k -= 4) {
+			for (k = 28; k >= 0; k -= 4) 
+			{
 				uint32_t rbase = (rpac >> k) & 15;//get a base from query_batch sequence
 				//------------load intermediate values----------------------
 				HD = global[ridx];
@@ -108,7 +119,8 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 				//----------------------------------------------------------
 				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
 				#pragma unroll 8
-				for (l = 28, m = 1; m < 9; l -= 4, m++) {
+				for (l = 28, m = 1; m < 9; l -= 4, m++) 
+				{
 					CORE_COMPUTE_SEMIGLOBAL();
 				}
 				//--------------save intermediate values-------------------------
@@ -118,16 +130,43 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 				ridx++;
 
 				//------the last line of DP matrix------------
-				if (ridx == read_len) {
-					//----find the maximum and the corresponding end position-----------
-					for (m = 1; m < 9; m++) {
-						maxXY_y = (h[m] > maxHH && (gidx + m -1) < ref_len) ? gidx + (m-1) : maxXY_y;
-						maxHH = (h[m] > maxHH && (gidx + m -1) < ref_len) ? h[m] : maxHH;
-					}
-				} // endif(ridx == read_len)
+				if (SAMETYPE(TAIL, Int2Type<TARGET>) || SAMETYPE(TAIL, Int2Type<BOTH>)) 
+				{ 
+					if (ridx == read_len) 
+					{
+						//----find the maximum and the corresponding end position-----------
+						for (m = 1; m < 9; m++) 
+						{
+							maxXY_y = (h[m] > maxHH && (gidx + m - 1) < ref_len) ? gidx + (m-1) : maxXY_y;
+							maxHH = (h[m] > maxHH && (gidx + m - 1) < ref_len) ? h[m] : maxHH;
+						}
+					} // endif(ridx == read_len)
+				}
+
 			} // endfor() computing tile
+
 		} // endfor() on query words
 	} // endfor() on targt words
+
+	// I think that not putting an if in a defined loop would be more harmful than hoping for data locality.
+	// the if would have most of the time misses, and only very few hits, and I fear that you would get more overhead than putting it separately.
+	if (SAMETYPE(TAIL, Int2Type<QUERY>) || SAMETYPE(TAIL, Int2Type<BOTH>)) 
+	{
+		for (m = 0; m < MAX_SEQ_LEN; m++) 
+		{
+			int32_t score_tmp = global[m].x;
+			if (score_tmp > maxHH && m < read_len)
+			{
+				maxXY_x = m;
+				maxHH = score_tmp;
+			}
+		}
+		/* if the X position has been updated and is not on the bottom line, then the max score is actually on the rightmost column.
+		 * Then, update the Y position to be on the 
+		 */
+		if (maxXY_x != ref_len)
+			maxXY_y = read_len;
+	}
 
 	score[tid] = maxHH;//copy the max score to the output array in the GPU mem
 	target_batch_end[tid] =  maxXY_x;//copy the end position on the target_batch sequence to the output array in the GPU mem
