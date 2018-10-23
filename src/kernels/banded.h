@@ -4,7 +4,8 @@
 #define BAND_SIZE (24)
 #define __MOD(a) (a & (BAND_SIZE-1))
 
-__global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks, int32_t k_band_width) {
+__global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks, int32_t k_band_width) 
+{
 	int32_t i, j, k, m, l;
 	int32_t e;
 	int32_t maxHH = 0;//initialize the maximum score to zero
@@ -156,7 +157,8 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 
 }
 
-__global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int32_t *query_batch_start, int32_t *target_batch_start,int n_tasks, int32_t k_band_width) {
+__global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int32_t *query_batch_start, int32_t *target_batch_start,int n_tasks, int32_t k_band_width) 
+{
 	int32_t i, j, k, m, l;
 	int32_t e;
 	int32_t maxHH = 0;//initialize the maximum score to zero
@@ -408,7 +410,8 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 
 }
 
-__global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks, const int32_t k_band_width) {
+__global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks, const int32_t k_band_width) 
+{
 	int32_t i, j, k, m, l;
 	int32_t e;
 	int32_t maxHH = 0;//initialize the maximum score to zero

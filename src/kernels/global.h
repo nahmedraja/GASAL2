@@ -1,7 +1,8 @@
 #ifndef KERNEL_GLOBAL
 #define KERNEL_GLOBAL
 
-__global__ void gasal_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int n_tasks) {
+__global__ void gasal_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int n_tasks)
+{
 	int32_t i, j, k, l, m;
 	int32_t u = 0;
 	int32_t e;
