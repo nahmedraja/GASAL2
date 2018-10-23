@@ -11,6 +11,10 @@
 #include <string.h>
 
 #include "../include/gasal.h"
+#include "../include/gasal_align.h"
+#include "../include/host_batch.h"
+#include "../include/ctors.h"
+#include "../include/interfaces.h"
 
 using namespace std;
 

@@ -1,3 +1,6 @@
+#ifndef __GASAL_KERNELS_H__
+#define __GASAL_KERNELS_H__
+
 //#define DEBUG
 
 #ifdef DEBUG
@@ -64,9 +67,6 @@ __constant__ int32_t _cudaMismatchScore; /*penalty for a mismatch*/
 maxHH = (maxHH < curr) ? curr : maxHH;
 
 
-
-
-
 #include "kernels/pack_rc_seqs.h"
 
 #include "kernels/global.h"
@@ -76,3 +76,5 @@ maxHH = (maxHH < curr) ? curr : maxHH;
 #include "kernels/local_kernel_template.h"
 
 #include "kernels/banded.h"
+
+#endif
