@@ -148,8 +148,7 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 		} // endfor() on query words
 	} // endfor() on targt words
 
-	// I think that not putting an if in a defined loop would be more harmful than hoping for data locality.
-	// the if would have most of the time misses, and only very few hits, and I fear that you would get more overhead than putting it separately.
+
 	if (SAMETYPE(TAIL, Int2Type<QUERY>) || SAMETYPE(TAIL, Int2Type<BOTH>)) 
 	{
 		for (m = 0; m < MAX_SEQ_LEN; m++) 
@@ -162,7 +161,7 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 			}
 		}
 		/* if the X position has been updated and is not on the bottom line, then the max score is actually on the rightmost column.
-		 * Then, update the Y position to be on the 
+		 * Then, update the Y position to be on the rightmost column.
 		 */
 		if (maxXY_x != ref_len)
 			maxXY_y = read_len;
@@ -224,19 +223,45 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 		maxHH = MINUS_INF;
 		maxXY_y = 0;
 
-		global[0] = make_short2(0, MINUS_INF);
-		for (i = 1; i < MAX_SEQ_LEN; i++) {
-			global[i] = make_short2(-(_cudaGapO + (_cudaGapExtend*(i))), MINUS_INF);
+		if (SAMETYPE(HEAD, Int2Type<QUERY>) || SAMETYPE(HEAD, Int2Type<BOTH>))
+		{
+			for (i = 0; i < MAX_SEQ_LEN; i++) 
+			{
+				global[i] = initHD;
+			}
+		} else {
+			global[0] = make_short2(0, MINUS_INF);
+			for (i = 1; i < MAX_SEQ_LEN; i++) 
+			{
+				global[i] = make_short2(-(_cudaGapO + (_cudaGapExtend*(i))), MINUS_INF);
+			}
+		}
+
+		if (SAMETYPE(HEAD, Int2Type<QUERY>) || SAMETYPE(HEAD, Int2Type<NONE>))
+		{
+			h[u++] = 0;
+			p[u++] = 0;
 		}
 
 		//------starting from the gend_reg, align the sequences in the reverse direction and exit if the max score >= fwd_score------
 		for (i = gend_reg; i < target_batch_regs && maxHH < fwd_score; i++) { //target_batch sequence in rows
 			gidx = i << 3;
 			ridx = 0;
-			for (m = 0; m < 9; m++) {
-				h[m] = 0;
-				f[m] = MINUS_INF;
-				p[m] = 0;
+			if (SAMETYPE(HEAD, Int2Type<TARGET>) || SAMETYPE(HEAD, Int2Type<BOTH>))
+			{
+				for (m = 0; m < 9; m++) 
+				{
+					h[m] = 0;
+					f[m] = MINUS_INF;
+					p[m] = 0;
+				}
+			} else {
+				for (m = 1; m < 9; m++, u++) 
+				{
+					h[m] = -(_cudaGapO + (_cudaGapExtend*(u-1))); 
+					f[m] = MINUS_INF; 
+					p[m] = -(_cudaGapO + (_cudaGapExtend*(u-1))); 
+				}
 			}
 
 			register uint32_t gpac =reverse_target_batch[i];//load 8 packed bases from target_batch sequence
@@ -260,21 +285,47 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 					HD.x = h[m-1];
 					HD.y = e;
 					global[ridx] = HD;
-					//----------------------------------------------------------
 					ridx++;
-					//------the last column of DP matrix------------
-					if (ridx == read_len) {
-						//----find the maximum and the corresponding end position-----------
-						for (m = 1; m < 9; m++) {
-							maxXY_y = (h[m] > maxHH && (gidx + (m -1)) < ref_len) ? gidx + (m-1) : maxXY_y;
-							maxHH = (h[m] > maxHH && (gidx + (m -1)) < ref_len ) ? h[m] : maxHH;
-						}
-					} // endif(ridx == read_len)
+
+					//------the last line of DP matrix------------
+					if (SAMETYPE(TAIL, Int2Type<TARGET>) || SAMETYPE(TAIL, Int2Type<BOTH>)) 
+					{ 
+						if (ridx == read_len) 
+						{
+							//----find the maximum and the corresponding end position-----------
+							for (m = 1; m < 9; m++) 
+							{
+								maxXY_y = (h[m] > maxHH && (gidx + m - 1) < ref_len) ? gidx + (m-1) : maxXY_y;
+								maxHH = (h[m] > maxHH && (gidx + m - 1) < ref_len) ? h[m] : maxHH;
+							}
+						} // endif(ridx == read_len)
+					}
 				} // endfor() computing tile
 			} // endfor() on query words
 		} // endfor() on target words
 		
+
+		if (SAMETYPE(TAIL, Int2Type<QUERY>) || SAMETYPE(TAIL, Int2Type<BOTH>)) 
+		{
+			for (m = 0; m < MAX_SEQ_LEN; m++) 
+			{
+				int32_t score_tmp = global[m].x;
+				if (score_tmp > maxHH && m < read_len)
+				{
+					maxXY_x = m;
+					maxHH = score_tmp;
+				}
+			}
+			/* if the X position has been updated and is not on the bottom line, then the max score is actually on the rightmost column.
+			* Then, update the Y position to be on the rightmost column.
+			*/
+			if (maxXY_x != ref_len)
+				maxXY_y = read_len;
+		}
+
 		target_batch_start[tid] = (ref_len - 1) - maxXY_y;//copy the start position on target_batch sequence to the output array in the GPU mem
+		query_batch_start[tid] = (read_len - 1) - maxXY_x;//copy the start position on target_batch sequence to the output array in the GPU mem
+
 
 	} // endif(SAMETYPE(START, Int2Type<WITH_START>()))
 
