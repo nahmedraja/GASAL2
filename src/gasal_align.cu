@@ -3,7 +3,8 @@
 #include "gasal_kernels.h"
 
 
-inline void gasal_kernel_launcher(int32_t N_BLOCKS, int32_t BLOCKDIM, algo_type algo, comp_start start, gasal_gpu_storage_t *gpu_storage, int32_t actual_n_alns, int32_t k_band) {
+
+inline void gasal_kernel_launcher(int32_t N_BLOCKS, int32_t BLOCKDIM, algo_type algo, comp_start start, gasal_gpu_storage_t *gpu_storage, int32_t actual_n_alns, int32_t k_band, data_source semiglobal_skipping_head, data_source semiglobal_skipping_tail) {
 		if(start==WITHOUT_START)
 		{
 			switch(algo)
@@ -15,7 +16,8 @@ inline void gasal_kernel_launcher(int32_t N_BLOCKS, int32_t BLOCKDIM, algo_type 
 					gasal_local_kernel<Int2Type<MICROLOCAL>, Int2Type<WITHOUT_START>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start, gpu_storage->target_batch_start, actual_n_alns);
 				break;
 				case SEMI_GLOBAL:
-					gasal_semi_global_kernel<Int2Type<SEMI_GLOBAL>, Int2Type<WITHOUT_START>, Int2Type<TARGET>, Int2Type<TARGET>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start, gpu_storage->target_batch_start, actual_n_alns);
+					//gasal_kernel_semiglobal_launcher(N_BLOCKS, BLOCKDIM, algo, start, gpu_storage, actual_n_alns, k_band, semiglobal_skipping_head, semiglobal_skipping_tail);
+					SEMIGLOBAL_SWITCH(SEMI_GLOBAL, start, semiglobal_skipping_head, semiglobal_skipping_tail);
 				break;
 				case GLOBAL:
 					gasal_global_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, actual_n_alns);
@@ -36,7 +38,8 @@ inline void gasal_kernel_launcher(int32_t N_BLOCKS, int32_t BLOCKDIM, algo_type 
 					gasal_local_kernel<Int2Type<MICROLOCAL>, Int2Type<WITH_START>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start, gpu_storage->target_batch_start, actual_n_alns);
 				break;
 				case SEMI_GLOBAL:
-					gasal_semi_global_kernel<Int2Type<SEMI_GLOBAL>, Int2Type<WITH_START>, Int2Type<BOTH>, Int2Type<BOTH>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start, gpu_storage->target_batch_start, actual_n_alns);
+					//gasal_kernel_semiglobal_launcher(N_BLOCKS, BLOCKDIM, algo, start, gpu_storage, actual_n_alns, k_band, semiglobal_skipping_head, semiglobal_skipping_tail);
+					SEMIGLOBAL_SWITCH(SEMI_GLOBAL, start, semiglobal_skipping_head, semiglobal_skipping_tail);
 				break;
 				case GLOBAL:
 					gasal_global_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, actual_n_alns);
@@ -306,7 +309,7 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 
     //--------------------------------------launch alignment kernels--------------------------------------------------------------
 	
-	gasal_kernel_launcher(N_BLOCKS, BLOCKDIM, algo, start, gpu_storage, actual_n_alns, k_band);
+	gasal_kernel_launcher(N_BLOCKS, BLOCKDIM, algo, start, gpu_storage, actual_n_alns, k_band, semiglobal_skipping_head, semiglobal_skipping_tail);
 
 
         //-----------------------------------------------------------------------------------------------------------------------
