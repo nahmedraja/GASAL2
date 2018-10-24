@@ -1,14 +1,10 @@
 #ifndef __GASAL_KERNELS_H__
 #define __GASAL_KERNELS_H__
 
-//#define DEBUG
 
-#ifdef DEBUG
-#include <stdio.h>
-#endif
+// Template-meta-programming types construction from Int values
+// This allows to cut down kernel code at compilation time.
 
-
-// Template-meta-programming try
 template <int Val>
 struct Int2Type
 {
@@ -28,6 +24,7 @@ struct SameType<T, T>
 };
 
 #define SAMETYPE(a, b) (SameType<a,b>::result)
+
 
 __constant__ int32_t _cudaGapO; /*gap open penalty*/
 __constant__ int32_t _cudaGapOE; /*sum of gap open and extension penalties*/
@@ -66,6 +63,8 @@ __constant__ int32_t _cudaMismatchScore; /*penalty for a mismatch*/
 	maxXY_y = (maxHH < curr) ? gidx : maxXY_y;\
 maxHH = (maxHH < curr) ? curr : maxHH;
 
+
+// Kernel files
 
 #include "kernels/pack_rc_seqs.h"
 
