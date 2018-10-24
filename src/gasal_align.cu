@@ -4,52 +4,19 @@
 
 
 
-inline void gasal_kernel_launcher(int32_t N_BLOCKS, int32_t BLOCKDIM, algo_type algo, comp_start start, gasal_gpu_storage_t *gpu_storage, int32_t actual_n_alns, int32_t k_band, data_source semiglobal_skipping_head, data_source semiglobal_skipping_tail) {
-		if(start==WITHOUT_START)
-		{
-			switch(algo)
-			{
-				case LOCAL:
-					gasal_local_kernel<Int2Type<LOCAL>, Int2Type<WITHOUT_START>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start, gpu_storage->target_batch_start, actual_n_alns);
-				break;
-				case MICROLOCAL:
-					gasal_local_kernel<Int2Type<MICROLOCAL>, Int2Type<WITHOUT_START>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start, gpu_storage->target_batch_start, actual_n_alns);
-				break;
-				case SEMI_GLOBAL:
-					//gasal_kernel_semiglobal_launcher(N_BLOCKS, BLOCKDIM, algo, start, gpu_storage, actual_n_alns, k_band, semiglobal_skipping_head, semiglobal_skipping_tail);
-					SEMIGLOBAL_SWITCH(SEMI_GLOBAL, start, semiglobal_skipping_head, semiglobal_skipping_tail);
-				break;
-				case GLOBAL:
-					gasal_global_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, actual_n_alns);
-				break;
-				case BANDED:
-					gasal_banded_tiled_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns, k_band>>3); // the band is already divided by 8.
-				break;
-				default:
-				break;
-			}
-		} else {
-			switch(algo)
-			{
-				case LOCAL:
-					gasal_local_kernel<Int2Type<LOCAL>, Int2Type<WITH_START>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start,gpu_storage->target_batch_start, actual_n_alns);
-				break;
-				case MICROLOCAL:
-					gasal_local_kernel<Int2Type<MICROLOCAL>, Int2Type<WITH_START>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start, gpu_storage->target_batch_start, actual_n_alns);
-				break;
-				case SEMI_GLOBAL:
-					//gasal_kernel_semiglobal_launcher(N_BLOCKS, BLOCKDIM, algo, start, gpu_storage, actual_n_alns, k_band, semiglobal_skipping_head, semiglobal_skipping_tail);
-					SEMIGLOBAL_SWITCH(SEMI_GLOBAL, start, semiglobal_skipping_head, semiglobal_skipping_tail);
-				break;
-				case GLOBAL:
-					gasal_global_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, actual_n_alns);
-				break;
-				case BANDED:
-					gasal_banded_tiled_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns, k_band>>3); // the band is already divided by 8.
-				break;
-				default:
-				break;
-			}
+inline void gasal_kernel_launcher(int32_t N_BLOCKS, int32_t BLOCKDIM, algo_type algo, comp_start start, gasal_gpu_storage_t *gpu_storage, int32_t actual_n_alns, int32_t k_band, data_source semiglobal_skipping_head, data_source semiglobal_skipping_tail) 
+{
+	switch(algo)
+	{
+		
+		KERNEL_SWITCH(LOCAL, start, semiglobal_skipping_head, semiglobal_skipping_tail);
+		KERNEL_SWITCH(SEMI_GLOBAL, start, semiglobal_skipping_head, semiglobal_skipping_tail);		// MACRO that expands all 32 semi-global kernels
+		KERNEL_SWITCH(GLOBAL, start, semiglobal_skipping_head, semiglobal_skipping_tail);
+		KERNEL_SWITCH(BANDED, start, semiglobal_skipping_head, semiglobal_skipping_tail);
+
+		default:
+		break;
+
 	}
 
 	/*

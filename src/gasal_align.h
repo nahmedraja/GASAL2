@@ -1,14 +1,14 @@
 #ifndef __GASAL_ALIGN_H__
 #define __GASAL_ALIGN_H__
 
-// SEMI_GLOBAL Kernels generation - read from the lowest one, all the way up. (the most specialized ones must be written before the ones that call them)
+// SEMI_GLOBAL Kernels generation - read from the bottom one, all the way up. (the most specialized ones are written before the ones that call them)
 
 #define SEMIGLOBAL_KERNEL_CALL(a,s,h,t) \
 	case t:\
 		gasal_semi_global_kernel<Int2Type<a>, Int2Type<s>, Int2Type<h>, Int2Type<t>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start, gpu_storage->target_batch_start, actual_n_alns); \
 	break;
 
-#define SEMIGLOBAL_SWITCH_TAIL(a,s,h,t) \
+#define SWITCH_SEMI_GLOBAL_TAIL(a,s,h,t) \
 	case h:\
 	switch(t) { \
 		SEMIGLOBAL_KERNEL_CALL(a,s,h,NONE)\
@@ -18,21 +18,53 @@
 	}\
 	break;
 
-#define SEMIGLOBAL_SWITCH_HEAD(a,s,h,t) \
+#define SWITCH_SEMI_GLOBAL_HEAD(a,s,h,t) \
 	case s:\
 	switch(h) { \
-		SEMIGLOBAL_SWITCH_TAIL(a,s,NONE,t)\
-		SEMIGLOBAL_SWITCH_TAIL(a,s,QUERY,t)\
-		SEMIGLOBAL_SWITCH_TAIL(a,s,TARGET,t)\
-		SEMIGLOBAL_SWITCH_TAIL(a,s,BOTH,t)\
+		SWITCH_SEMI_GLOBAL_TAIL(a,s,NONE,t)\
+		SWITCH_SEMI_GLOBAL_TAIL(a,s,QUERY,t)\
+		SWITCH_SEMI_GLOBAL_TAIL(a,s,TARGET,t)\
+		SWITCH_SEMI_GLOBAL_TAIL(a,s,BOTH,t)\
 	} \
 	break;\
 
-#define SEMIGLOBAL_SWITCH(a,s,h,t) \
-	switch(s) { \
-		SEMIGLOBAL_SWITCH_HEAD(a,WITH_START,h,t)\
-		SEMIGLOBAL_SWITCH_HEAD(a,WITHOUT_START,h,t)\
-	}
+// ALGORITHMS Kernels generation. Allows to have a single line written for all kernels calls. The switch-cases are MACRO-generated.
+
+#define SWITCH_SEMI_GLOBAL(a,s,h,t) SWITCH_SEMI_GLOBAL_HEAD(a,s,h,t)
+
+#define SWITCH_LOCAL(a,s,h,t) \
+    case s:\
+        gasal_local_kernel<Int2Type<LOCAL>, Int2Type<s>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start, gpu_storage->target_batch_start, actual_n_alns); \
+    break;
+
+#define SWITCH_MICROLOCAL(a,s,h,t) \
+    case s:\
+        gasal_local_kernel<Int2Type<MICROLOCAL>, Int2Type<s>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, gpu_storage->query_batch_start, gpu_storage->target_batch_start, actual_n_alns);\
+    break;
+
+#define SWITCH_GLOBAL(a,s,h,t) \
+    case s:\
+        gasal_global_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, actual_n_alns);\
+    break;
+
+
+#define SWITCH_BANDED(a,s,h,t) \
+    case s:\
+        gasal_banded_tiled_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score, gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns, k_band>>3); \
+    break;\
+
+// MACRO calls : general call (bottom, should be used), and first level WITH / WITHOUT_START switch call (top)
+
+#define SWITCH_START(a,s,h,t) \
+    switch(s){\
+        SWITCH_## a(a,WITH_START,h,t)\
+        SWITCH_## a(a,WITHOUT_START,h,t)\
+    }
+
+#define KERNEL_SWITCH(a,s,h,t) \
+    case a:\
+        SWITCH_START(a,s,h,t)\
+    break;
 
 
 /* // Deprecated
