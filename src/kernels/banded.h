@@ -4,7 +4,8 @@
 #define BAND_SIZE (24)
 #define __MOD(a) (a & (BAND_SIZE-1))
 
-__global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks, int32_t k_band_width) {
+__global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks, int32_t k_band_width) 
+{
 	int32_t i, j, k, m, l;
 	int32_t e;
 	int32_t maxHH = 0;//initialize the maximum score to zero
@@ -100,12 +101,6 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 
 					if (-x_minus_y > k_band_width || x_minus_y > k_other_band_width)
 					{
-						#ifdef DEBUG
-						if(tid==0)
-						{
-							printf("(%d) - ",x_minus_y);
-						}
-						#endif
 
 						h[m] = 0;
 
@@ -140,10 +135,7 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 			}
 			//-------------------------------------------------------
 			// 8*8 patch done
-			#ifdef DEBUG
-			if(tid==0)
-			printf("\n");
-			#endif
+
 		}
 
 	}
@@ -156,7 +148,8 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 
 }
 
-__global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int32_t *query_batch_start, int32_t *target_batch_start,int n_tasks, int32_t k_band_width) {
+__global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int32_t *query_batch_start, int32_t *target_batch_start,int n_tasks, int32_t k_band_width) 
+{
 	int32_t i, j, k, m, l;
 	int32_t e;
 	int32_t maxHH = 0;//initialize the maximum score to zero
@@ -252,13 +245,6 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 
 					if (y > k_band_width + x || x > y + (target_batch_regs*8 - (query_batch_regs*8 - k_band_width)))
 					{
-						#ifdef DEBUG
-						if(tid==0)
-						{
-							printf("(%d, %d) - ",x, y);
-						}
-						#endif
-
 						h[m] = 0;
 
 					} else {
@@ -288,10 +274,7 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 			}
 			//-------------------------------------------------------
 			// 8*8 patch done
-			#ifdef DEBUG
-			if(tid==0)
-			printf("\n");
-			#endif
+
 		}
 
 	}
@@ -358,13 +341,6 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 
 					if (y > k_band_width + x || x > y + (target_batch_regs*8 - (query_batch_regs*8 - k_band_width)))
 					{
-						#ifdef DEBUG
-						if(tid==0)
-						{
-							printf("(%d, %d) - ",x, y);
-						}
-						#endif
-
 						h[m] = 0;
 
 					} else {
@@ -408,7 +384,8 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 
 }
 
-__global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks, const int32_t k_band_width) {
+__global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks, const int32_t k_band_width) 
+{
 	int32_t i, j, k, m, l;
 	int32_t e;
 	int32_t maxHH = 0;//initialize the maximum score to zero
@@ -433,12 +410,7 @@ __global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t
 	int32_t f[9];
 	int32_t p[9];
  	const int32_t k_other_band_width = (target_batch_regs - (query_batch_regs - k_band_width));
-	#ifdef DEBUG
-	if(tid==0)
-	{
-		printf("k, k_other = %d , %d \n",k_band_width_loc, k_other_band_width);
-	}
-	#endif
+
 	//--------------------------------------------
 
 	// table of cells (don't use it with sequences larger than ~50 bases)
@@ -489,15 +461,6 @@ __global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t
 		int32_t last_tile =  MIN( k_band_width + i, (int32_t)query_batch_regs);
 		for (j = ridx >> 3  ; j < last_tile; j++) { //query_batch sequence in columns --- the beginning and end are defined with the tile-based band, to avoid unneccessary calculations.
 
-			#ifdef DEBUG
-			if(tid==1)
-			{
-				if (j == MAX(0, i - k_other_band_width+1) || j == MIN( k_band_width_loc + i, (int32_t)query_batch_regs) - 1)
-				printf("i,j = (%d, %d) - ",i, j);
-				if ( j == MIN( k_band_width_loc + i, (int32_t)query_batch_regs) - 1)
-					printf("\n");
-			}
-			#endif
 			uint32_t rpac =packed_query_batch[packed_query_batch_idx + j];//load 8 bases from query_batch sequence
 
 				//--------------compute a tile of 8x8 cells-------------------

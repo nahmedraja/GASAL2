@@ -10,9 +10,8 @@
 
 
 
-__global__ void gasal_pack_kernel(uint32_t* unpacked_query_batch,
-		uint32_t* unpacked_target_batch, uint32_t *packed_query_batch, uint32_t* packed_target_batch,
-		int query_batch_tasks_per_thread, int target_batch_tasks_per_thread, uint32_t total_query_batch_regs, uint32_t total_target_batch_regs) {
+__global__ void gasal_pack_kernel(uint32_t* unpacked_query_batch, uint32_t* unpacked_target_batch, uint32_t *packed_query_batch, uint32_t* packed_target_batch, int query_batch_tasks_per_thread, int target_batch_tasks_per_thread, uint32_t total_query_batch_regs, uint32_t total_target_batch_regs) \
+{
 
 	int32_t i;
 	const int32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
@@ -54,8 +53,8 @@ __global__ void gasal_pack_kernel(uint32_t* unpacked_query_batch,
 }
 
 
-__global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint32_t *packed_target_batch, uint32_t *query_batch_lens,
-		uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, uint8_t *query_op, uint8_t *target_op, uint32_t  n_tasks){
+__global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint32_t *packed_target_batch, uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, uint8_t *query_op, uint8_t *target_op, uint32_t  n_tasks)
+{
 
 	const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
 
@@ -84,7 +83,7 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 
 	// avoid useless code duplicate thanks to pointers to route the data flow where it should be, twice.
 	#pragma unroll 2
-	for (int p = 0; p < 2; p++)
+	for (int p = QUERY; p <= TARGET; p++)
 	{
 		switch(p)
 		{
@@ -103,7 +102,7 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 				packed_batch_idx = &packed_target_batch_idx;
 				break;
 			default:
-				break;
+			break;
 		}
 
 		if (*(op + tid) & 0x01) // reverse
@@ -114,9 +113,10 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 			{
 				nbr_N += (((*(packed_batch + *(packed_batch_idx) + *(batch_regs)-1) & (0x0F << j)) >> j) == N_PAK);
 			}
-	#ifdef DEBUG
+			
 			//printf("KERNEL_DEBUG: nbr_N=%d\n", nbr_N);
-	#endif
+
+
 			nbr_N = nbr_N << 2; // we operate on nibbles so we will need to do our shifts 4 bits by 4 bits, so 4*nbr_N
 
 			for (uint32_t i = 0; i < *(batch_regs_to_swap); i++) // reverse all words. There's a catch with the last word (in the middle of the sequence), see final if.
@@ -141,10 +141,10 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 				uint32_t to_queue_1 = (reverse_rpac_1 << nbr_N) | ((*(packed_batch + *(packed_batch_idx) + *(batch_regs)-1 - i)) & ((1<<nbr_N) - 1));
 				uint32_t to_queue_2 = ((*(packed_batch + *(packed_batch_idx) + *(batch_regs)-2 - i)) & (0xFFFFFFFF - ((1<<nbr_N) - 1))) | (reverse_rpac_1 >> (32-nbr_N));
 
-	#ifdef DEBUG				
+			
 				//printf("KERNEL DEBUG: rpac_1 Word before reverse: %x, after: %x, split into %x + %x \n", rpac_1, reverse_rpac_1, to_queue_2, to_queue_1 );
 				//printf("KERNEL DEBUG: rpac_2 Word before reverse: %x, after: %x\n", rpac_2, reverse_rpac_2 );
-	#endif
+
 
 				*(packed_batch + *(packed_batch_idx) + i) = reverse_rpac_2;
 				(*(packed_batch + *(packed_batch_idx) + *(batch_regs)-1 - i)) = to_queue_1;
@@ -186,9 +186,7 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 					rpac = (rpac & (0xFFFFFFFF - (0x0F << k))) | nucleotide << k;
 				}
 
-	#ifdef DEBUG
 				//printf("KERNEL DEBUG: Word read : %x, after complement: %x\n", *(packed_batch + *(packed_batch_idx) + i), rpac);
-	#endif
 
 				*(packed_batch + *(packed_batch_idx) + i) = rpac;
 

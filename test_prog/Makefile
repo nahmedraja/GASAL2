@@ -2,16 +2,16 @@ CUDA_LD_LIBRARY=/usr/local/cuda-9.2/targets/x86_64-linux/lib
 ANALYSIS_FILENAME=analysis
 # prefix1 can be optirun in case you need to run it from an optimus-enabled laptop.
 PREFIX1=
-#i prefix2 can bear "nvprof" as well as nvprof with its parameters: nvprof --profile-api-trace none -s -f -o /tmp/.nvprof/$(ANALYSIS_FILENAME).nvprof
+#i prefix2 can be nvprof. use preferably the following : nvprof --profile-api-trace none -s -f -o /tmp/.nvprof/$(ANALYSIS_FILENAME).nvprof
 PREFIX2= nvprof --profile-api-trace none -s -f -o /tmp/.nvprof/$(ANALYSIS_FILENAME).nvprof
 #suffix1 and 2 can be an output file.
 SUFFIX1=> golden.log
 SUFFIX2=> out.log
 
 PRGM=test_prog.out
-
-OPTARGS1=-y local 
-OPTARGS2=-y microloc
+ 
+OPTARGS1=-x BOTH BOTH -p -y semi_global
+OPTARGS2=-x QUERY TARGET -p -y semi_global
 
 FILES_HUMAN600=reads_600_human_10M.fasta ref_600_human_10M.fasta
 FILES_HUMAN300=reads_300_human_10M.fasta ref_300_human_10M.fasta
@@ -32,7 +32,7 @@ clean:
 	rm -f -r *~ *.exe *.o *.out *.txt *~ *.tsv
 	
 test_prog.o: Timer.h
-
+ 
 
 human150: all
 	$(PREFIX1) $(PREFIX2) ./$(PRGM) $(OPTARGS1) $(FILES_HUMAN150) $(SUFFIX1)

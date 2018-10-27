@@ -1,0 +1,61 @@
+#ifndef ARGS_PARSER_H
+#define ARGS_PARSER_H
+
+#include <stdint.h>
+#include <iostream>
+#include <string>
+#include <fstream>
+#include <cstdlib>
+#include "gasal.h"
+
+enum fail_type {
+    NOT_ENOUGH_ARGS,
+    TOO_MANY_ARGS,
+    WRONG_ARG,
+    WRONG_FILES,
+    WRONG_ALGO
+};
+
+class Arguments{
+
+    public: 
+        Arguments(int argc, char** argv);
+        ~Arguments();
+        void print();
+        void failure(fail_type f);
+        void help();
+        void parse();
+        void fileopen();
+
+
+
+        int32_t sa;
+        int32_t sb;
+        int32_t gapo;
+        int32_t gape;
+        comp_start start_pos; 
+        int print_out;
+        int n_threads;
+        int32_t k_band;
+
+        data_source semiglobal_skipping_head;
+        data_source semiglobal_skipping_tail;
+
+        algo_type algo;
+
+        std::string query_batch_fasta_filename;
+        std::string target_batch_fasta_filename;
+
+        std::ifstream query_batch_fasta;
+        std::ifstream target_batch_fasta;
+
+
+    protected:
+
+    private:
+        int argc;
+        char** argv;
+};
+
+
+#endif
