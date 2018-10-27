@@ -75,15 +75,32 @@ void Arguments::help() {
 
 
 void Arguments::parse() {
+
+    // before testing anything, check if calling for help.
+    int c;
+        
+    std::string arg_next = "";
+    std::string arg_cur = "";
+
+    for (c = 1; c < argc; c++)
+    {
+        arg_cur = std::string((const char*) (*(argv + c) ) );
+        arg_next = "";
+        if (!arg_cur.compare("--help") || !arg_cur.compare("-h"))
+        {
+            help();
+            exit(0);
+        }
+    }
+
     if (argc < 4)
     {
         failure(NOT_ENOUGH_ARGS);
     }
-    int c;
+
     for (c = 1; c < argc - 2; c++)
     {
-        std::string arg_cur = std::string((const char*) (*(argv + c) ) );
-        std::string arg_next = "";
+        arg_cur = std::string((const char*) (*(argv + c) ) );
         if (arg_cur.at(0) == '-' && arg_cur.at(1) == '-' )
         {
             if (!arg_cur.compare("--help"))
@@ -188,7 +205,7 @@ void Arguments::parse() {
 
             
         } else {
-            //failure(WRONG_ARG);
+            failure(WRONG_ARG);
         }
     }
 
@@ -198,6 +215,7 @@ void Arguments::parse() {
     c++;
     target_batch_fasta_filename = std::string( (const char*) (*(argv + c) ) );
 
+    // arguments retrieved successfully, open files.
     fileopen();
 }
 
