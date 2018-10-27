@@ -15,12 +15,13 @@
 #include "../include/host_batch.h"
 #include "../include/ctors.h"
 #include "../include/interfaces.h"
+#include "../include/args_parser.h"
 
 using namespace std;
 
 #define NB_STREAMS 2
 
-#define GPU_BATCH_SIZE (262144)
+#define GPU_BATCH_SIZE (6000)
 //#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
 
 //#define DEBUG
@@ -28,168 +29,167 @@ using namespace std;
 #define MAX(a,b) (a>b ? a : b)
 
 // Test server : 0 is for K40c, 1 is for GTX 750 Ti
-#define GPU_SELECT 0
-
-int main(int argc, char *argv[]) {
+#define GPU_SELECT 1
 
 
-	/* 
-	Select GPU
-	*/
-	int num_devices, device;
-	cudaGetDeviceCount(&num_devices);
-	fprintf(stderr, "Found %d GPUs\n", num_devices);
-	if (GPU_SELECT  > num_devices-1)
-	{
-		fprintf(stderr, "Error: can't select device %d when only %d devices are selected (range from 0 to %d)\n", GPU_SELECT, num_devices, num_devices-1);
-		exit(EXIT_FAILURE);
-	}
-	if (num_devices > 0) {
-		cudaDeviceProp properties;
-		for (device = 0; device < num_devices; device++) {
-				cudaGetDeviceProperties(&properties, device);
-				fprintf(stderr, "\tGPU %d: %s\n", device, properties.name);
-		}
-		cudaGetDeviceProperties(&properties, GPU_SELECT);
-		fprintf(stderr, "Selected device %d : %s\n", GPU_SELECT, properties.name);
-		cudaSetDevice(GPU_SELECT);
-	}
+int main(int argc, char **argv) {
 
 
-	int32_t c, sa = 1, sb = 4;
-	int32_t gapo = 6, gape = 1;
-	comp_start start_pos = WITHOUT_START;
-	int print_out = 0;
-	int n_threads = 1;
-	std::string al_type;
-	int32_t k_band = 20;
 
-	// query head, target head, query tail, target tail
-	std::string semiglobal_bound_head;
-	std::string semiglobal_bound_tail;
+	gasal_set_device(GPU_SELECT);
 
-// parse command line
-	while ((c = getopt(argc, argv, "a:b:q:r:n:y:k:x:sp")) >= 0) {
-		switch (c) {
-		case 'a':
-			sa = atoi(optarg);
-			break;
-		case 'b':
-			sb = atoi(optarg);
-			break;
-		case 'q':
-			gapo = atoi(optarg);
-			break;
-		case 'r':
-			gape = atoi(optarg);
-			break;
-			break;
-		case 's':
-			start_pos = WITH_START;
-			break;
-		case 'p':
-			print_out = 1;
-			break;
-		case 'n':
-			n_threads = atoi(optarg);
-			break;
-		case 'y':
-			al_type = std::string(optarg);
-			break;
-		case 'k':
-			k_band = atoi(optarg);
-			break;
-		case 'x':
-			semiglobal_bound_head = std::string(optarg);
 
-			if (optind < argc && *argv[optind] != '-'){
-				semiglobal_bound_tail = std::string(argv[optind]); 
-				optind++;
-			} else {
-				fprintf(stderr, "\n-x option require TWO arguments\n\n");
-				exit(EXIT_FAILURE);
+
+	/*
+		int32_t c, sa = 1, sb = 4;
+		int32_t gapo = 6, gape = 1;
+		comp_start start_pos = WITHOUT_START; 
+		int print_out = 0;
+		int n_threads = 1;
+		std::string al_type;
+		int32_t k_band = 20;
+
+		// query head, target head, query tail, target tail
+		std::string semiglobal_bound_head;
+		std::string semiglobal_bound_tail;
+
+		// parse command line
+		while ((c = getopt(argc, argv, "a:b:q:r:n:y:k:x:sp")) >= 0) {
+			switch (c) {
+			case 'a':
+				sa = atoi(optarg);
+				break;
+			case 'b':
+				sb = atoi(optarg);
+				break;
+			case 'q':
+				gapo = atoi(optarg);
+				break;
+			case 'r':
+				gape = atoi(optarg);
+				break;
+				break;
+			case 's':
+				start_pos = WITH_START;
+				break;
+			case 'p':
+				print_out = 1;
+				break;
+			case 'n':
+				n_threads = atoi(optarg);
+				break;
+			case 'y':
+				al_type = std::string(optarg);
+				break;
+			case 'k':
+				k_band = atoi(optarg);
+				break;
+			case 'x':
+				semiglobal_bound_head = std::string(optarg);
+
+				if (optind < argc && *argv[optind] != '-'){
+					semiglobal_bound_tail = std::string(argv[optind]); 
+					optind++;
+				} else {
+					fprintf(stderr, "\n-x option require TWO arguments\n\n");
+					exit(EXIT_FAILURE);
+				}
+				break;
 			}
-			break;
 		}
-	}
 
-	if (optind + 2 > argc) {
-		fprintf(stderr, "Usage: ./test_prog.out [-a] [-b] [-q] [-r] [-s] [-p] [-n] [-y] <query_batch.fasta> <target_batch.fasta>\n");
-		fprintf(stderr, "Options: -a INT    match score [%d]\n", sa);
-		fprintf(stderr, "         -b INT    mismatch penalty [%d]\n", sb);
-		fprintf(stderr, "         -q INT    gap open penalty [%d]\n", gapo);
-		fprintf(stderr, "         -r INT    gap extension penalty [%d]\n", gape);
-		fprintf(stderr, "         -s        also find the start position \n");
-		fprintf(stderr, "         -p        print the alignment results \n");
-		fprintf(stderr, "         -n        Number of threads \n");
-		fprintf(stderr, "         -y        Alignment type . Must be \"local\", \"semi_global\", \"global\"  \"banded INT\" (size of band) \n");
-		fprintf(stderr, "         -k INT    Band width in case \"banded\" is selected.\n");
-		fprintf(stderr, "		  ");
-		fprintf(stderr, "\n");
-		return 1;
-	}
+		if (optind + 2 > argc) {
+			fprintf(stderr, "Usage: ./test_prog.out [-a] [-b] [-q] [-r] [-s] [-p] [-n] [-y] <query_batch.fasta> <target_batch.fasta>\n");
+			fprintf(stderr, "Options: -a INT    match score [%d]\n", sa);
+			fprintf(stderr, "         -b INT    mismatch penalty [%d]\n", sb);
+			fprintf(stderr, "         -q INT    gap open penalty [%d]\n", gapo);
+			fprintf(stderr, "         -r INT    gap extension penalty [%d]\n", gape);
+			fprintf(stderr, "         -s        also find the start position \n");
+			fprintf(stderr, "         -p        print the alignment results \n");
+			fprintf(stderr, "         -n        Number of threads \n");
+			fprintf(stderr, "         -y        Alignment type . Must be \"local\", \"semi_global\", \"global\"  \"banded INT\" (size of band) \n");
+			fprintf(stderr, "         -k INT    Band width in case \"banded\" is selected.\n");
+			fprintf(stderr, "		  ");
+			fprintf(stderr, "\n");
+			return 1;
+		}
 
-	if (al_type.empty()) {
-		fprintf(stderr, "Must specify the alignment type (local, semi_global)\n");
-		return 1;
+		if (al_type.empty()) {
+			fprintf(stderr, "Must specify the alignment type (local, semi_global)\n");
+			return 1;
+		}
 
-	}
-	algo_type algo = UNKNOWN;
-	if (!al_type.compare("local"))
-		algo = LOCAL;
-	else if (!al_type.compare("semi_global"))
-		algo = SEMI_GLOBAL;
-	else if (!al_type.compare("global"))
-		algo = GLOBAL;
-	else if (!al_type.compare("banded"))
-		algo = BANDED;
-	else if (!al_type.compare("microloc"))
-		algo = MICROLOCAL;
-	else if (!al_type.compare("fixedband"))
-		algo = FIXEDBAND;
+		algo_type algo = UNKNOWN;
+		if (!al_type.compare("local"))
+			algo = LOCAL;
+		else if (!al_type.compare("semi_global"))
+			algo = SEMI_GLOBAL;
+		else if (!al_type.compare("global"))
+			algo = GLOBAL;
+		else if (!al_type.compare("banded"))
+			algo = BANDED;
+		else if (!al_type.compare("microloc"))
+			algo = MICROLOCAL;
+		else if (!al_type.compare("fixedband"))
+			algo = FIXEDBAND;
 
-	if ( algo == UNKNOWN) {
-		fprintf(stderr, "Unknown alignment type. Must be either \"local\" or \"semi_global\", \"global\", or \"banded\" (fixed width of 4--4)\n");
-		return 1;
-	}
+		if ( algo == UNKNOWN) {
+			fprintf(stderr, "Unknown alignment type. Must be either \"local\" or \"semi_global\", \"global\", or \"banded\" (fixed width of 4--4)\n");
+			return 1;
+		}
 
-	data_source semiglobal_skipping_head = NONE;
+		data_source semiglobal_skipping_head = NONE;
 
-	if (!semiglobal_bound_head.compare("QUERY"))
-		semiglobal_skipping_head = QUERY;
-	else if (!semiglobal_bound_head.compare("TARGET"))
-		semiglobal_skipping_head = TARGET;
-	else if (!semiglobal_bound_head.compare("BOTH"))
-		semiglobal_skipping_head = BOTH;
+		if (!semiglobal_bound_head.compare("QUERY"))
+			semiglobal_skipping_head = QUERY;
+		else if (!semiglobal_bound_head.compare("TARGET"))
+			semiglobal_skipping_head = TARGET;
+		else if (!semiglobal_bound_head.compare("BOTH"))
+			semiglobal_skipping_head = BOTH;
 
-	data_source semiglobal_skipping_tail = NONE;
+
+		data_source semiglobal_skipping_tail = NONE;
+		
+		if (!semiglobal_bound_tail.compare("HEAD"))
+			semiglobal_skipping_tail = QUERY;
+		else if (!semiglobal_bound_tail.compare("TAIL"))
+			semiglobal_skipping_tail = TARGET;
+		else if (!semiglobal_bound_tail.compare("BOTH"))
+			semiglobal_skipping_tail = BOTH;
+
+		//fprintf(stderr, "Options: algo=%d, start_pos=%d, band k_band=%d\n", algo, start_pos, k_band);
+
+		fprintf(stderr, "Semi-global parameters: head: %s (%d), tail: %s (%d)\n", semiglobal_bound_head.c_str(), semiglobal_skipping_head, semiglobal_bound_tail.c_str(),  semiglobal_skipping_tail);
+
+	*/
+
+	Arguments *args;
+	args = new Arguments(argc, argv);
+	args->parse();
+	args->print();
+
 	
-	if (!semiglobal_bound_tail.compare("HEAD"))
-		semiglobal_skipping_tail = QUERY;
-	else if (!semiglobal_bound_tail.compare("TAIL"))
-		semiglobal_skipping_tail = TARGET;
-	else if (!semiglobal_bound_tail.compare("BOTH"))
-		semiglobal_skipping_tail = BOTH;
+	comp_start start_pos = args->start_pos; 
+	int print_out = args->print_out;
+	int n_threads = args->n_threads;
+	int32_t k_band = args->k_band;
+	algo_type algo = args->algo;
+	data_source semiglobal_skipping_head = args->semiglobal_skipping_head;
+	data_source semiglobal_skipping_tail = args->semiglobal_skipping_tail;
 
-	fprintf(stderr, "Options: algo=%d, start_pos=%d, band k_band=%d\n", algo, start_pos, k_band);
-
-	fprintf(stderr, "Semi-global parameters: head: %s (%d), tail: %s (%d)\n", semiglobal_bound_head.c_str(), semiglobal_skipping_head, semiglobal_bound_tail.c_str(),  semiglobal_skipping_tail);
 
 	//--------------copy substitution scores to GPU--------------------
 	gasal_subst_scores sub_scores;
 
-	sub_scores.match = sa;
-	sub_scores.mismatch = sb;
-	sub_scores.gap_open = gapo;
-	sub_scores.gap_extend = gape;
+	sub_scores.match = args->sa;
+	sub_scores.mismatch = args->sb;
+	sub_scores.gap_open = args->gapo;
+	sub_scores.gap_extend = args->gape;
 
 	gasal_copy_subst_scores(&sub_scores);
 
 	//-------------------------------------------------------------------
 
-
-	ifstream query_batch_fasta(argv[optind]);
-	ifstream target_batch_fasta(argv[optind + 1]);
 
 	vector<string> query_seqs;
 	vector<string> target_seqs;
@@ -228,7 +228,7 @@ int main(int argc, char *argv[]) {
 	 * No protection is done, so any other number will only have its two first bytes counted as above.	 
 	 */
 
-	while (getline(query_batch_fasta, query_batch_line) && getline(target_batch_fasta, target_batch_line)) { 
+	while (getline(args->query_batch_fasta, query_batch_line) && getline(args->target_batch_fasta, target_batch_line)) { 
 
 		//load sequences from the files
 		char *q = NULL;
@@ -411,106 +411,104 @@ int main(int argc, char *argv[]) {
 			while(gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n && (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->is_free != 1) {
 				gpu_batch_arr_idx++;
 			}
-			//---------------------------------------------------------------------------
 
 			if (seqs_done < n_seqs && gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n) {
-					uint32_t query_batch_idx = 0;
-					uint32_t target_batch_idx = 0;
-					unsigned int j = 0;
-					//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
+				uint32_t query_batch_idx = 0;
+				uint32_t target_batch_idx = 0;
+				unsigned int j = 0;
+				//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
 
 
-					for (int i = curr_idx; seqs_done < n_seqs && j < (GPU_BATCH_SIZE); i++, j++, seqs_done++) {
+				for (int i = curr_idx; seqs_done < n_seqs && j < (GPU_BATCH_SIZE); i++, j++, seqs_done++) {
 
-						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
-						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;
+					(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
+					(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;
 
-						/*
-							All the filling is moved on the library size, to take care of the memory size and expansions (when needed).
-							The function gasal_host_batch_fill takes care of how to fill, how much to pad with 'N', and how to deal with memory. 
-							It's the same function for query and target, and you only need to set the final flag to either ; this avoides code duplication.
-							The way the host memory is filled changes the current _idx (it's increased by size, and by the padding). That's why it's returned by the function.
-						*/
+					/*
+						All the filling is moved on the library size, to take care of the memory size and expansions (when needed).
+						The function gasal_host_batch_fill takes care of how to fill, how much to pad with 'N', and how to deal with memory. 
+						It's the same function for query and target, and you only need to set the final flag to either ; this avoides code duplication.
+						The way the host memory is filled changes the current _idx (it's increased by size, and by the padding). That's why it's returned by the function.
+					*/
 
-						query_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
-										query_batch_idx, 
-										query_seqs[i].c_str(), 
-										query_seqs[i].size(),
-										QUERY);
+					query_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
+									query_batch_idx, 
+									query_seqs[i].c_str(), 
+									query_seqs[i].size(),
+									QUERY);
 
-						target_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
-										target_batch_idx, 
-										target_seqs[i].c_str(), 
-										target_seqs[i].size(),
-										TARGET);
+					target_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
+									target_batch_idx, 
+									target_seqs[i].c_str(), 
+									target_seqs[i].size(),
+									TARGET);
 
-						
-						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_lens[j] = query_seqs[i].size();
-						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_lens[j] = target_seqs[i].size();
+					
+					(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_lens[j] = query_seqs[i].size();
+					(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_lens[j] = target_seqs[i].size();
 
-					}
+				}
 
-					#ifdef DEBUG
-						fprintf(stderr, "Stream %d: j = %d, seqs_done = %d, query_batch_idx=%d, target_batch_idx=%d\n", gpu_batch_arr_idx, j, seqs_done, query_batch_idx, target_batch_idx);
-					#endif
+				#ifdef DEBUG
+					fprintf(stderr, "Stream %d: j = %d, seqs_done = %d, query_batch_idx=%d, target_batch_idx=%d\n", gpu_batch_arr_idx, j, seqs_done, query_batch_idx, target_batch_idx);
+				#endif
 
-					// Here, we fill the operations arrays for the current batch to be processed by the stream
-					gasal_op_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_seq_mod + seqs_done - j, j, QUERY);
-					gasal_op_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, target_seq_mod + seqs_done - j, j, TARGET);
+				// Here, we fill the operations arrays for the current batch to be processed by the stream
+				gasal_op_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_seq_mod + seqs_done - j, j, QUERY);
+				gasal_op_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, target_seq_mod + seqs_done - j, j, TARGET);
 
 
-					gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch = j;
-					uint32_t query_batch_bytes = query_batch_idx;
-					uint32_t target_batch_bytes = target_batch_idx;
-					gpu_batch_arr[gpu_batch_arr_idx].batch_start = curr_idx;
-					curr_idx += (GPU_BATCH_SIZE);
+				gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch = j;
+				uint32_t query_batch_bytes = query_batch_idx;
+				uint32_t target_batch_bytes = target_batch_idx;
+				gpu_batch_arr[gpu_batch_arr_idx].batch_start = curr_idx;
+				curr_idx += (GPU_BATCH_SIZE);
 
-					//----------------------------------------------------------------------------------------------------
-					//-----------------calling the GASAL2 non-blocking alignment function---------------------------------
+				//----------------------------------------------------------------------------------------------------
+				//-----------------calling the GASAL2 non-blocking alignment function---------------------------------
 
-					gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch,  algo, start_pos, k_band,  semiglobal_skipping_head,  semiglobal_skipping_tail);
-						
-					//---------------------------------------------------------------------------------
+				gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch,  algo, start_pos, k_band,  semiglobal_skipping_head,  semiglobal_skipping_tail);
+					
+				//---------------------------------------------------------------------------------
 			}
 
 
 			//-------------------------------print alignment results----------------------------------------
-			
-				gpu_batch_arr_idx = 0;
-				while (gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n) {//loop through all the streams and print the results
-																					  //of the finished streams.
-					if (gasal_is_aln_async_done(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage) == 0) {
-						int j = 0;
-						if(print_out) {
-						#pragma omp critical
-						for (int i = gpu_batch_arr[gpu_batch_arr_idx].batch_start; j < gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch; i++, j++) {
-							if(al_type.compare("local") == 0 || al_type.compare("banded") == 0 || al_type.compare("microloc") == 0 || al_type.compare("fixedband") == 0) {
-								if (start_pos == WITH_START){
-									fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\tquery_batch_start=%d\ttarget_batch_start=%d\tquery_batch_end=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(),(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_start[j],
-											(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_start[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_end[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
-								}
-								else {
-									fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\tquery_batch_end=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_end[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
-								}
-							} else if(al_type.compare("semi_global") == 0) {
-								if (start_pos == WITH_START){
-									fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\ttarget_batch_start=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_start[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
-
-								}
-								else {
-									fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
-								}
-							}   else{
-								fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j]);
+		
+			gpu_batch_arr_idx = 0;
+			while (gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n) {//loop through all the streams and print the results
+																					//of the finished streams.
+				if (gasal_is_aln_async_done(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage) == 0) {
+					int j = 0;
+					if(print_out) {
+					#pragma omp critical
+					for (int i = gpu_batch_arr[gpu_batch_arr_idx].batch_start; j < gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch; i++, j++) {
+						if(algo == LOCAL || algo == BANDED || algo == MICROLOCAL || algo == FIXEDBAND) {
+							if (start_pos == WITH_START){
+								fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\tquery_batch_start=%d\ttarget_batch_start=%d\tquery_batch_end=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(),(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_start[j],
+										(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_start[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_end[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
 							}
+							else {
+								fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\tquery_batch_end=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_end[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
+							}
+						} else if(algo == SEMI_GLOBAL) {
+							if (start_pos == WITH_START){
+								fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\ttarget_batch_start=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_start[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
+
+							}
+							else {
+								fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
+							}
+						}   else{
+							fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j]);
 						}
-						}
-						n_batchs_done++;
 					}
-					gpu_batch_arr_idx++;
+					}
+					n_batchs_done++;
 				}
+				gpu_batch_arr_idx++;
 			}
-			//----------------------------------------------------------------------------------------------------
+		}
 	}
 
 
@@ -521,14 +519,18 @@ int main(int argc, char *argv[]) {
 	}
 	free(gpu_storage_vecs);
 	total_time.Stop();
+	/*
 	string algorithm = al_type;
 	string start_type[2] = {"without_start", "with_start"};
 	al_type += "_";
 	al_type += start_type[start_pos==WITH_START];
+	*/
 	double av_misc_time = 0.0;
 	for (int i = 0; i < n_threads; ++i){
 		av_misc_time += (thread_misc_time[i]/n_threads);
 	}
 	fprintf(stderr, "\nDone\n");
 	fprintf(stderr, "Total execution time (in milliseconds): %.3f\n", total_time.GetTime());
+
+	free(args); // closes the files
 }

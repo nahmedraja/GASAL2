@@ -36,8 +36,8 @@ inline int CudaCheckKernelLaunch()
 
 
 enum comp_start{
-	WITH_START,
-	WITHOUT_START
+	WITHOUT_START,
+	WITH_START
 };
 
 enum data_source{
