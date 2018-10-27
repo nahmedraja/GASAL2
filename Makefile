@@ -10,7 +10,10 @@ SRC_DIR=./src/
 OBJ_DIR=./obj/
 LIB_DIR=./lib/
 INCLUDE_DIR=./include/
-LOBJS=  gasal_align.cu.o host_batch.cpp.o ctors.cpp.o interfaces.cpp.o
+
+SOURCES=  args_parser.cpp gasal_align.cu host_batch.cpp ctors.cpp interfaces.cpp 
+LOBJS=$(patsubst %,%o,$(SOURCES))
+
 LOBJS_PATH=$(addprefix $(OBJ_DIR),$(LOBJS))
 VPATH=src:obj:lib
 YELLOW=\033[1;33m
@@ -38,24 +41,24 @@ endif
 ## With Debian and clang, use: $(NVCC) -ccbin clang-3.8 --compiler-options -fpie
 
 ifeq ($(N_PENALTY),)
-%.cu.o: %.cu
+%.cuo: %.cu
 	$(NVCC) -c -g -O3 -std=c++11 -Xcompiler -Wall,-DMAX_SEQ_LEN=$(MAX_SEQ_LEN),-DN_CODE=$(N_CODE) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
 	
 else
-%.cu.o: %.cu
+%.cuo: %.cu
 	$(NVCC) -c -g -O3 -std=c++11 -Xcompiler -Wall,-DMAX_SEQ_LEN=$(MAX_SEQ_LEN),-DN_CODE=$(N_CODE),-DN_PENALTY=$(N_PENALTY) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
 	
 endif
 
 
 
-## If your computer ships gcc-5.3.1 (at least for CUDA 8.0), this is the regular line. You might need to add: --compiler-options -fPIC 
+## If your computer ships gcc-5.3.1 (at least for CUDA 8.0), this is the regular line. You might need to add: -fPIC 
 ifeq ($(N_PENALTY),)
-%.cpp.o: %.cpp
+%.cppo: %.cpp
 	$(CC) -c -g -O3 -std=c++11 -Wall -DMAX_SEQ_LEN=$(MAX_SEQ_LEN) -DN_CODE=$(N_CODE) -Werror $< -o $(OBJ_DIR)$@
 	
 else
-%.cpp.o: %.cpp
+%.cppo: %.cpp
 	$(CC) -c -g -O3 -std=c++11 -Wall -DMAX_SEQ_LEN=$(MAX_SEQ_LEN) -DN_CODE=$(N_CODE) -DN_PENALTY=$(N_PENALTY) -Werror $< -o $(OBJ_DIR)$@
 	
 endif
@@ -81,8 +84,8 @@ libgasal.a: $(LOBJS)
 endif
 	
 clean:
-	rm -f -r $(OBJ_DIR) $(LIB_DIR) $(INCLUDE_DIR)  *~ *.exe *.o *.txt *~
+	rm -f -r $(OBJ_DIR) $(LIB_DIR) $(INCLUDE_DIR)  *~ *.exe *.cppo *.cuo *.txt *~
 
-gasal.o: gasal.h gasal_kernels.h
+gasal_align.cuo: gasal.h gasal_kernels.h
 
 
