@@ -1,4 +1,5 @@
 #include "gasal.h"
+#include "args_parser.h"
 #include "gasal_align.h"
 #include "gasal_kernels.h"
 
@@ -19,20 +20,11 @@ inline void gasal_kernel_launcher(int32_t N_BLOCKS, int32_t BLOCKDIM, algo_type 
 
 	}
 
-	/*
-	case FIXEDBAND:
-		// should be deprecated, and won't be included in future developments.
-		//fprintf(stderr, "[GASAL WARNING] Running \"Fixed-band\" kernel (experimental kernel) : expect utterly wrong results!\n[GASAL WARNING] This kernel is only available WITHOUT START.\n");
-		gasal_banded_fixed_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,
-		gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->aln_score,
-		gpu_storage->query_batch_end, gpu_storage->target_batch_end, actual_n_alns);
-	break;
-	*/
 }
 
 
 //GASAL2 asynchronous (a.k.a non-blocking) alignment function
-void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_query_batch_bytes, const uint32_t actual_target_batch_bytes, const uint32_t actual_n_alns, algo_type algo, comp_start start, const int32_t k_band, const data_source semiglobal_skipping_head, const data_source semiglobal_skipping_tail) {
+void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_query_batch_bytes, const uint32_t actual_target_batch_bytes, const uint32_t actual_n_alns, Parameters *params) {
 
 	cudaError_t err;
 	if (actual_n_alns <= 0) {
@@ -131,15 +123,15 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_offsets), gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
 
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage->aln_score), gpu_storage->gpu_max_n_alns * sizeof(int32_t)));
-		if (algo == GLOBAL) {
+		if (params->algo == GLOBAL) {
 			gpu_storage->query_batch_start = NULL;
 			gpu_storage->target_batch_start = NULL;
 			gpu_storage->query_batch_end = NULL;
 			gpu_storage->target_batch_end = NULL;
-		} else if (algo == SEMI_GLOBAL) {
+		} else if (params->algo == SEMI_GLOBAL) {
 			gpu_storage->query_batch_start = NULL;
 			gpu_storage->query_batch_end = NULL;
-			if (start == WITH_START) {
+			if (params->start_pos == WITH_START) {
 				CHECKCUDAERROR(
 						cudaMalloc(&(gpu_storage->target_batch_start),
 								gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
@@ -153,7 +145,7 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 				gpu_storage->target_batch_start = NULL;
 			}
 		} else {
-			if (start == WITH_START) {
+			if (params->start_pos == WITH_START) {
 				CHECKCUDAERROR(
 						cudaMalloc(&(gpu_storage->query_batch_start),
 								gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
@@ -240,15 +232,21 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 
 
     //-------------------------------------------launch packing kernel
-    gasal_pack_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>((uint32_t*)(gpu_storage->unpacked_query_batch),
-    						(uint32_t*)(gpu_storage->unpacked_target_batch), gpu_storage->packed_query_batch, gpu_storage->packed_target_batch,
-    					    query_batch_tasks_per_thread, target_batch_tasks_per_thread, actual_query_batch_bytes/4, actual_target_batch_bytes/4);
-    cudaError_t pack_kernel_err = cudaGetLastError();
-    if ( cudaSuccess != pack_kernel_err )
-    {
-    	 fprintf(stderr, "[GASAL CUDA ERROR:] %s(CUDA error no.=%d). Line no. %d in file %s\n", cudaGetErrorString(pack_kernel_err), pack_kernel_err,  __LINE__, __FILE__);
-         exit(EXIT_FAILURE);
+
+
+	if (!(params->isPacked))
+	{
+		gasal_pack_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>((uint32_t*)(gpu_storage->unpacked_query_batch),
+		(uint32_t*)(gpu_storage->unpacked_target_batch), gpu_storage->packed_query_batch, gpu_storage->packed_target_batch,
+		query_batch_tasks_per_thread, target_batch_tasks_per_thread, actual_query_batch_bytes/4, actual_target_batch_bytes/4);
+		cudaError_t pack_kernel_err = cudaGetLastError();
+		if ( cudaSuccess != pack_kernel_err )
+		{
+		fprintf(stderr, "[GASAL CUDA ERROR:] %s(CUDA error no.=%d). Line no. %d in file %s\n", cudaGetErrorString(pack_kernel_err), pack_kernel_err,  __LINE__, __FILE__);
+		exit(EXIT_FAILURE);
+		}
 	}
+    
 
 	// We could reverse-complement before packing, but we would get 2x more read-writes to memory.
 
@@ -276,7 +274,7 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 
     //--------------------------------------launch alignment kernels--------------------------------------------------------------
 	
-	gasal_kernel_launcher(N_BLOCKS, BLOCKDIM, algo, start, gpu_storage, actual_n_alns, k_band, semiglobal_skipping_head, semiglobal_skipping_tail);
+	gasal_kernel_launcher(N_BLOCKS, BLOCKDIM, params->algo, params->start_pos, gpu_storage, actual_n_alns, params->k_band, params->semiglobal_skipping_head, params->semiglobal_skipping_tail);
 
 
         //-----------------------------------------------------------------------------------------------------------------------

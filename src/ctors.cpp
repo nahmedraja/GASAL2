@@ -1,6 +1,10 @@
 
 #include "gasal.h"
+
+#include "args_parser.h"
+
 #include "host_batch.h"
+
 #include "ctors.h"
 
 
@@ -15,7 +19,7 @@ gasal_gpu_storage_v gasal_init_gpu_storage_v(int n_streams) {
 }
 
 
-void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query_batch_bytes,  int gpu_max_query_batch_bytes,  int host_max_target_batch_bytes, int gpu_max_target_batch_bytes, int host_max_n_alns, int gpu_max_n_alns, algo_type algo, comp_start start) {
+void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query_batch_bytes,  int gpu_max_query_batch_bytes,  int host_max_target_batch_bytes, int gpu_max_target_batch_bytes, int host_max_n_alns, int gpu_max_n_alns, Parameters *params) {
 
 	cudaError_t err;
 	int i;
@@ -34,8 +38,19 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_op), gpu_max_n_alns * sizeof(uint8_t)));
 
 
-		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].packed_query_batch), (gpu_max_query_batch_bytes/8) * sizeof(uint32_t)));
-		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].packed_target_batch), (gpu_max_target_batch_bytes/8) * sizeof(uint32_t)));
+
+		if (params->isPacked)
+		{
+			// assign 
+			gpu_storage_vec->a[i].packed_query_batch = (uint32_t *) gpu_storage_vec->a[i].unpacked_query_batch;
+			gpu_storage_vec->a[i].packed_target_batch = (uint32_t *) gpu_storage_vec->a[i].unpacked_target_batch;
+
+		} else {
+			CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].packed_query_batch), (gpu_max_query_batch_bytes/8) * sizeof(uint32_t)));
+			CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].packed_target_batch), (gpu_max_target_batch_bytes/8) * sizeof(uint32_t)));
+		}
+
+
 
 
 		CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_query_batch_lens), host_max_n_alns * sizeof(uint32_t)));
@@ -49,7 +64,7 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].query_batch_offsets), gpu_max_n_alns * sizeof(uint32_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_batch_offsets), gpu_max_n_alns * sizeof(uint32_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].aln_score), gpu_max_n_alns * sizeof(int32_t)));
-		if (algo == GLOBAL) {
+		if (params->algo == GLOBAL) {
 			gpu_storage_vec->a[i].host_query_batch_start = NULL;
 			gpu_storage_vec->a[i].host_target_batch_start = NULL;
 			gpu_storage_vec->a[i].host_query_batch_end = NULL;
@@ -58,31 +73,30 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 			gpu_storage_vec->a[i].target_batch_start = NULL;
 			gpu_storage_vec->a[i].query_batch_end = NULL;
 			gpu_storage_vec->a[i].target_batch_end = NULL;
-		} else if (algo == SEMI_GLOBAL) {
+		/*
+		// Deprecated. For semi-global you now need to know the start and stop positions.
+		} else if (params->algo == SEMI_GLOBAL) {
 			gpu_storage_vec->a[i].host_query_batch_start = NULL;
 			gpu_storage_vec->a[i].host_query_batch_end = NULL;
 			gpu_storage_vec->a[i].query_batch_start = NULL;
 			gpu_storage_vec->a[i].query_batch_end = NULL;
-			if (start == WITH_START) {
+
+			if (params->start_pos == WITH_START) {
 				CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_target_batch_start),host_max_n_alns * sizeof(uint32_t)));
 				CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_target_batch_end),host_max_n_alns * sizeof(uint32_t)));
 
+				CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_batch_start),gpu_max_n_alns * sizeof(uint32_t)));
 				CHECKCUDAERROR(
-						cudaMalloc(&(gpu_storage_vec->a[i].target_batch_start),
-								gpu_max_n_alns * sizeof(uint32_t)));
-				CHECKCUDAERROR(
-						cudaMalloc(&(gpu_storage_vec->a[i].target_batch_end),
-								gpu_max_n_alns * sizeof(uint32_t)));
+						cudaMalloc(&(gpu_storage_vec->a[i].target_batch_end),gpu_max_n_alns * sizeof(uint32_t)));
 			} else {
 				CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_target_batch_end),host_max_n_alns * sizeof(uint32_t)));
-				CHECKCUDAERROR(
-						cudaMalloc(&(gpu_storage_vec->a[i].target_batch_end),
-								gpu_max_n_alns * sizeof(uint32_t)));
+				CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_batch_end),gpu_max_n_alns * sizeof(uint32_t)));
 				gpu_storage_vec->a[i].host_target_batch_start = NULL;
 				gpu_storage_vec->a[i].target_batch_start = NULL;
 			}
+		*/
 		} else {
-			if (start == WITH_START) {
+			if (params->start_pos == WITH_START) {
 				CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_query_batch_start),host_max_n_alns * sizeof(uint32_t)));
 				CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_target_batch_start),host_max_n_alns * sizeof(uint32_t)));
 				CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_query_batch_end),host_max_n_alns * sizeof(uint32_t)));
@@ -216,7 +230,7 @@ void gasal_gpu_mem_free(gasal_gpu_storage_t *gpu_storage) {
 }
 
 
-void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec) {
+void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec, Parameters *params) {
 
 	cudaError_t err;
 
@@ -244,8 +258,11 @@ void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec) {
 
 		if (gpu_storage_vec->a[i].unpacked_query_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].unpacked_query_batch));
 		if (gpu_storage_vec->a[i].unpacked_target_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].unpacked_target_batch));
-		if (gpu_storage_vec->a[i].packed_query_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].packed_query_batch));
-		if (gpu_storage_vec->a[i].packed_target_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].packed_target_batch));
+		if (!(params->isPacked))
+		{
+			if (gpu_storage_vec->a[i].packed_query_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].packed_query_batch));
+			if (gpu_storage_vec->a[i].packed_target_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].packed_target_batch));
+		}
 		if (gpu_storage_vec->a[i].query_batch_offsets != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].query_batch_offsets));
 		if (gpu_storage_vec->a[i].target_batch_offsets != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].target_batch_offsets));
 		if (gpu_storage_vec->a[i].query_batch_lens != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].query_batch_lens));
