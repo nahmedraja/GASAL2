@@ -76,6 +76,16 @@ struct host_batch{
 };
 typedef struct host_batch host_batch_t;
 
+struct gasal_res{
+	int32_t *aln_score;
+	int32_t *query_batch_end;
+	int32_t *target_batch_end;
+	int32_t *query_batch_start;
+	int32_t *target_batch_start;
+	bool isDevice;
+};
+typedef struct gasal_res gasal_res_t;
+
 //stream data
 typedef struct {
 	uint8_t *unpacked_query_batch;
@@ -95,20 +105,28 @@ typedef struct {
 	uint8_t *query_op;
 	uint8_t *target_op;
 
+
 	uint32_t *host_query_batch_offsets;
 	uint32_t *host_target_batch_offsets;
 	uint32_t *host_query_batch_lens;
 	uint32_t *host_target_batch_lens;
+	/*
 	int32_t *aln_score;
 	int32_t *query_batch_end;
 	int32_t *target_batch_end;
 	int32_t *query_batch_start;
 	int32_t *target_batch_start;
+
 	int32_t *host_aln_score;
 	int32_t *host_query_batch_end;
 	int32_t *host_target_batch_end;
 	int32_t *host_query_batch_start;
 	int32_t *host_target_batch_start;
+	*/
+
+	gasal_res_t *host_res;
+	gasal_res_t *device_res;
+
 	uint32_t gpu_max_query_batch_bytes;
 	uint32_t gpu_max_target_batch_bytes;
 

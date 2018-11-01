@@ -38,7 +38,7 @@
 
 // T is the algorithm, S is WITH/WITHOUT_START, B is secondBest or no secondBest
 template <typename T, typename S, typename B>
-__global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int32_t *query_batch_start, int32_t *target_batch_start, int n_tasks)
+__global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, gasal_res_t *device_res, int n_tasks)
 {
 
 
@@ -128,9 +128,9 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
 
 	}
 
-	score[tid] = maxHH;//copy the max score to the output array in the GPU mem
-	query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
-	target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
+	device_res->aln_score[tid] = maxHH;//copy the max score to the output array in the GPU mem
+	device_res->query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
+	device_res->target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
 
 
     /*------------------Now to find the start position-----------------------*/
@@ -213,8 +213,8 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
         }
         //------------------------------------------------------------------------------------------------------------------------------------
 
-        query_batch_start[tid] = maxXY_x;//copy the start position on query_batch sequence to the output array in the GPU mem
-        target_batch_start[tid] = maxXY_y;//copy the start position on target_batch sequence to the output array in the GPU mem
+        device_res->query_batch_start[tid] = maxXY_x;//copy the start position on query_batch sequence to the output array in the GPU mem
+        device_res->target_batch_start[tid] = maxXY_y;//copy the start position on target_batch sequence to the output array in the GPU mem
 
     }
 

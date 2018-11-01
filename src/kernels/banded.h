@@ -4,7 +4,8 @@
 #define BAND_SIZE (24)
 #define __MOD(a) (a & (BAND_SIZE-1))
 
-__global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks, int32_t k_band_width) 
+
+__global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, gasal_res_t *device_res, int n_tasks, int32_t k_band_width) 
 {
 	int32_t i, j, k, m, l;
 	int32_t e;
@@ -140,9 +141,9 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 
 	}
 
-	score[tid] = maxHH;//copy the max score to the output array in the GPU mem
-	query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
-	target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
+	device_res->aln_score[tid] = maxHH;//copy the max score to the output array in the GPU mem
+	device_res->query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
+	device_res->target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
 
 	return;
 
@@ -384,7 +385,8 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 
 }
 
-__global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks, const int32_t k_band_width) 
+
+__global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, gasal_res_t *device_res, int n_tasks, const int32_t k_band_width) 
 {
 	int32_t i, j, k, m, l;
 	int32_t e;
@@ -507,14 +509,14 @@ __global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t
 
 	}
 
-	score[tid] = maxHH;//copy the max score to the output array in the GPU mem
-	query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
-	target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
+	device_res->aln_score[tid] = maxHH;//copy the max score to the output array in the GPU mem
+	device_res->query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
+	device_res->target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
 
 	return;
 
 }
-
+/*
 __global__ void gasal_banded_fixed_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, int32_t *score, int32_t *query_batch_end, int32_t *target_batch_end, int n_tasks) {
 	int32_t i, j, k, m, l;
 	int32_t e;
@@ -619,4 +621,5 @@ __global__ void gasal_banded_fixed_kernel(uint32_t *packed_query_batch, uint32_t
 	return;
 
 }
+*/
 #endif
