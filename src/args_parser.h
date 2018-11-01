@@ -38,7 +38,7 @@ class Parameters{
         int n_threads;
         int32_t k_band;
 
-        bool secondBest;
+        Bool secondBest;
 
         bool isPacked;
 

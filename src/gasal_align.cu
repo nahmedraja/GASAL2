@@ -5,15 +5,15 @@
 
 
 
-inline void gasal_kernel_launcher(int32_t N_BLOCKS, int32_t BLOCKDIM, algo_type algo, comp_start start, gasal_gpu_storage_t *gpu_storage, int32_t actual_n_alns, int32_t k_band, data_source semiglobal_skipping_head, data_source semiglobal_skipping_tail) 
+inline void gasal_kernel_launcher(int32_t N_BLOCKS, int32_t BLOCKDIM, algo_type algo, comp_start start, gasal_gpu_storage_t *gpu_storage, int32_t actual_n_alns, int32_t k_band, data_source semiglobal_skipping_head, data_source semiglobal_skipping_tail, Bool secondBest) 
 {
 	switch(algo)
 	{
 		
-		KERNEL_SWITCH(LOCAL, start, semiglobal_skipping_head, semiglobal_skipping_tail);
-		KERNEL_SWITCH(SEMI_GLOBAL, start, semiglobal_skipping_head, semiglobal_skipping_tail);		// MACRO that expands all 32 semi-global kernels
-		KERNEL_SWITCH(GLOBAL, start, semiglobal_skipping_head, semiglobal_skipping_tail);
-		KERNEL_SWITCH(BANDED, start, semiglobal_skipping_head, semiglobal_skipping_tail);
+		KERNEL_SWITCH(LOCAL, start, semiglobal_skipping_head, semiglobal_skipping_tail, secondBest);
+		KERNEL_SWITCH(SEMI_GLOBAL, start, semiglobal_skipping_head, semiglobal_skipping_tail, secondBest);		// MACRO that expands all 32 semi-global kernels
+		KERNEL_SWITCH(GLOBAL, start, semiglobal_skipping_head, semiglobal_skipping_tail, secondBest);
+		KERNEL_SWITCH(BANDED, start, semiglobal_skipping_head, semiglobal_skipping_tail, secondBest);
 
 		default:
 		break;
@@ -274,7 +274,7 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 
     //--------------------------------------launch alignment kernels--------------------------------------------------------------
 	
-	gasal_kernel_launcher(N_BLOCKS, BLOCKDIM, params->algo, params->start_pos, gpu_storage, actual_n_alns, params->k_band, params->semiglobal_skipping_head, params->semiglobal_skipping_tail);
+	gasal_kernel_launcher(N_BLOCKS, BLOCKDIM, params->algo, params->start_pos, gpu_storage, actual_n_alns, params->k_band, params->semiglobal_skipping_head, params->semiglobal_skipping_tail, params->secondBest);
 
 
         //-----------------------------------------------------------------------------------------------------------------------
@@ -285,12 +285,17 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
     	exit(EXIT_FAILURE);
     }
 
-    //------------------------launch the copying of alignment results from GPU to CPU--------------------------------------
-    if (gpu_storage->host_aln_score != NULL && gpu_storage->aln_score != NULL) CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_aln_score, gpu_storage->aln_score, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
-    if (gpu_storage->host_query_batch_start != NULL && gpu_storage->query_batch_start != NULL) CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_query_batch_start, gpu_storage->query_batch_start, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
-    if (gpu_storage->host_target_batch_start != NULL && gpu_storage->target_batch_start != NULL) CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_target_batch_start, gpu_storage->target_batch_start, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
-    if (gpu_storage->host_query_batch_end != NULL && gpu_storage->query_batch_end != NULL) CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_query_batch_end, gpu_storage->query_batch_end, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
-    if (gpu_storage->host_target_batch_end != NULL && gpu_storage->target_batch_end != NULL) CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_target_batch_end, gpu_storage->target_batch_end, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
+    //------------------------0launch the copying of alignment results from GPU to CPU--------------------------------------
+    if (gpu_storage->host_aln_score != NULL && gpu_storage->aln_score != NULL) 
+		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_aln_score, gpu_storage->aln_score, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
+    if (gpu_storage->host_query_batch_start != NULL && gpu_storage->query_batch_start != NULL) 
+		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_query_batch_start, gpu_storage->query_batch_start, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
+    if (gpu_storage->host_target_batch_start != NULL && gpu_storage->target_batch_start != NULL) 
+		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_target_batch_start, gpu_storage->target_batch_start, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
+    if (gpu_storage->host_query_batch_end != NULL && gpu_storage->query_batch_end != NULL) 
+		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_query_batch_end, gpu_storage->query_batch_end, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
+    if (gpu_storage->host_target_batch_end != NULL && gpu_storage->target_batch_end != NULL) 
+		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_target_batch_end, gpu_storage->target_batch_end, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->st));
     //-----------------------------------------------------------------------------------------------------------------------
 
     gpu_storage->is_free = 0; //set the availability of current stream to false

@@ -15,7 +15,8 @@ Parameters::Parameters(int argc_, char **argv_) {
     k_band = (0);
 
     isPacked = false;
-    secondBest = false;
+    
+    secondBest = FALSE;
 
     // query head, target head, query tail, target tail
     semiglobal_skipping_head = NONE;
@@ -117,7 +118,7 @@ void Parameters::parse() {
             }
             if (!arg_cur.compare("--second-best"))
             {
-                secondBest = true;
+                secondBest = TRUE;
             }
 
         } else if (arg_cur.at(0) == '-' )

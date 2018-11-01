@@ -102,27 +102,15 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 				CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_query_batch_end),host_max_n_alns * sizeof(uint32_t)));
 				CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_target_batch_end),host_max_n_alns * sizeof(uint32_t)));
 
-				CHECKCUDAERROR(
-						cudaMalloc(&(gpu_storage_vec->a[i].query_batch_start),
-								gpu_max_n_alns * sizeof(uint32_t)));
-				CHECKCUDAERROR(
-						cudaMalloc(&(gpu_storage_vec->a[i].target_batch_start),
-								gpu_max_n_alns * sizeof(uint32_t)));
-				CHECKCUDAERROR(
-						cudaMalloc(&(gpu_storage_vec->a[i].query_batch_end),
-								gpu_max_n_alns * sizeof(uint32_t)));
-				CHECKCUDAERROR(
-						cudaMalloc(&(gpu_storage_vec->a[i].target_batch_end),
-								gpu_max_n_alns * sizeof(uint32_t)));
+				CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].query_batch_start),gpu_max_n_alns * sizeof(uint32_t)));
+				CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_batch_start),gpu_max_n_alns * sizeof(uint32_t)));
+				CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].query_batch_end),gpu_max_n_alns * sizeof(uint32_t)));
+				CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_batch_end),gpu_max_n_alns * sizeof(uint32_t)));
 			} else {
 				CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_query_batch_end),host_max_n_alns * sizeof(uint32_t)));
 				CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_target_batch_end),host_max_n_alns * sizeof(uint32_t)));
-				CHECKCUDAERROR(
-						cudaMalloc(&(gpu_storage_vec->a[i].query_batch_end),
-								gpu_max_n_alns * sizeof(uint32_t)));
-				CHECKCUDAERROR(
-						cudaMalloc(&(gpu_storage_vec->a[i].target_batch_end),
-								gpu_max_n_alns * sizeof(uint32_t)));
+				CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].query_batch_end),gpu_max_n_alns * sizeof(uint32_t)));
+				CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_batch_end),gpu_max_n_alns * sizeof(uint32_t)));
 				gpu_storage_vec->a[i].host_query_batch_start = NULL;
 				gpu_storage_vec->a[i].host_target_batch_start = NULL;
 
