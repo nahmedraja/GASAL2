@@ -16,11 +16,11 @@ enum fail_type {
     WRONG_ALGO
 };
 
-class Arguments{
+class Parameters{
 
     public: 
-        Arguments(int argc, char** argv);
-        ~Arguments();
+        Parameters(int argc, char** argv);
+        ~Parameters();
         void print();
         void failure(fail_type f);
         void help();
@@ -37,6 +37,10 @@ class Arguments{
         int print_out;
         int n_threads;
         int32_t k_band;
+
+        Bool secondBest;
+
+        bool isPacked;
 
         data_source semiglobal_skipping_head;
         data_source semiglobal_skipping_tail;

@@ -7,7 +7,6 @@
 #include <string.h>
 #include "/usr/local/cuda-9.2/targets/x86_64-linux/include/cuda_runtime.h"
 
-
 #ifndef HOST_MALLOC_SAFETY_FACTOR
 #define HOST_MALLOC_SAFETY_FACTOR 5
 #endif
@@ -38,6 +37,11 @@ inline int CudaCheckKernelLaunch()
 enum comp_start{
 	WITHOUT_START,
 	WITH_START
+};
+
+enum Bool{
+	FALSE,
+	TRUE
 };
 
 enum data_source{
@@ -132,8 +136,6 @@ typedef struct{
 	int32_t gap_open;
 	int32_t gap_extend;
 } gasal_subst_scores;
-
-
 
 
 #endif

@@ -11,11 +11,12 @@
 #include <string.h>
 
 #include "../include/gasal.h"
+#include "../include/args_parser.h"
 #include "../include/gasal_align.h"
 #include "../include/host_batch.h"
 #include "../include/ctors.h"
 #include "../include/interfaces.h"
-#include "../include/args_parser.h"
+
 
 using namespace std;
 
@@ -39,143 +40,17 @@ int main(int argc, char **argv) {
 	gasal_set_device(GPU_SELECT);
 
 
-
-	/*
-		int32_t c, sa = 1, sb = 4;
-		int32_t gapo = 6, gape = 1;
-		comp_start start_pos = WITHOUT_START; 
-		int print_out = 0;
-		int n_threads = 1;
-		std::string al_type;
-		int32_t k_band = 20;
-
-		// query head, target head, query tail, target tail
-		std::string semiglobal_bound_head;
-		std::string semiglobal_bound_tail;
-
-		// parse command line
-		while ((c = getopt(argc, argv, "a:b:q:r:n:y:k:x:sp")) >= 0) {
-			switch (c) {
-			case 'a':
-				sa = atoi(optarg);
-				break;
-			case 'b':
-				sb = atoi(optarg);
-				break;
-			case 'q':
-				gapo = atoi(optarg);
-				break;
-			case 'r':
-				gape = atoi(optarg);
-				break;
-				break;
-			case 's':
-				start_pos = WITH_START;
-				break;
-			case 'p':
-				print_out = 1;
-				break;
-			case 'n':
-				n_threads = atoi(optarg);
-				break;
-			case 'y':
-				al_type = std::string(optarg);
-				break;
-			case 'k':
-				k_band = atoi(optarg);
-				break;
-			case 'x':
-				semiglobal_bound_head = std::string(optarg);
-
-				if (optind < argc && *argv[optind] != '-'){
-					semiglobal_bound_tail = std::string(argv[optind]); 
-					optind++;
-				} else {
-					fprintf(stderr, "\n-x option require TWO arguments\n\n");
-					exit(EXIT_FAILURE);
-				}
-				break;
-			}
-		}
-
-		if (optind + 2 > argc) {
-			fprintf(stderr, "Usage: ./test_prog.out [-a] [-b] [-q] [-r] [-s] [-p] [-n] [-y] <query_batch.fasta> <target_batch.fasta>\n");
-			fprintf(stderr, "Options: -a INT    match score [%d]\n", sa);
-			fprintf(stderr, "         -b INT    mismatch penalty [%d]\n", sb);
-			fprintf(stderr, "         -q INT    gap open penalty [%d]\n", gapo);
-			fprintf(stderr, "         -r INT    gap extension penalty [%d]\n", gape);
-			fprintf(stderr, "         -s        also find the start position \n");
-			fprintf(stderr, "         -p        print the alignment results \n");
-			fprintf(stderr, "         -n        Number of threads \n");
-			fprintf(stderr, "         -y        Alignment type . Must be \"local\", \"semi_global\", \"global\"  \"banded INT\" (size of band) \n");
-			fprintf(stderr, "         -k INT    Band width in case \"banded\" is selected.\n");
-			fprintf(stderr, "		  ");
-			fprintf(stderr, "\n");
-			return 1;
-		}
-
-		if (al_type.empty()) {
-			fprintf(stderr, "Must specify the alignment type (local, semi_global)\n");
-			return 1;
-		}
-
-		algo_type algo = UNKNOWN;
-		if (!al_type.compare("local"))
-			algo = LOCAL;
-		else if (!al_type.compare("semi_global"))
-			algo = SEMI_GLOBAL;
-		else if (!al_type.compare("global"))
-			algo = GLOBAL;
-		else if (!al_type.compare("banded"))
-			algo = BANDED;
-		else if (!al_type.compare("microloc"))
-			algo = MICROLOCAL;
-		else if (!al_type.compare("fixedband"))
-			algo = FIXEDBAND;
-
-		if ( algo == UNKNOWN) {
-			fprintf(stderr, "Unknown alignment type. Must be either \"local\" or \"semi_global\", \"global\", or \"banded\" (fixed width of 4--4)\n");
-			return 1;
-		}
-
-		data_source semiglobal_skipping_head = NONE;
-
-		if (!semiglobal_bound_head.compare("QUERY"))
-			semiglobal_skipping_head = QUERY;
-		else if (!semiglobal_bound_head.compare("TARGET"))
-			semiglobal_skipping_head = TARGET;
-		else if (!semiglobal_bound_head.compare("BOTH"))
-			semiglobal_skipping_head = BOTH;
-
-
-		data_source semiglobal_skipping_tail = NONE;
-		
-		if (!semiglobal_bound_tail.compare("HEAD"))
-			semiglobal_skipping_tail = QUERY;
-		else if (!semiglobal_bound_tail.compare("TAIL"))
-			semiglobal_skipping_tail = TARGET;
-		else if (!semiglobal_bound_tail.compare("BOTH"))
-			semiglobal_skipping_tail = BOTH;
-
-		//fprintf(stderr, "Options: algo=%d, start_pos=%d, band k_band=%d\n", algo, start_pos, k_band);
-
-		fprintf(stderr, "Semi-global parameters: head: %s (%d), tail: %s (%d)\n", semiglobal_bound_head.c_str(), semiglobal_skipping_head, semiglobal_bound_tail.c_str(),  semiglobal_skipping_tail);
-
-	*/
-
-	Arguments *args;
-	args = new Arguments(argc, argv);
+	Parameters *args;
+	args = new Parameters(argc, argv);
 	args->parse();
 	args->print();
 
-	
 	comp_start start_pos = args->start_pos; 
 	int print_out = args->print_out;
 	int n_threads = args->n_threads;
-	int32_t k_band = args->k_band;
+	
 	algo_type algo = args->algo;
-	data_source semiglobal_skipping_head = args->semiglobal_skipping_head;
-	data_source semiglobal_skipping_tail = args->semiglobal_skipping_tail;
+	
 
 
 	//--------------copy substitution scores to GPU--------------------
@@ -360,8 +235,7 @@ int main(int argc, char **argv) {
 							1 * ceil((double)(query_seqs_len +7*total_seqs) / (double)(NB_STREAMS))  , 
 							ceil((double)target_seqs.size() / (double)(NB_STREAMS)), // maximum number of alignments is bigger on target than on query side.
 							ceil((double)target_seqs.size() / (double)(NB_STREAMS)), 
-							LOCAL, 
-							WITH_START);
+							args);
 		*/		
 		
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
@@ -371,8 +245,7 @@ int main(int argc, char **argv) {
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
 						GPU_BATCH_SIZE, // maximum number of alignments is bigger on target than on query side.
 						GPU_BATCH_SIZE, 
-						LOCAL, 
-						WITH_START);
+						args);
 
 	}
 	#ifdef DEBUG
@@ -467,7 +340,7 @@ int main(int argc, char **argv) {
 				//----------------------------------------------------------------------------------------------------
 				//-----------------calling the GASAL2 non-blocking alignment function---------------------------------
 
-				gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch,  algo, start_pos, k_band,  semiglobal_skipping_head,  semiglobal_skipping_tail);
+				gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch, args);
 					
 				//---------------------------------------------------------------------------------
 			}
@@ -514,7 +387,7 @@ int main(int argc, char **argv) {
 
 	}
 	for (int z = 0; z < n_threads; z++) {
-		gasal_destroy_streams(&(gpu_storage_vecs[z]));
+		gasal_destroy_streams(&(gpu_storage_vecs[z]), args);
 		gasal_destroy_gpu_storage_v(&(gpu_storage_vecs[z]));
 	}
 	free(gpu_storage_vecs);

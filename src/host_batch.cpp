@@ -38,6 +38,8 @@ host_batch_t *gasal_host_batch_getlast(host_batch_t *arg)
 	
 }
 
+/* 
+// Deprecated
 void gasal_host_batch_recycle(gasal_gpu_storage_t *gpu_storage_t)
 {	
 	// hard re-allocation.
@@ -54,7 +56,7 @@ void gasal_host_batch_recycle(gasal_gpu_storage_t *gpu_storage_t)
 	
 	}
 }
-
+*/
 
 uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx, const char* data, uint32_t size, data_source SRC )
 {	

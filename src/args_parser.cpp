@@ -1,48 +1,55 @@
 #include "args_parser.h"
 
-Arguments::Arguments(int argc_, char **argv_) {
+Parameters::Parameters(int argc_, char **argv_) {
 
-        sa = (1);
-        sb = (4);
-        gapo = (6);
-        gape = (1);
-        start_pos = (WITHOUT_START); 
-        print_out = (0);
-        n_threads = (1);
-        
-        k_band = (0);
 
-        // query head, target head, query tail, target tail
-        semiglobal_skipping_head = NONE;
-        semiglobal_skipping_tail = NONE;
+    // default values
+    sa = (1);
+    sb = (4);
+    gapo = (6);
+    gape = (1);
+    start_pos = (WITHOUT_START); 
+    print_out = (0);
+    n_threads = (1);
+    
+    k_band = (0);
 
-        algo = (UNKNOWN);
+    isPacked = false;
+    
+    secondBest = FALSE;
 
-        query_batch_fasta_filename = "";
-        target_batch_fasta_filename = "";
+    // query head, target head, query tail, target tail
+    semiglobal_skipping_head = NONE;
+    semiglobal_skipping_tail = NONE;
 
-        argc = argc_;
-        argv = argv_;
+    algo = (UNKNOWN);
+
+    query_batch_fasta_filename = "";
+    target_batch_fasta_filename = "";
+
+    argc = argc_;
+    argv = argv_;
 
 }
 
-Arguments::~Arguments() {
+Parameters::~Parameters() {
     query_batch_fasta.close();
     target_batch_fasta.close();
 }
 
-void Arguments::print() {
+void Parameters::print() {
     std::cerr <<  "sa=" << sa <<" , sb=" << sb <<" , gapo=" <<  gapo << " , gape="<<gape << std::endl;
     std::cerr <<  "start_pos=" << start_pos <<" , print_out=" << print_out <<" , n_threads=" <<  n_threads << std::endl;
     std::cerr <<  "semiglobal_skipping_head=" << semiglobal_skipping_head <<" , semiglobal_skipping_tail=" << semiglobal_skipping_tail <<" , algo=" <<  algo << std::endl;
+    std::cerr <<  std::boolalpha << "isPacked = " << isPacked  << " , secondBest = " << secondBest << std::endl;
     std::cerr <<  "query_batch_fasta_filename=" << query_batch_fasta_filename <<" , target_batch_fasta_filename=" << target_batch_fasta_filename << std::endl;
 }
 
-void Arguments::failure(fail_type f) {
+void Parameters::failure(fail_type f) {
     switch(f)
     {
             case NOT_ENOUGH_ARGS:
-                std::cerr << "Not enough arguments. Required: -y AL_TYPE file1.fasta file2.fasta. See help (--help, -h) for usage. " << std::endl;
+                std::cerr << "Not enough Parameters. Required: -y AL_TYPE file1.fasta file2.fasta. See help (--help, -h) for usage. " << std::endl;
             break;
             case WRONG_ARG:
                 std::cerr << "Wrong argument. See help (--help, -h) for usage. " << std::endl;
@@ -57,7 +64,7 @@ void Arguments::failure(fail_type f) {
     exit(1);
 }
 
-void Arguments::help() {
+void Parameters::help() {
             std::cerr << "Usage: ./test_prog.out [-a] [-b] [-q] [-r] [-s] [-p] [-n] [-y] <query_batch.fasta> <target_batch.fasta>" << std::endl;
             std::cerr << "Options: -a INT    match score ["<< sa <<"]" << std::endl;
             std::cerr << "         -b INT    mismatch penalty [" << sb << "]"<< std::endl;
@@ -69,12 +76,13 @@ void Arguments::help() {
             std::cerr << "         -y AL_TYPE       Alignment type . Must be \"local\", \"semi_global\", \"global\"  \"banded INT\" (size of band)"  << std::endl;
             std::cerr << "         -k INT    Band width in case \"banded\" is selected."  << std::endl;
             std::cerr << "         --help, -h : displays this message." << std::endl;
-            std::cerr << "Single-pack multi-arguments (e.g. -sp) is not supported." << std::endl;
+            std::cerr << "         --second-best   displays second best score (WITHOUT_START only)." << std::endl;
+            std::cerr << "Single-pack multi-Parameters (e.g. -sp) is not supported." << std::endl;
             std::cerr << "		  "  << std::endl;
 }
 
 
-void Arguments::parse() {
+void Parameters::parse() {
 
     // before testing anything, check if calling for help.
     int c;
@@ -108,6 +116,11 @@ void Arguments::parse() {
                 help();
                 exit(0);
             }
+            if (!arg_cur.compare("--second-best"))
+            {
+                secondBest = TRUE;
+            }
+
         } else if (arg_cur.at(0) == '-' )
         {
             if (arg_cur.length() > 2)
@@ -210,16 +223,16 @@ void Arguments::parse() {
     }
 
 
-    // the last 2 arguments are the 2 filenames.
+    // the last 2 Parameters are the 2 filenames.
     query_batch_fasta_filename = std::string( (const char*)  (*(argv + c) ) );
     c++;
     target_batch_fasta_filename = std::string( (const char*) (*(argv + c) ) );
 
-    // arguments retrieved successfully, open files.
+    // Parameters retrieved successfully, open files.
     fileopen();
 }
 
-void Arguments::fileopen() {
+void Parameters::fileopen() {
     query_batch_fasta.open(query_batch_fasta_filename, std::ifstream::in);
     if (!query_batch_fasta)
         failure(WRONG_FILES);
