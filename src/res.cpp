@@ -5,7 +5,7 @@
 #include "res.h"
 
 
-gasal_res_t *gasal_res_new(uint32_t max_n_alns, Parameters *params, bool device = false)
+gasal_res_t *gasal_res_new(uint32_t max_n_alns, Parameters *params, bool device)
 {
 	cudaError_t err;
 	gasal_res_t *res = (gasal_res_t *)calloc(1, sizeof(gasal_res_t));
@@ -75,6 +75,7 @@ gasal_res_t *gasal_res_new(uint32_t max_n_alns, Parameters *params, bool device 
 
 void gasal_res_destroy(gasal_res_t *res) 
 {
+    cudaError_t err;
     if (res == NULL)
         exit(1);
     

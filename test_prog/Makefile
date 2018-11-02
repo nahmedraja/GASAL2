@@ -3,15 +3,15 @@ ANALYSIS_FILENAME=analysis
 # prefix1 can be optirun in case you need to run it from an optimus-enabled laptop.
 PREFIX1=
 #i prefix2 can be nvprof. use preferably the following : nvprof --profile-api-trace none -s -f -o /tmp/.nvprof/$(ANALYSIS_FILENAME).nvprof
-PREFIX2= nvprof --profile-api-trace none -s -f -o /tmp/.nvprof/$(ANALYSIS_FILENAME).nvprof
+PREFIX2= 
 #suffix1 and 2 can be an output file.
 SUFFIX1=> golden.log
 SUFFIX2=> out.log
 
 PRGM=test_prog.out
  
-OPTARGS1=-x BOTH BOTH -p -y semi_global
-OPTARGS2=-x QUERY TARGET -p -y semi_global --second-best
+OPTARGS1=-p -y global
+OPTARGS2=-p -y global 
 
 FILES_HUMAN600=reads_600_human_10M.fasta ref_600_human_10M.fasta
 FILES_HUMAN300=reads_300_human_10M.fasta ref_300_human_10M.fasta
@@ -78,7 +78,7 @@ fullrun2: all
 
 
 cuda-memcheck: all
-	cuda-memcheck ./test_prog.out -p -y banded short_query_batch.fasta short_target_batch.fasta
+	cuda-memcheck $(PREFIX1) ./$(PRGM) $(OPTARGS2) $(FILES_20K) $(SUFFIX2)
 
 cuda-gdb: all
 	cuda-gdb --args ./test_prog.out -p -y local query_batch.fasta target_batch.fasta

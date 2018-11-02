@@ -281,13 +281,17 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
     //------------------------0launch the copying of alignment results from GPU to CPU--------------------------------------
     if (gpu_storage->host_res->aln_score != NULL && gpu_storage->device_res->aln_score != NULL) 
 		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res->aln_score, gpu_storage->device_res->aln_score, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
-    if (gpu_storage->host_res->query_batch_start != NULL && gpu_storage->device_res->query_batch_start != NULL) 
+    
+	if (gpu_storage->host_res->query_batch_start != NULL && gpu_storage->device_res->query_batch_start != NULL) 
 		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res->query_batch_start, gpu_storage->device_res->query_batch_start, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
-    if (gpu_storage->host_res->target_batch_start != NULL && gpu_storage->device_res->target_batch_start != NULL) 
+    
+	if (gpu_storage->host_res->target_batch_start != NULL && gpu_storage->device_res->target_batch_start != NULL) 
 		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res->target_batch_start, gpu_storage->device_res->target_batch_start, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
-    if (gpu_storage->host_res->query_batch_end != NULL && gpu_storage->device_res->query_batch_end != NULL) 
+    
+	if (gpu_storage->host_res->query_batch_end != NULL && gpu_storage->device_res->query_batch_end != NULL) 
 		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res->query_batch_end, gpu_storage->device_res->query_batch_end, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
-    if (gpu_storage->host_res->target_batch_end != NULL && gpu_storage->device_res->target_batch_end != NULL) 
+    
+	if (gpu_storage->host_res->target_batch_end != NULL && gpu_storage->device_res->target_batch_end != NULL) 
 		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res->target_batch_end, gpu_storage->device_res->target_batch_end, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
     //-----------------------------------------------------------------------------------------------------------------------
 
@@ -296,8 +300,8 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 }
 
 
-int gasal_is_aln_async_done(gasal_gpu_storage_t *gpu_storage) {
-
+int gasal_is_aln_async_done(gasal_gpu_storage_t *gpu_storage) 
+{
 	cudaError_t err;
 	if(gpu_storage->is_free == 1) return -2;//if no work is launced in this stream, return -2
 	err = cudaStreamQuery(gpu_storage->str);//check to see if the stream is finished
