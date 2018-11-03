@@ -78,7 +78,7 @@ fullrun2: all
 
 
 cuda-memcheck: all
-	cuda-memcheck $(PREFIX1) ./$(PRGM) $(OPTARGS2) $(FILES_20K) $(SUFFIX2)
+	cuda-memcheck $(PREFIX2) ./$(PRGM) $(OPTARGS1) $(FILES_20K) $(SUFFIX1)
 
 cuda-gdb: all
 	cuda-gdb --args ./test_prog.out -p -y local query_batch.fasta target_batch.fasta

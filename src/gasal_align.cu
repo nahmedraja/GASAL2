@@ -1,4 +1,5 @@
 #include "gasal.h"
+#define CUDAFILE
 #include "args_parser.h"
 #include "res.h"
 #include "gasal_align.h"
