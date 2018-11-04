@@ -1,6 +1,10 @@
 #ifndef __HOST_BACTH_H__
 #define __HOST_BACTH_H__
 
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+
 // host data structure methods
 host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t offset); 								// constructor
 void gasal_host_batch_destroy(host_batch_t *res); 																		// destructor

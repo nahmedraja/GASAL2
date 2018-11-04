@@ -86,13 +86,14 @@ __global__ void gasal_global_kernel(uint32_t *packed_query_batch, uint32_t *pack
 				//----------------------------------------------
 			}
 			//------------------------------------------------------------------
-
-
-
-
 		}
 
 	}
+	
+	//if ((tid+1)%500 == 0)
+	
+	//printf("(blockIdx.x * blockDim.x) + threadIdx.x = %d * %d + %d = %d // ntasks=%d, maxHH=%d\n", blockIdx.x, blockDim.x, threadIdx.x, tid, n_tasks, maxHH);
+
 	device_res->aln_score[tid] = maxHH;//copy the max score to the output array in the GPU mem
 
 	return;

@@ -66,8 +66,10 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].query_batch_offsets), gpu_max_n_alns * sizeof(uint32_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_batch_offsets), gpu_max_n_alns * sizeof(uint32_t)));
 		
-		gpu_storage_vec->a[i].host_res = gasal_res_new(host_max_n_alns, params, HOST);
-		gpu_storage_vec->a[i].device_res = gasal_res_new(gpu_max_n_alns, params, DEVICE);
+		gpu_storage_vec->a[i].host_res = gasal_res_new_host(host_max_n_alns, params);
+		gpu_storage_vec->a[i].device_cpy = gasal_res_new_host(host_max_n_alns, params);
+		gpu_storage_vec->a[i].device_res = gasal_res_new_device(gpu_storage_vec->a[i].device_cpy);
+		
 
 		// TODO re-write the code below
 
@@ -114,7 +116,7 @@ void gasal_gpu_mem_alloc(gasal_gpu_storage_t *gpu_storage, int gpu_max_query_bat
 	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->query_batch_offsets), gpu_max_n_alns * sizeof(uint32_t)));
 	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_offsets), gpu_max_n_alns * sizeof(uint32_t)));
 
-	gpu_storage->device_res = gasal_res_new(gpu_max_n_alns, params, DEVICE);
+	gpu_storage->device_res = gasal_res_new_device(gpu_storage->device_cpy);
 
 	gpu_storage->gpu_max_query_batch_bytes = gpu_max_query_batch_bytes;
 	gpu_storage->gpu_max_target_batch_bytes = gpu_max_target_batch_bytes;
@@ -136,7 +138,7 @@ void gasal_gpu_mem_free(gasal_gpu_storage_t *gpu_storage) {
 	if (gpu_storage->query_batch_lens != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->query_batch_lens));
 	if (gpu_storage->target_batch_lens != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->target_batch_lens));
 	
-	gasal_res_destroy(gpu_storage->host_res);
+	gasal_res_destroy_device(gpu_storage->device_res,gpu_storage->device_cpy);
 }
 
 
@@ -146,13 +148,12 @@ void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec, Parameters *par
 
 	int i;
 	for (i = 0; i < gpu_storage_vec->n; i ++) {
-		// destructors. Should be directly replaced.
 		
 		gasal_host_batch_destroy(gpu_storage_vec->a[i].extensible_host_unpacked_query_batch);
 		gasal_host_batch_destroy(gpu_storage_vec->a[i].extensible_host_unpacked_target_batch);
 
-		gasal_res_destroy(gpu_storage_vec->a[i].host_res);
-		gasal_res_destroy(gpu_storage_vec->a[i].device_res);
+		gasal_res_destroy_host(gpu_storage_vec->a[i].host_res);
+		gasal_res_destroy_device(gpu_storage_vec->a[i].device_res, gpu_storage_vec->a[i].device_cpy);
 
 		if (gpu_storage_vec->a[i].query_op != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].query_op));
 		if (gpu_storage_vec->a[i].target_op != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].target_op));

@@ -1,10 +1,14 @@
 #ifndef __GASAL_H__
 #define __GASAL_H__
 
+/*
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+*/
+#include <cstdlib>
+#include <cstdint>
 #include "/usr/local/cuda-9.2/targets/x86_64-linux/include/cuda_runtime.h"
 
 #ifndef HOST_MALLOC_SAFETY_FACTOR
@@ -82,6 +86,7 @@ struct gasal_res{
 	int32_t *target_batch_end;
 	int32_t *query_batch_start;
 	int32_t *target_batch_start;
+	int32_t size;
 	bool isDevice;
 };
 typedef struct gasal_res gasal_res_t;
@@ -124,8 +129,9 @@ typedef struct {
 	int32_t *host_target_batch_start;
 	*/
 
-	gasal_res_t *host_res;
-	gasal_res_t *device_res;
+	gasal_res_t *host_res; // the results that can be read on host
+	gasal_res_t *device_res; // the results that are written on device - THE STRUCT IS ON DEVICE SIDE
+	gasal_res_t *device_cpy; // a struct that contains the pointers to the device side - THE STRUCT IS ON HOST SIDE
 
 	uint32_t gpu_max_query_batch_bytes;
 	uint32_t gpu_max_target_batch_bytes;
