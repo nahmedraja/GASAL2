@@ -3,7 +3,7 @@ ANALYSIS_FILENAME=analysis
 # prefix1 can be optirun in case you need to run it from an optimus-enabled laptop.
 PREFIX1=
 #i prefix2 can be nvprof. use preferably the following : nvprof --profile-api-trace none -s -f -o /tmp/.nvprof/$(ANALYSIS_FILENAME).nvprof
-PREFIX2= 
+PREFIX2= nvprof --profile-api-trace none -s -f -o /tmp/.nvprof/$(ANALYSIS_FILENAME).nvprof
 #suffix1 and 2 can be an output file.
 SUFFIX1=> golden.log
 SUFFIX2=> out.log
@@ -11,7 +11,7 @@ SUFFIX2=> out.log
 PRGM=test_prog.out
  
 OPTARGS1=-p -y local 
-OPTARGS2=-p -y local 
+OPTARGS2=-p -y semi_global -x TARGET TARGET 
 
 FILES_HUMAN600=reads_600_human_10M.fasta ref_600_human_10M.fasta
 FILES_HUMAN300=reads_300_human_10M.fasta ref_300_human_10M.fasta

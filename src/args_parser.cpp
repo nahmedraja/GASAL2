@@ -19,8 +19,8 @@ Parameters::Parameters(int argc_, char **argv_) {
     secondBest = FALSE;
 
     // query head, target head, query tail, target tail
-    semiglobal_skipping_head = NONE;
-    semiglobal_skipping_tail = NONE;
+    semiglobal_skipping_head = TARGET;
+    semiglobal_skipping_tail = TARGET;
 
     algo = (UNKNOWN);
 
