@@ -34,8 +34,8 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].unpacked_target_batch), gpu_max_target_batch_bytes * sizeof(uint8_t)));
 
 
-		CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_query_op), host_max_n_alns * sizeof(uint8_t)));
-		CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_target_op), host_max_n_alns * sizeof(uint8_t)));
+		CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_query_op), host_max_n_alns * sizeof(uint8_t), cudaHostAllocDefault));
+		CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_target_op), host_max_n_alns * sizeof(uint8_t), cudaHostAllocDefault));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].query_op), gpu_max_n_alns * sizeof(uint8_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_op), gpu_max_n_alns * sizeof(uint8_t)));
 
@@ -55,11 +55,11 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 
 
 
-		CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_query_batch_lens), host_max_n_alns * sizeof(uint32_t)));
-		CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_target_batch_lens), host_max_n_alns * sizeof(uint32_t)));
-		CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_query_batch_offsets), host_max_n_alns * sizeof(uint32_t)));
-		CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_target_batch_offsets), host_max_n_alns * sizeof(uint32_t)));
-		//CHECKCUDAERROR(cudaMallocHost(&(gpu_storage_vec->a[i].host_aln_score), host_max_n_alns * sizeof(int32_t)));
+		CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_query_batch_lens), host_max_n_alns * sizeof(uint32_t), cudaHostAllocDefault));
+		CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_target_batch_lens), host_max_n_alns * sizeof(uint32_t), cudaHostAllocDefault));
+		CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_query_batch_offsets), host_max_n_alns * sizeof(uint32_t), cudaHostAllocDefault));
+		CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_target_batch_offsets), host_max_n_alns * sizeof(uint32_t), cudaHostAllocDefault));
+		//CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_aln_score), host_max_n_alns * sizeof(int32_t)));
 
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].query_batch_lens), gpu_max_n_alns * sizeof(uint32_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_batch_lens), gpu_max_n_alns * sizeof(uint32_t)));
@@ -70,7 +70,6 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 		gpu_storage_vec->a[i].host_res = gasal_res_new_host(host_max_n_alns, params);
 		gpu_storage_vec->a[i].device_cpy = gasal_res_new_device_cpy(host_max_n_alns, params);
 		gpu_storage_vec->a[i].device_res = gasal_res_new_device(gpu_storage_vec->a[i].device_cpy);
-
 
 		CHECKCUDAERROR(cudaStreamCreate(&(gpu_storage_vec->a[i].str)));
 		gpu_storage_vec->a[i].is_free = 1;

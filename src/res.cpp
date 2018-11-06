@@ -13,7 +13,7 @@ gasal_res_t *gasal_res_new_host(uint32_t max_n_alns, Parameters *params)
 
 	res = (gasal_res_t *)malloc(sizeof(gasal_res_t));
 
-	CHECKCUDAERROR(cudaMallocHost(&(res->aln_score), max_n_alns * sizeof(int32_t)));
+	CHECKCUDAERROR(cudaHostAlloc(&(res->aln_score), max_n_alns * sizeof(int32_t),cudaHostAllocDefault));
 	
 	
 	if(res ==NULL)
@@ -37,14 +37,14 @@ gasal_res_t *gasal_res_new_host(uint32_t max_n_alns, Parameters *params)
 		res->query_batch_end = NULL;
 
 		if (params->start_pos == WITH_START) {
-		CHECKCUDAERROR(cudaMallocHost(&(res->host_target_batch_start),max_n_alns * sizeof(uint32_t)));
-		CHECKCUDAERROR(cudaMallocHost(&(res->host_target_batch_end),max_n_alns * sizeof(uint32_t)));
+		CHECKCUDAERROR(cudaHostAlloc(&(res->host_target_batch_start),max_n_alns * sizeof(uint32_t)));
+		CHECKCUDAERROR(cudaHostAlloc(&(res->host_target_batch_end),max_n_alns * sizeof(uint32_t)));
 
 		CHECKCUDAERROR(cudaMalloc(&(res->target_batch_start),max_n_alns * sizeof(uint32_t)));
 		CHECKCUDAERROR(
 		cudaMalloc(&(res->target_batch_end),max_n_alns * sizeof(uint32_t)));
 		} else {
-		CHECKCUDAERROR(cudaMallocHost(&(res->host_target_batch_end),max_n_alns * sizeof(uint32_t)));
+		CHECKCUDAERROR(cudaHostAlloc(&(res->host_target_batch_end),max_n_alns * sizeof(uint32_t)));
 		CHECKCUDAERROR(cudaMalloc(&(res->target_batch_end),max_n_alns * sizeof(uint32_t)));
 		res->host_target_batch_start = NULL;
 		res->target_batch_start = NULL;
@@ -52,14 +52,14 @@ gasal_res_t *gasal_res_new_host(uint32_t max_n_alns, Parameters *params)
 		 */
 	} else {
 		if (params->start_pos == WITH_START) {
-			CHECKCUDAERROR(cudaMallocHost(&(res->query_batch_start),max_n_alns * sizeof(uint32_t)));
-			CHECKCUDAERROR(cudaMallocHost(&(res->target_batch_start),max_n_alns * sizeof(uint32_t)));
-			CHECKCUDAERROR(cudaMallocHost(&(res->query_batch_end),max_n_alns * sizeof(uint32_t)));
-			CHECKCUDAERROR(cudaMallocHost(&(res->target_batch_end),max_n_alns * sizeof(uint32_t)));
+			CHECKCUDAERROR(cudaHostAlloc(&(res->query_batch_start),max_n_alns * sizeof(uint32_t),cudaHostAllocDefault));
+			CHECKCUDAERROR(cudaHostAlloc(&(res->target_batch_start),max_n_alns * sizeof(uint32_t),cudaHostAllocDefault));
+			CHECKCUDAERROR(cudaHostAlloc(&(res->query_batch_end),max_n_alns * sizeof(uint32_t),cudaHostAllocDefault));
+			CHECKCUDAERROR(cudaHostAlloc(&(res->target_batch_end),max_n_alns * sizeof(uint32_t),cudaHostAllocDefault));
 
 		} else {
-			CHECKCUDAERROR(cudaMallocHost(&(res->query_batch_end),max_n_alns * sizeof(uint32_t)));
-			CHECKCUDAERROR(cudaMallocHost(&(res->target_batch_end),max_n_alns * sizeof(uint32_t)));
+			CHECKCUDAERROR(cudaHostAlloc(&(res->query_batch_end),max_n_alns * sizeof(uint32_t),cudaHostAllocDefault));
+			CHECKCUDAERROR(cudaHostAlloc(&(res->target_batch_end),max_n_alns * sizeof(uint32_t),cudaHostAllocDefault));
 			res->query_batch_start = NULL;
 			res->target_batch_start = NULL;
 		}
@@ -170,8 +170,8 @@ void gasal_res_destroy_device(gasal_res_t *device_res, gasal_res_t *device_cpy)
 	free(device_cpy);
 }
 
-
-void cuda_print_ptr_attrib(int32_t *ptr)
+/*
+void cuda_print_ptr_attrib(void *ptr)
 {
 	cudaError_t err;
 	cudaPointerAttributes* a = NULL;
@@ -181,3 +181,4 @@ void cuda_print_ptr_attrib(int32_t *ptr)
 	std::cerr << "[CUDA DEBUG] devicePointer=" << a->devicePointer << " , isManaged=" << a->hostPointer <<std::endl;
 
 }
+*/
