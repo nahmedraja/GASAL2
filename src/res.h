@@ -11,6 +11,8 @@ gasal_res_t *gasal_res_new_device_cpy(uint32_t max_n_alns, Parameters *params);
 
 void gasal_res_destroy_host(gasal_res_t *res);
 void gasal_res_destroy_device(gasal_res_t *device_res, gasal_res_t *device_cpy);
-void gasal_res_print(gasal_res_t *res);
+
+void cuda_print_ptr_attrib(int32_t *ptr)
+
 
 #endif

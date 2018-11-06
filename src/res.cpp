@@ -80,12 +80,18 @@ gasal_res_t *gasal_res_new_device(gasal_res_t *device_cpy)
     CHECKCUDAERROR(cudaMalloc((void **)&d_c, sizeof(gasal_res_t)));
 	//    CHECKCUDAERROR(cudaMemcpy(d_c, res, sizeof(gasal_res_t), cudaMemcpyHostToDevice));
 
+
+
     // copy pointer to allocated device storage to device class
     CHECKCUDAERROR(cudaMemcpy(&(d_c->aln_score), &(device_cpy->aln_score), sizeof(int32_t*), cudaMemcpyHostToDevice));
 	CHECKCUDAERROR(cudaMemcpy(&(d_c->query_batch_start), &(device_cpy->query_batch_start), sizeof(int32_t*), cudaMemcpyHostToDevice));
 	CHECKCUDAERROR(cudaMemcpy(&(d_c->target_batch_start), &(device_cpy->target_batch_start), sizeof(int32_t*), cudaMemcpyHostToDevice));
 	CHECKCUDAERROR(cudaMemcpy(&(d_c->query_batch_end), &(device_cpy->query_batch_end), sizeof(int32_t*), cudaMemcpyHostToDevice));
 	CHECKCUDAERROR(cudaMemcpy(&(d_c->target_batch_end), &(device_cpy->target_batch_end), sizeof(int32_t*), cudaMemcpyHostToDevice));
+
+
+
+
 
 	return d_c;
 }
@@ -102,8 +108,6 @@ gasal_res_t *gasal_res_new_device_cpy(uint32_t max_n_alns, Parameters *params)
 
 	CHECKCUDAERROR(cudaMalloc(&(res->aln_score), max_n_alns * sizeof(int32_t))); 
 
-
-
 	if (params->algo == GLOBAL) {
 		res->query_batch_start = NULL;
 		res->target_batch_start = NULL;
@@ -113,17 +117,16 @@ gasal_res_t *gasal_res_new_device_cpy(uint32_t max_n_alns, Parameters *params)
 	} else {
 		if (params->start_pos == WITH_START) {
 
-			CHECKCUDAERROR(cudaMalloc(&(res->query_batch_start),max_n_alns * sizeof(uint32_t)));
-			CHECKCUDAERROR(cudaMalloc(&(res->target_batch_start),max_n_alns * sizeof(uint32_t)));
-			CHECKCUDAERROR(cudaMalloc(&(res->query_batch_end),max_n_alns * sizeof(uint32_t)));
-			CHECKCUDAERROR(cudaMalloc(&(res->target_batch_end),max_n_alns * sizeof(uint32_t)));
+			CHECKCUDAERROR(cudaMalloc(&(res->query_batch_start),max_n_alns * sizeof(uint32_t))); 
+			CHECKCUDAERROR(cudaMalloc(&(res->target_batch_start),max_n_alns * sizeof(uint32_t))); 
+			CHECKCUDAERROR(cudaMalloc(&(res->query_batch_end),max_n_alns * sizeof(uint32_t))); 
+			CHECKCUDAERROR(cudaMalloc(&(res->target_batch_end),max_n_alns * sizeof(uint32_t))); 
 		
 		} else {
 		
-			CHECKCUDAERROR(cudaMalloc(&(res->query_batch_end),max_n_alns * sizeof(uint32_t)));
+			CHECKCUDAERROR(cudaMalloc(&(res->query_batch_end),max_n_alns * sizeof(uint32_t))); 
 			CHECKCUDAERROR(cudaMalloc(&(res->target_batch_end),max_n_alns * sizeof(uint32_t)));
 		
-
 			res->query_batch_start = NULL;
 			res->target_batch_start = NULL;
 		}
@@ -155,16 +158,11 @@ void gasal_res_destroy_device(gasal_res_t *device_res, gasal_res_t *device_cpy)
 	if (device_cpy == NULL || device_res == NULL)
 		return;
 
-
-	if (device_cpy->aln_score != NULL) 
-	{
-		CHECKCUDAERROR(cudaFreeHost(device_cpy->aln_score));
-	}
-
-	if (device_cpy->query_batch_start != NULL) CHECKCUDAERROR(cudaFreeHost(device_cpy->query_batch_start));
-	if (device_cpy->target_batch_start != NULL) CHECKCUDAERROR(cudaFreeHost(device_cpy->target_batch_start));
-	if (device_cpy->query_batch_end != NULL) CHECKCUDAERROR(cudaFreeHost(device_cpy->query_batch_end));
-	if (device_cpy->target_batch_end != NULL) CHECKCUDAERROR(cudaFreeHost(device_cpy->target_batch_end));
+	if (device_cpy->aln_score != NULL) CHECKCUDAERROR(cudaFree(device_cpy->aln_score));
+	if (device_cpy->query_batch_start != NULL) CHECKCUDAERROR(cudaFree(device_cpy->query_batch_start));
+	if (device_cpy->target_batch_start != NULL) CHECKCUDAERROR(cudaFree(device_cpy->target_batch_start));
+	if (device_cpy->query_batch_end != NULL) CHECKCUDAERROR(cudaFree(device_cpy->query_batch_end));
+	if (device_cpy->target_batch_end != NULL) CHECKCUDAERROR(cudaFree(device_cpy->target_batch_end));
 	
 
 	CHECKCUDAERROR(cudaFree(device_res));
@@ -173,9 +171,13 @@ void gasal_res_destroy_device(gasal_res_t *device_res, gasal_res_t *device_cpy)
 }
 
 
-
-void gasal_res_print(gasal_res_t *res)
+void cuda_print_ptr_attrib(int32_t *ptr)
 {
-	std::cerr << "[GASAL DEBUG] isDevice=" << res->isDevice << " , size=" << res->size << std::endl;
+	cudaError_t err;
+	cudaPointerAttributes* a = NULL;
+	CHECKCUDAERROR(cudaPointerGetAttributes ( a , ptr ));
+
+	std::cerr << "[CUDA DEBUG] memoryType=" << a->memoryType << " , isManaged=" << a->isManaged << " , device=" << a->device <<std::endl;
+	std::cerr << "[CUDA DEBUG] devicePointer=" << a->devicePointer << " , isManaged=" << a->hostPointer <<std::endl;
 
 }

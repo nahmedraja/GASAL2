@@ -66,16 +66,10 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].query_batch_offsets), gpu_max_n_alns * sizeof(uint32_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_batch_offsets), gpu_max_n_alns * sizeof(uint32_t)));
 		
+
 		gpu_storage_vec->a[i].host_res = gasal_res_new_host(host_max_n_alns, params);
-		gpu_storage_vec->a[i].device_cpy = gasal_res_new_host(host_max_n_alns, params);
+		gpu_storage_vec->a[i].device_cpy = gasal_res_new_device_cpy(host_max_n_alns, params);
 		gpu_storage_vec->a[i].device_res = gasal_res_new_device(gpu_storage_vec->a[i].device_cpy);
-		
-
-		// TODO re-write the code below
-
-		
-
-		// /todo
 
 
 		CHECKCUDAERROR(cudaStreamCreate(&(gpu_storage_vec->a[i].str)));
