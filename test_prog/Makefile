@@ -10,8 +10,8 @@ SUFFIX2=> out.log
 
 PRGM=test_prog.out
  
-OPTARGS1=-p -y local 
-OPTARGS2=-p -y local --second-best
+OPTARGS1=-p -y semi_global 
+OPTARGS2=-p -y semi_global --second-best
 
 
 FILES_HUMAN600=reads_600_human_10M.fasta ref_600_human_10M.fasta

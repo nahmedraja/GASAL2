@@ -22,8 +22,8 @@
 	TAIL : set to QUERY, TARGET, BOTH or NONE. Tells which TAIL (suffix) is allowed to be ignored.
 */
 
-template <typename T, typename S, typename HEAD, typename TAIL>
-__global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch, uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, gasal_res_t *device_res, int n_tasks) 
+template <typename T, typename S, typename B, typename HEAD, typename TAIL>
+__global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch, uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, gasal_res_t *device_res, gasal_res_t *device_res_second, int n_tasks) 
 {
 
 	const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
@@ -48,6 +48,16 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 	int32_t maxXY_x __attribute__((unused)) ;
 	maxXY_x = ref_len;
 	maxXY_y = read_len;
+
+	
+    int32_t maxHH_second __attribute__((unused)); // __attribute__((unused)) to avoid raising errors at compilation. most template-kernels don't use these.
+    //int32_t prev_maxHH_second __attribute__((unused)); 
+    int32_t maxXY_x_second __attribute__((unused));
+    int32_t maxXY_y_second __attribute__((unused));
+    maxHH_second = MINUS_INF;
+    //prev_maxHH_second = 0;
+    maxXY_x_second = ref_len;
+    maxXY_y_second = read_len;
 
 	//-------arrays to save intermediate values----------------
 	short2 global[MAX_SEQ_LEN];
@@ -135,16 +145,22 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 					if (ridx == read_len) 
 					{
 						//----find the maximum and the corresponding end position-----------
-						for (m = 1; m < 9; m++) 
+						for (m = 1; m < 9; m++)
 						{
 							maxXY_y = (h[m] > maxHH && (gidx + m - 1) < ref_len) ? gidx + (m-1) : maxXY_y;
 							maxHH = (h[m] > maxHH && (gidx + m - 1) < ref_len) ? h[m] : maxHH;
+
+							if (SAMETYPE(B, Int2Type<TRUE>))
+							{
+								bool override_second = (h[m] > maxHH_second && h[m] < maxHH && (gidx + m - 1) < ref_len);
+								maxXY_y_second = (override_second) ? gidx + (m-1) : maxXY_y_second; 
+								maxHH_second = (override_second) ? h[m] : maxHH_second;
+							}
 						}
 					} // endif(ridx == read_len)
 				}
 
 			} // endfor() computing tile
-
 		} // endfor() on query words
 	} // endfor() on targt words
 
@@ -159,18 +175,37 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 				maxXY_x = m;
 				maxHH = score_tmp;
 			}
+			if (SAMETYPE(B, Int2Type<TRUE>))
+			{
+				bool override_second = (score_tmp > maxHH_second && score_tmp < maxHH && m < ref_len);
+				maxXY_x_second = (override_second) ? m : maxXY_x_second; 
+				maxHH_second = (override_second) ? score_tmp : maxHH_second;
+			}
+
 		}
 		/* if the X position has been updated and is not on the bottom line, then the max score is actually on the rightmost column.
 		 * Then, update the Y position to be on the rightmost column.
 		 */
 		if (maxXY_x != ref_len)
 			maxXY_y = read_len;
+
+		if (SAMETYPE(B, Int2Type<TRUE>))
+		{
+			if (maxXY_x_second != ref_len)
+				maxXY_y_second = read_len;
+		}
 	}
 
 	device_res->aln_score[tid] = maxHH;//copy the max score to the output array in the GPU mem
 	device_res->target_batch_end[tid] =  maxXY_y;//copy the end position on the target_batch sequence to the output array in the GPU mem
 	device_res->query_batch_end[tid] =  maxXY_x;//copy the end position on the target_batch sequence to the output array in the GPU mem
 
+	if (SAMETYPE(B, Int2Type<TRUE>))
+	{
+		device_res_second->aln_score[tid] = maxHH_second;
+		device_res_second->target_batch_end[tid] =  maxXY_y_second;
+		device_res_second->query_batch_end[tid] =  maxXY_x_second;
+	}
 
 	if (SAMETYPE(S, Int2Type<WITH_START>))
 	{
