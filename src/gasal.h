@@ -110,28 +110,18 @@ typedef struct {
 	uint8_t *query_op;
 	uint8_t *target_op;
 
-
 	uint32_t *host_query_batch_offsets;
 	uint32_t *host_target_batch_offsets;
 	uint32_t *host_query_batch_lens;
 	uint32_t *host_target_batch_lens;
-	/*
-	int32_t *aln_score;
-	int32_t *query_batch_end;
-	int32_t *target_batch_end;
-	int32_t *query_batch_start;
-	int32_t *target_batch_start;
-
-	int32_t *host_aln_score;
-	int32_t *host_query_batch_end;
-	int32_t *host_target_batch_end;
-	int32_t *host_query_batch_start;
-	int32_t *host_target_batch_start;
-	*/
 
 	gasal_res_t *host_res; // the results that can be read on host
 	gasal_res_t *device_res; // the results that are written on device - THE STRUCT IS ON DEVICE SIDE
-	gasal_res_t *device_cpy; // a struct that contains the pointers to the device side - THE STRUCT IS ON HOST SIDE
+	gasal_res_t *device_cpy; // a struct that contains the pointers to the device side - THE STRUCT IS ON HOST SIDE, but the CONTENT is malloc'd on DEVICE SIDE
+
+	gasal_res_t *host_res_second; // the results that can be read on host
+	gasal_res_t *device_res_second; // the results that are written on device - THE STRUCT IS ON DEVICE SIDE
+	gasal_res_t *device_cpy_second; // a struct that contains the pointers to the device side - THE STRUCT IS ON HOST SIDE
 
 	uint32_t gpu_max_query_batch_bytes;
 	uint32_t gpu_max_target_batch_bytes;

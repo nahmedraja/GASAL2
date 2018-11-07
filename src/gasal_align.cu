@@ -123,49 +123,12 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		gpu_storage->device_cpy = gasal_res_new_device_cpy(gpu_storage->gpu_max_n_alns, params);
 		gpu_storage->device_res = gasal_res_new_device(gpu_storage->device_cpy);
 
-		/*
-			if (gpu_storage->aln_score != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->aln_score));
-			if (gpu_storage->query_batch_start != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->query_batch_start));
-			if (gpu_storage->target_batch_start != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->target_batch_start));
-			if (gpu_storage->query_batch_end != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->query_batch_end));
-			if (gpu_storage->target_batch_end != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->target_batch_end));
-
-
-			CHECKCUDAERROR(cudaMalloc(&(gpu_storage->aln_score), gpu_storage->gpu_max_n_alns * sizeof(int32_t)));
-			
-
-			if (params->algo == GLOBAL) {
-				gpu_storage->query_batch_start = NULL;
-				gpu_storage->target_batch_start = NULL;
-				gpu_storage->query_batch_end = NULL;
-				gpu_storage->target_batch_end = NULL;
-			} else if (params->algo == SEMI_GLOBAL) {
-				gpu_storage->query_batch_start = NULL;
-				gpu_storage->query_batch_end = NULL;
-				if (params->start_pos == WITH_START) {
-					CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_start),gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
-					CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_end),gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
-				} else {
-					CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_end),gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
-					gpu_storage->target_batch_start = NULL;
-				}
-			} else {
-				if (params->start_pos == WITH_START) {
-					CHECKCUDAERROR(cudaMalloc(&(gpu_storage->query_batch_start),gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
-					CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_start),gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
-					CHECKCUDAERROR(cudaMalloc(&(gpu_storage->query_batch_end),gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
-					CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_end),gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
-				} else {
-					CHECKCUDAERROR(cudaMalloc(&(gpu_storage->query_batch_end),gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
-					CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_end),gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
-					gpu_storage->query_batch_start = NULL;
-					gpu_storage->target_batch_start = NULL;
-				}
-			}
-
-		*/
-
-
+		if (params->secondBest)
+		{
+			gasal_res_destroy_device(gpu_storage->device_res_second, gpu_storage->device_cpy_second);
+			gpu_storage->device_cpy_second = gasal_res_new_device_cpy(gpu_storage->gpu_max_n_alns, params);
+			gpu_storage->device_res_second = gasal_res_new_device(gpu_storage->device_cpy_second);
+		}
 
 	}
 	//------------------------------------------
@@ -295,7 +258,27 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
     
 	if (gpu_storage->host_res->target_batch_end != NULL && gpu_storage->device_cpy->target_batch_end != NULL) 
 		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res->target_batch_end, gpu_storage->device_cpy->target_batch_end, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
-    //-----------------------------------------------------------------------------------------------------------------------
+	//-----------------------------------------------------------------------------------------------------------------------
+	
+
+	// not really needed to filter with params->secondBest, since all the pointers will be null and non-initialized.
+	if (params->secondBest)
+	{	
+		if (gpu_storage->host_res_second->aln_score != NULL && gpu_storage->device_cpy_second->aln_score != NULL) 
+			CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res_second->aln_score, gpu_storage->device_cpy_second->aln_score, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
+    
+		if (gpu_storage->host_res_second->query_batch_start != NULL && gpu_storage->device_cpy_second->query_batch_start != NULL) 
+			CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res_second->query_batch_start, gpu_storage->device_cpy_second->query_batch_start, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
+		
+		if (gpu_storage->host_res_second->target_batch_start != NULL && gpu_storage->device_cpy_second->target_batch_start != NULL) 
+			CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res_second->target_batch_start, gpu_storage->device_cpy_second->target_batch_start, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
+		
+		if (gpu_storage->host_res_second->query_batch_end != NULL && gpu_storage->device_cpy_second->query_batch_end != NULL) 
+			CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res_second->query_batch_end, gpu_storage->device_cpy_second->query_batch_end, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
+		
+		if (gpu_storage->host_res_second->target_batch_end != NULL && gpu_storage->device_cpy_second->target_batch_end != NULL) 
+			CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res_second->target_batch_end, gpu_storage->device_cpy_second->target_batch_end, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
+	}
 
     gpu_storage->is_free = 0; //set the availability of current stream to false
 

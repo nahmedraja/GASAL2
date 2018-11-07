@@ -3,7 +3,7 @@
 
 
 
-#define CORE_LOCAL_COMPUTE() \
+#define CORE_LOCAL_DEPRECATED_COMPUTE() \
     uint32_t gbase = (gpac >> l) & 15;/*get a base from target_batch sequence */ \
     DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);/* check equality of rbase and gbase */ \
     f[m] = max(h[m]- _cudaGapOE, f[m] - _cudaGapExtend);/* whether to introduce or extend a gap in query_batch sequence */ \
@@ -16,6 +16,22 @@
     maxHH = (maxHH < h[m]) ? h[m] : maxHH; \
     p[m] = h[m-1];
 
+
+#define CORE_LOCAL_COMPUTE() \
+    uint32_t gbase = (gpac >> l) & 15; /* get a base from target_batch sequence */ \
+    DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);/* check equality of rbase and gbase */\
+    register int32_t curr_hm_diff = h[m] - _cudaGapOE;\
+    f[m] = max(curr_hm_diff, f[m] - _cudaGapExtend);/* whether to introduce or extend a gap in query_batch sequence */\
+    curr_hm_diff = p[m] + subScore;/* score if rbase is aligned to gbase */\
+    curr_hm_diff = max(curr_hm_diff, f[m]);\
+    curr_hm_diff = max(curr_hm_diff, 0);\
+    e = max(prev_hm_diff, e - _cudaGapExtend);/* whether to introduce or extend a gap in target_batch sequence */\
+    curr_hm_diff = max(curr_hm_diff, e);\
+    maxXY_y = (maxHH < curr_hm_diff) ? gidx + (m-1) : maxXY_y; \
+    maxHH = (maxHH < curr_hm_diff) ? curr_hm_diff : maxHH;\
+    h[m] = curr_hm_diff;\
+    p[m] = prev_hm_diff + _cudaGapOE;\
+    prev_hm_diff=curr_hm_diff - _cudaGapOE;
 
 #define CORE_MICROLOCAL_COMPUTE() \
     uint32_t gbase = (gpac >> l) & 15; /* get a base from target_batch sequence */ \
@@ -38,24 +54,33 @@
 
 // T is the algorithm, S is WITH/WITHOUT_START, B is secondBest or no secondBest
 template <typename T, typename S, typename B>
-__global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, gasal_res_t *device_res, int n_tasks)
+__global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, gasal_res_t *device_res, gasal_res_t *device_res_second, int n_tasks)
 {
-
-
     const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
 	if (tid >= n_tasks) return;
 
 	int32_t i, j, k, m, l;
 	int32_t e;
 
-    int32_t maxHH = 0; //initialize the maximum score to zero --- LOCAL-MICROLOCAL ONLY
-	int32_t maxXY_y = 0; // for local / microlocal only
+    int32_t maxHH = 0; //initialize the maximum score to zero
+	int32_t maxXY_y = 0; 
 
-    // for LOCAL / MICROLOCAL only
     int32_t prev_maxHH = 0;
     int32_t maxXY_x = 0;    
 
+
+    int32_t maxHH_second __attribute__((unused)); // __attribute__((unused)) to avoid raising errors at compilation. most template-kernels don't use these.
+    int32_t prev_maxHH_second __attribute__((unused)); 
+    int32_t maxXY_x_second __attribute__((unused));
+    int32_t maxXY_y_second __attribute__((unused));
+    maxHH_second = 0;
+    prev_maxHH_second = 0;
+    maxXY_x_second = 0;
+    maxXY_y_second = 0;
+
+
 	int32_t subScore;
+
 	int32_t ridx, gidx;
 	short2 HD;
 	short2 initHD = make_short2(0, 0);
@@ -104,9 +129,22 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
                 #pragma unroll 8
                 for (l = 28, m = 1; m < 9; l -= 4, m++) {
                     if (SAMETYPE(T, Int2Type<MICROLOCAL>))    {
-                        CORE_MICROLOCAL_COMPUTE();           
+                        CORE_MICROLOCAL_COMPUTE();
+                        if (SAMETYPE(B, Int2Type<TRUE>))
+                        {
+                            bool override_second = (maxHH_second < curr_hm_diff) && (maxHH > curr_hm_diff);
+                            maxXY_y_second = (override_second) ? gidx + (m-1) : maxXY_y_second; 
+                            maxHH_second = (override_second) ? curr_hm_diff : maxHH_second;
+                        }
+
                     } else if (SAMETYPE(T, Int2Type<LOCAL>))  {
                         CORE_LOCAL_COMPUTE();
+                        if (SAMETYPE(B, Int2Type<TRUE>))
+                        {
+                            bool override_second = (maxHH_second < curr_hm_diff) && (maxHH > curr_hm_diff);
+                            maxXY_y_second = (override_second) ? gidx + (m-1) : maxXY_y_second; 
+                            maxHH_second = (override_second) ? curr_hm_diff : maxHH_second;
+                        }
                     }
                 }
 
@@ -116,21 +154,32 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
                 global[ridx] = HD;
                 //---------------------------------------------
             
+
                 maxXY_x = (prev_maxHH < maxHH) ? ridx : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
+
+                if (SAMETYPE(B, Int2Type<TRUE>))
+                {
+                    maxXY_x_second = (prev_maxHH_second < maxHH) ? ridx : maxXY_x_second;
+                    prev_maxHH_second = max(maxHH_second, prev_maxHH_second);
+                }
                 prev_maxHH = max(maxHH, prev_maxHH);
                 ridx++;
                 //-------------------------------------------------------
 
-                }
-			
-
-		}
-
+            }
+        }
 	}
 
 	device_res->aln_score[tid] = maxHH;//copy the max score to the output array in the GPU mem
 	device_res->query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
 	device_res->target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
+
+    if (SAMETYPE(B, Int2Type<TRUE>))
+    {
+        device_res_second->aln_score[tid] = maxHH_second;
+        device_res_second->query_batch_end[tid] = maxXY_x_second;
+        device_res_second->target_batch_end[tid] = maxXY_y_second;
+    }
 
 
     /*------------------Now to find the start position-----------------------*/
@@ -141,9 +190,11 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
         int32_t gend_pos = maxXY_y;//end position on target_batch sequence
         int32_t fwd_score = maxHH;// the computed score
 
-
-        int32_t rend_reg = ((rend_pos >> 3) + 1) < query_batch_regs ? ((rend_pos >> 3) + 1) : query_batch_regs;//the index of 32-bit word containing the end position on query_batch sequence
-        int32_t gend_reg = ((gend_pos >> 3) + 1) < target_batch_regs ? ((gend_pos >> 3) + 1) : target_batch_regs;//the index of 32-bit word containing to end position on target_batch sequence
+        //the index of 32-bit word containing the end position on query_batch sequence
+        int32_t rend_reg = ((rend_pos >> 3) + 1) < query_batch_regs ? ((rend_pos >> 3) + 1) : query_batch_regs;
+        //the index of 32-bit word containing to end position on target_batch sequence
+        int32_t gend_reg = ((gend_pos >> 3) + 1) < target_batch_regs ? ((gend_pos >> 3) + 1) : target_batch_regs;
+        
 
 
         packed_query_batch_idx += (rend_reg - 1);
@@ -180,20 +231,16 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
                     h[0] = HD.x;
                     e = HD.y;
 
-                    if (SAMETYPE(T, Int2Type<MICROLOCAL>)) {
-                        register int32_t prev_hm_diff = h[0] - _cudaGapOE;
-                        #pragma unroll 8
-                        for (l = 28, m = 1; m < 9; l -= 4, m++) {
-
+                    register int32_t prev_hm_diff = h[0] - _cudaGapOE;
+                    #pragma unroll 8
+                    for (l = 28, m = 1; m < 9; l -= 4, m++) {
+                        if (SAMETYPE(T, Int2Type<MICROLOCAL>))    {
                             CORE_MICROLOCAL_COMPUTE();
-                        }
-                    } else if (SAMETYPE(T, Int2Type<LOCAL>)) {
-                        //int32_t prev_hm_diff = h[0] - _cudaGapOE;
-                        #pragma unroll 8
-                        for (l = 28, m = 1; m < 9; l -= 4, m++) {
+                        } else if (SAMETYPE(T, Int2Type<LOCAL>)) {
                             CORE_LOCAL_COMPUTE();
                         }
                     }
+                    
                     //------------save intermediate values----------------
                     HD.x = h[m-1];
                     HD.y = e;

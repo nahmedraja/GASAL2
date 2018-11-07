@@ -30,7 +30,7 @@ using namespace std;
 #define MAX(a,b) (a>b ? a : b)
 
 // Test server : 0 is for K40c, 1 is for GTX 750 Ti
-#define GPU_SELECT 0
+#define GPU_SELECT 1
 
 
 int main(int argc, char **argv) {
@@ -45,11 +45,11 @@ int main(int argc, char **argv) {
 	args->parse();
 	args->print();
 
-	comp_start start_pos = args->start_pos; 
+	//comp_start start_pos = args->start_pos; //unused
 	int print_out = args->print_out;
 	int n_threads = args->n_threads;
 	
-	algo_type algo = args->algo;
+	// algo_type algo = args->algo; // unused
 	
 
 
@@ -356,25 +356,34 @@ int main(int argc, char **argv) {
 					if(print_out) {
 					#pragma omp critical
 					for (int i = gpu_batch_arr[gpu_batch_arr_idx].batch_start; j < gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch; i++, j++) {
-						if(algo == LOCAL || algo == BANDED || algo == MICROLOCAL || algo == FIXEDBAND) {
-							if (start_pos == WITH_START){
-								fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\tquery_batch_start=%d\ttarget_batch_start=%d\tquery_batch_end=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(),(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->query_batch_start[j],
-										(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->target_batch_start[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->query_batch_end[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->target_batch_end[j]);
-							}
-							else {
-								fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\tquery_batch_end=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->query_batch_end[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->target_batch_end[j]);
-							}
-						} else if(algo == SEMI_GLOBAL) {
-							if (start_pos == WITH_START){
-								fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\ttarget_batch_start=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->target_batch_start[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->target_batch_end[j]);
+						
+						std::cout << "query_name=" << query_headers[i] ;
+						std::cout << "\ttarget_name=" << target_headers[i] ;
+						std::cout << "\tscore=" << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->aln_score[j] ;
 
-							}
-							else {
-								fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->target_batch_end[j]);
-							}
-						}   else{
-							fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->aln_score[j]);
+						if (args->algo != GLOBAL)
+						{
+							std::cout << "\tquery_batch_end="  << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->query_batch_end[j];
+							std::cout << "\ttarget_batch_end=" << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->target_batch_end[j] ;
 						}
+
+						/// WARNING : INEQUALITY ON ENUM: CAN BREAK IF ENUM ORDER IS CHANGED
+						if (args->start_pos == WITH_START 
+							&& ((args->algo == SEMI_GLOBAL && (args->semiglobal_skipping_head != NONE || args->semiglobal_skipping_head != NONE))
+								|| args->algo > SEMI_GLOBAL))
+						{
+							std::cout << "\tquery_batch_start=" << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->query_batch_start[j];
+							std::cout << "\ttarget_batch_start=" << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->target_batch_start[j];
+						}
+
+						if (args->secondBest)
+						{
+							std::cout << "\t2nd_score=" << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res_second->aln_score[j] ;
+							std::cout << "\t2nd_query_batch_end="  << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res_second->query_batch_end[j];
+							std::cout << "\t2nd_target_batch_end=" << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res_second->target_batch_end[j] ;
+						}
+
+						std::cout << std::endl;
 					}
 					}
 					n_batchs_done++;

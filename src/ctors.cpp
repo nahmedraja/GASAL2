@@ -59,7 +59,6 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 		CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_target_batch_lens), host_max_n_alns * sizeof(uint32_t), cudaHostAllocDefault));
 		CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_query_batch_offsets), host_max_n_alns * sizeof(uint32_t), cudaHostAllocDefault));
 		CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_target_batch_offsets), host_max_n_alns * sizeof(uint32_t), cudaHostAllocDefault));
-		//CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_aln_score), host_max_n_alns * sizeof(int32_t)));
 
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].query_batch_lens), gpu_max_n_alns * sizeof(uint32_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_batch_lens), gpu_max_n_alns * sizeof(uint32_t)));
@@ -70,6 +69,19 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 		gpu_storage_vec->a[i].host_res = gasal_res_new_host(host_max_n_alns, params);
 		gpu_storage_vec->a[i].device_cpy = gasal_res_new_device_cpy(host_max_n_alns, params);
 		gpu_storage_vec->a[i].device_res = gasal_res_new_device(gpu_storage_vec->a[i].device_cpy);
+
+		if (params->secondBest)
+		{	
+			gpu_storage_vec->a[i].host_res_second = gasal_res_new_host(host_max_n_alns, params);
+			gpu_storage_vec->a[i].device_cpy_second = gasal_res_new_device_cpy(host_max_n_alns, params);
+			gpu_storage_vec->a[i].device_res_second = gasal_res_new_device(gpu_storage_vec->a[i].device_cpy_second);
+
+		} else {
+			gpu_storage_vec->a[i].host_res_second = NULL;
+			gpu_storage_vec->a[i].device_cpy_second = NULL;
+			gpu_storage_vec->a[i].device_res_second = NULL;
+		}
+
 
 		CHECKCUDAERROR(cudaStreamCreate(&(gpu_storage_vec->a[i].str)));
 		gpu_storage_vec->a[i].is_free = 1;
@@ -147,6 +159,12 @@ void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec, Parameters *par
 
 		gasal_res_destroy_host(gpu_storage_vec->a[i].host_res);
 		gasal_res_destroy_device(gpu_storage_vec->a[i].device_res, gpu_storage_vec->a[i].device_cpy);
+
+		if (params->secondBest)
+		{
+			gasal_res_destroy_host(gpu_storage_vec->a[i].host_res_second);
+			gasal_res_destroy_device(gpu_storage_vec->a[i].device_res_second, gpu_storage_vec->a[i].device_cpy_second);
+		}
 
 		if (gpu_storage_vec->a[i].query_op != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].query_op));
 		if (gpu_storage_vec->a[i].target_op != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].target_op));
