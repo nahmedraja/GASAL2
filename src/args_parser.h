@@ -1,12 +1,16 @@
 #ifndef ARGS_PARSER_H
 #define ARGS_PARSER_H
 
+/*
 #include <stdint.h>
-#include <iostream>
+
+
+#include "gasal.h"
+*/
+#include "gasal.h"
 #include <string>
 #include <fstream>
-#include <cstdlib>
-#include "gasal.h"
+#include <iostream>
 
 enum fail_type {
     NOT_ENOUGH_ARGS,
