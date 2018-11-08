@@ -1,7 +1,8 @@
-#ifndef KERNEL_SEMIGLOBAL
-#define KERNEL_SEMIGLOBAL
+#ifndef __KERNEL_SEMIGLOBAL__
+#define __KERNEL_SEMIGLOBAL__
 
-#define CORE_COMPUTE_SEMIGLOBAL() \
+
+#define CORE_COMPUTE_SEMIGLOBAL_DEPRECATED() \
 	uint32_t gbase = (gpac >> l) & 15;/*get a base from target_batch sequence*/\
 	DEV_GET_SUB_SCORE_GLOBAL(subScore, rbase, gbase);/*check the equality of rbase and gbase*/\
 	/*int32_t curr_hm_diff = h[m] - _cudaGapOE;*/\
@@ -12,6 +13,19 @@
 	/*prev_hm_diff=curr_hm_diff;*/\
 	h[m] = max(h[m], e);\
 	p[m] = h[m-1];
+
+#define CORE_COMPUTE_SEMIGLOBAL() \
+    uint32_t gbase = (gpac >> l) & 15; /* get a base from target_batch sequence */ \
+    DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);/* check equality of rbase and gbase */\
+    register int32_t curr_hm_diff = h[m] - _cudaGapOE;\
+    f[m] = max(curr_hm_diff, f[m] - _cudaGapExtend);/* whether to introduce or extend a gap in query_batch sequence */\
+    curr_hm_diff = p[m] + subScore;/* score if rbase is aligned to gbase */\
+    curr_hm_diff = max(curr_hm_diff, f[m]);\
+    e = max(prev_hm_diff, e - _cudaGapExtend);/* whether to introduce or extend a gap in target_batch sequence */\
+    curr_hm_diff = max(curr_hm_diff, e);\
+    h[m] = curr_hm_diff;\
+    p[m] = prev_hm_diff + _cudaGapOE;\
+    prev_hm_diff=curr_hm_diff - _cudaGapOE;
 
 
 
@@ -127,7 +141,7 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 				h[0] = HD.x;
 				e = HD.y;
 				//----------------------------------------------------------
-				//int32_t prev_hm_diff = h[0] - _cudaGapOE;
+				int32_t prev_hm_diff = h[0] - _cudaGapOE;
 				#pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) 
 				{
@@ -311,7 +325,7 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 					h[0] = HD.x;
 					e = HD.y;
 					//--------------------------------------------------------
-					//int32_t prev_hm_diff = h[0] - _cudaGapOE;
+					int32_t prev_hm_diff = h[0] - _cudaGapOE;
 					#pragma unroll 8
 					for (l = 28, m = 1; m < 9; l -= 4, m++) {
 						CORE_COMPUTE_SEMIGLOBAL();

@@ -1,8 +1,8 @@
-#ifndef LOCAL_KERNEL_TEMPLATE
-#define LOCAL_KERNEL_TEMPLATE
+#ifndef __LOCAL_KERNEL_TEMPLATE__
+#define __LOCAL_KERNEL_TEMPLATE__
 
 
-
+// This old core provides the same result as the currently LOCAL core, but lacks some optimization. Left for historical / comparative purposes.
 #define CORE_LOCAL_DEPRECATED_COMPUTE() \
     uint32_t gbase = (gpac >> l) & 15;/*get a base from target_batch sequence */ \
     DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);/* check equality of rbase and gbase */ \
@@ -33,6 +33,9 @@
     p[m] = prev_hm_diff + _cudaGapOE;\
     prev_hm_diff=curr_hm_diff - _cudaGapOE;
 
+
+// The following core is here to test core-computation optimizations easily. 
+// That way, you can create a new kind of kernel with the template to compare the results.
 #define CORE_MICROLOCAL_COMPUTE() \
     uint32_t gbase = (gpac >> l) & 15; /* get a base from target_batch sequence */ \
     DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);/* check equality of rbase and gbase */\
@@ -52,7 +55,12 @@
 
 
 
-// T is the algorithm, S is WITH/WITHOUT_START, B is secondBest or no secondBest
+/* typename meaning : 
+    - T is the algorithm type (LOCAL, MICROLOCAL)
+    - S is WITH_ or WIHTOUT_START
+    - B is for computing the Second Best Score. Its values are on enum FALSE(0)/TRUE(1).
+    (sidenote: it's based on an enum instead of a bool in order to generalize its type from its Int value, with Int2Type meta-programming-template)
+*/
 template <typename T, typename S, typename B>
 __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, gasal_res_t *device_res, gasal_res_t *device_res_second, int n_tasks)
 {
@@ -251,14 +259,8 @@ __global__ void gasal_local_kernel(uint32_t *packed_query_batch, uint32_t *packe
                     ridx--;
                     global_idx++;
                 }
-                //-------------------------------------------------------
-
-
-
             }
-
         }
-        //------------------------------------------------------------------------------------------------------------------------------------
 
         device_res->query_batch_start[tid] = maxXY_x;//copy the start position on query_batch sequence to the output array in the GPU mem
         device_res->target_batch_start[tid] = maxXY_y;//copy the start position on target_batch sequence to the output array in the GPU mem
