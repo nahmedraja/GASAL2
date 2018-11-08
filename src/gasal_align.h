@@ -60,7 +60,7 @@
 
 
 /*  ####################################################################################
-    MACRO calls : general call (bottom, should be used), and first level TRUE/FALSE calculation for second best, 
+    RUN PARAMETERS calls : general call (bottom, should be used), and first level TRUE/FALSE calculation for second best, 
     then 2nd level WITH / WITHOUT_START switch call (top)
     ####################################################################################
 */
