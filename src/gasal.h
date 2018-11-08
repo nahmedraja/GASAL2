@@ -1,12 +1,7 @@
 #ifndef __GASAL_H__
 #define __GASAL_H__
 
-/*
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-*/
+
 #include <cstdlib>
 #include <cstdint>
 #include "/usr/local/cuda-9.2/targets/x86_64-linux/include/cuda_runtime.h"
@@ -31,7 +26,6 @@ inline int CudaCheckKernelLaunch()
 	if ( cudaSuccess != err )
 	{
 		return -1;
-
 	}
 
 	return 0;
@@ -43,6 +37,8 @@ enum comp_start{
 	WITH_START
 };
 
+// Generic enum for ture/false. Using this instead of bool to generalize templates out of Int values for secondBest. 
+// Can be usd more generically, for example for WITH_/WITHOUT_START.
 enum Bool{
 	FALSE,
 	TRUE
@@ -72,7 +68,7 @@ enum operation_on_seq{
 	REVERSE_COMPLEMENT,
 };
 
-// data structure of linked list to allow extension of memory on host side
+// data structure of linked list to allow extension of memory on host side.
 struct host_batch{
 	uint8_t *data;
 	uint32_t offset;
@@ -80,14 +76,13 @@ struct host_batch{
 };
 typedef struct host_batch host_batch_t;
 
+// Data structure to hold results. Can be instantiated for host or device memory (see res.cpp)
 struct gasal_res{
 	int32_t *aln_score;
 	int32_t *query_batch_end;
 	int32_t *target_batch_end;
 	int32_t *query_batch_start;
 	int32_t *target_batch_start;
-	int32_t size;
-	bool isDevice;
 };
 typedef struct gasal_res gasal_res_t;
 
@@ -115,13 +110,13 @@ typedef struct {
 	uint32_t *host_query_batch_lens;
 	uint32_t *host_target_batch_lens;
 
-	gasal_res_t *host_res; // the results that can be read on host
-	gasal_res_t *device_res; // the results that are written on device - THE STRUCT IS ON DEVICE SIDE
-	gasal_res_t *device_cpy; // a struct that contains the pointers to the device side - THE STRUCT IS ON HOST SIDE, but the CONTENT is malloc'd on DEVICE SIDE
+	gasal_res_t *host_res; // the results that can be read on host - THE STRUCT IS ON HOST SIDE, ITS CONTENT IS ON HOST SIDE.
+	gasal_res_t *device_cpy; // a struct that contains the pointers to the device side - THE STRUCT IS ON HOST SIDE, but the CONTENT is malloc'd on and points to the DEVICE SIDE
+	gasal_res_t *device_res; // the results that are written on device - THE STRUCT IS ON DEVICE SIDE, ITS CONTENT POINTS TO THE DEVICE SIDE.
 
-	gasal_res_t *host_res_second; // the results that can be read on host
-	gasal_res_t *device_res_second; // the results that are written on device - THE STRUCT IS ON DEVICE SIDE
-	gasal_res_t *device_cpy_second; // a struct that contains the pointers to the device side - THE STRUCT IS ON HOST SIDE
+	gasal_res_t *host_res_second; 
+	gasal_res_t *device_res_second; 
+	gasal_res_t *device_cpy_second;
 
 	uint32_t gpu_max_query_batch_bytes;
 	uint32_t gpu_max_target_batch_bytes;

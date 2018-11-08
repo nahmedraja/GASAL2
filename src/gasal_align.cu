@@ -181,7 +181,8 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 	}
 
 	//-----------------------------------------------------------------------------------------------------------
-
+	// TODO: Adjust the block size depending on the kernel execution.
+	
     uint32_t BLOCKDIM = 128;
     uint32_t N_BLOCKS = (actual_n_alns + BLOCKDIM - 1) / BLOCKDIM;
 

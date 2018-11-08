@@ -38,25 +38,6 @@ host_batch_t *gasal_host_batch_getlast(host_batch_t *arg)
 	
 }
 
-/* 
-// Deprecated
-void gasal_host_batch_recycle(gasal_gpu_storage_t *gpu_storage_t)
-{	
-	// hard re-allocation.
-
-	if (gpu_storage_t != NULL)
-	{
-		#ifdef DEBUG
-			fprintf(stderr, "[GASAL DEBUG] Recycling linked list\n");
-		#endif
-		gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_query_batch);
-		gasal_host_batch_destroy(gpu_storage_t->extensible_host_unpacked_target_batch);
-		gpu_storage_t->extensible_host_unpacked_query_batch = gasal_host_batch_new(gpu_storage_t->host_max_query_batch_bytes, 0);
-		gpu_storage_t->extensible_host_unpacked_target_batch = gasal_host_batch_new(gpu_storage_t->host_max_target_batch_bytes, 0);
-	
-	}
-}
-*/
 
 uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx, const char* data, uint32_t size, data_source SRC )
 {	

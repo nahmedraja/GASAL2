@@ -169,16 +169,3 @@ void gasal_res_destroy_device(gasal_res_t *device_res, gasal_res_t *device_cpy)
 	
 	free(device_cpy);
 }
-
-/*
-void cuda_print_ptr_attrib(void *ptr)
-{
-	cudaError_t err;
-	cudaPointerAttributes* a = NULL;
-	CHECKCUDAERROR(cudaPointerGetAttributes ( a , ptr ));
-
-	std::cerr << "[CUDA DEBUG] memoryType=" << a->memoryType << " , isManaged=" << a->isManaged << " , device=" << a->device <<std::endl;
-	std::cerr << "[CUDA DEBUG] devicePointer=" << a->devicePointer << " , isManaged=" << a->hostPointer <<std::endl;
-
-}
-*/

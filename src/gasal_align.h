@@ -1,8 +1,9 @@
 #ifndef __GASAL_ALIGN_H__
 #define __GASAL_ALIGN_H__
-
-// SEMI_GLOBAL Kernels generation - read from the bottom one, all the way up. (the most specialized ones are written before the ones that call them)
-
+/*  ####################################################################################
+    SEMI_GLOBAL Kernels generation - read from the bottom one, all the way up. (the most specialized ones are written before the ones that call them)
+    ####################################################################################
+*/
 #define SEMIGLOBAL_KERNEL_CALL(a,s,h,t,b) \
 	case t:\
 		gasal_semi_global_kernel<Int2Type<a>, Int2Type<s>, Int2Type<b>, Int2Type<h>, Int2Type<t>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->device_res, gpu_storage->device_res_second, actual_n_alns); \
@@ -28,7 +29,11 @@
 	} \
 	break;\
 
-// ALGORITHMS Kernels generation. Allows to have a single line written for all kernels calls. The switch-cases are MACRO-generated.
+
+/*  ####################################################################################
+    ALGORITHMS Kernels generation. Allows to have a single line written for all kernels calls. The switch-cases are MACRO-generated.
+    #################################################################################### 
+*/
 
 #define SWITCH_SEMI_GLOBAL(a,s,h,t,b) SWITCH_SEMI_GLOBAL_HEAD(a,s,h,t,b)
 
@@ -53,7 +58,12 @@
         gasal_banded_tiled_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->device_res, actual_n_alns, k_band>>3); \
     break;
 
-// MACRO calls : general call (bottom, should be used), and first level TRUE/FALSE calculation for second best, then 2nd level WITH / WITHOUT_START switch call (top)
+
+/*  ####################################################################################
+    MACRO calls : general call (bottom, should be used), and first level TRUE/FALSE calculation for second best, 
+    then 2nd level WITH / WITHOUT_START switch call (top)
+    ####################################################################################
+*/
 
 #define SWITCH_START(a,s,h,t,b) \
     case b: \

@@ -3,7 +3,7 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
+#include <cstring> // useful for memcpy, strlen
 
 // host data structure methods
 host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t offset); 								// constructor
@@ -12,7 +12,6 @@ host_batch_t *gasal_host_batch_getlast(host_batch_t *arg); 																// ge
 uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx, const char* data, uint32_t size, data_source SRC ); 	// fill the data
 void gasal_host_batch_print(host_batch_t *res); 																		// printer 
 void gasal_host_batch_printall(host_batch_t *res);																		// printer for the whole linked list
-//void gasal_host_batch_recycle(gasal_gpu_storage_t *gpu_storage_t);
 
 
 #endif
