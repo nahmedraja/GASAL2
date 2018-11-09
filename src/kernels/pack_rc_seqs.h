@@ -1,18 +1,17 @@
-#ifndef KERNEL_SEQPAK
-#define KERNEL_SEQPAK
+#ifndef __KERNEL_SEQPAK__
+#define __KERNEL_SEQPAK__
 
 
 #define A_PAK ('A'&0x0F)
 #define C_PAK ('C'&0x0F)
 #define G_PAK ('G'&0x0F)
 #define T_PAK ('T'&0x0F)
-#define N_PAK ('N'&0x0F)
+//#define N_PAK ('N'&0x0F)
 
 
 
-__global__ void gasal_pack_kernel(uint32_t* unpacked_query_batch,
-		uint32_t* unpacked_target_batch, uint32_t *packed_query_batch, uint32_t* packed_target_batch,
-		int query_batch_tasks_per_thread, int target_batch_tasks_per_thread, uint32_t total_query_batch_regs, uint32_t total_target_batch_regs) {
+__global__ void gasal_pack_kernel(uint32_t* unpacked_query_batch, uint32_t* unpacked_target_batch, uint32_t *packed_query_batch, uint32_t* packed_target_batch, int query_batch_tasks_per_thread, int target_batch_tasks_per_thread, uint32_t total_query_batch_regs, uint32_t total_target_batch_regs) \
+{
 
 	int32_t i;
 	const int32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
@@ -54,8 +53,8 @@ __global__ void gasal_pack_kernel(uint32_t* unpacked_query_batch,
 }
 
 
-__global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint32_t *packed_target_batch, uint32_t *query_batch_lens,
-		uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, uint8_t *query_op, uint8_t *target_op, uint32_t  n_tasks){
+__global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint32_t *packed_target_batch, uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, uint8_t *query_op, uint8_t *target_op, uint32_t  n_tasks)
+{
 
 	const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
 
@@ -83,8 +82,9 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 	uint32_t *packed_batch_idx = NULL;
 
 	// avoid useless code duplicate thanks to pointers to route the data flow where it should be, twice.
+	// The kernel is already generic. Later on this can be used to split the kernel into two using templates...
 	#pragma unroll 2
-	for (int p = 0; p < 2; p++)
+	for (int p = QUERY; p <= TARGET; p++)
 	{
 		switch(p)
 		{
@@ -103,7 +103,7 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 				packed_batch_idx = &packed_target_batch_idx;
 				break;
 			default:
-				break;
+			break;
 		}
 
 		if (*(op + tid) & 0x01) // reverse
@@ -112,15 +112,26 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 			uint8_t nbr_N = 0;
 			for (int j = 0; j < 32; j = j + 4)
 			{
-				nbr_N += (((*(packed_batch + *(packed_batch_idx) + *(batch_regs)-1) & (0x0F << j)) >> j) == N_PAK);
+				nbr_N += (((*(packed_batch + *(packed_batch_idx) + *(batch_regs)-1) & (0x0F << j)) >> j) == N_CODE);
 			}
-	#ifdef DEBUG
+			
 			//printf("KERNEL_DEBUG: nbr_N=%d\n", nbr_N);
-	#endif
+
+
 			nbr_N = nbr_N << 2; // we operate on nibbles so we will need to do our shifts 4 bits by 4 bits, so 4*nbr_N
 
 			for (uint32_t i = 0; i < *(batch_regs_to_swap); i++) // reverse all words. There's a catch with the last word (in the middle of the sequence), see final if.
 			{
+				/* This  is the current operation flow:\
+					- Read the first 32-bits word on HEAD
+					- Combine the reads of 2 last 32-bits words on tail to create the 32-bits word WITHOUT N's 
+					- Swap them 
+					- Write them at the correct places. Remember we're building 32-bits words across two 32-bits words on tail. 
+					So we have to take care of which bits are to be written on tail, too.
+
+				You progress through both heads and tails that way, until you reach the center of the sequence. 
+				When you reach it, you actually don't write one of the words to avoid overwrite.
+				*/
 				uint32_t rpac_1 = *(packed_batch + *(packed_batch_idx) + i); //load 8 packed bases from head
 				uint32_t rpac_2 = ((*(packed_batch + *(packed_batch_idx) + *(batch_regs)-2 - i)) << (32-nbr_N)) | ((*(packed_batch + *(packed_batch_idx) + *(batch_regs)-1 - i)) >> nbr_N);
 
@@ -129,7 +140,7 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 				uint32_t reverse_rpac_2 = 0;
 
 
-	#pragma unroll 8
+				#pragma unroll 8
 				for(int k = 28; k >= 0; k = k - 4)		// reverse 32-bits word... is pragma-unrolled. 
 				{
 					reverse_rpac_1 |= ((rpac_1 & (0x0F << k)) >> (k)) << (28-k);
@@ -141,10 +152,10 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 				uint32_t to_queue_1 = (reverse_rpac_1 << nbr_N) | ((*(packed_batch + *(packed_batch_idx) + *(batch_regs)-1 - i)) & ((1<<nbr_N) - 1));
 				uint32_t to_queue_2 = ((*(packed_batch + *(packed_batch_idx) + *(batch_regs)-2 - i)) & (0xFFFFFFFF - ((1<<nbr_N) - 1))) | (reverse_rpac_1 >> (32-nbr_N));
 
-	#ifdef DEBUG				
+			
 				//printf("KERNEL DEBUG: rpac_1 Word before reverse: %x, after: %x, split into %x + %x \n", rpac_1, reverse_rpac_1, to_queue_2, to_queue_1 );
 				//printf("KERNEL DEBUG: rpac_2 Word before reverse: %x, after: %x\n", rpac_2, reverse_rpac_2 );
-	#endif
+
 
 				*(packed_batch + *(packed_batch_idx) + i) = reverse_rpac_2;
 				(*(packed_batch + *(packed_batch_idx) + *(batch_regs)-1 - i)) = to_queue_1;
@@ -162,7 +173,7 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 				uint32_t rpac = *(packed_batch + *(packed_batch_idx) + i); //load 8 packed bases from head
 				uint32_t nucleotide = 0;
 
-	#pragma unroll 8
+				#pragma unroll 8
 				for(int k = 28; k >= 0; k = k - 4)		// complement 32-bits word... is pragma-unrolled. 
 				{
 					nucleotide = (rpac & (0x0F << k)) >> (k);
@@ -186,9 +197,7 @@ __global__ void	gasal_reversecomplement_kernel(uint32_t *packed_query_batch,uint
 					rpac = (rpac & (0xFFFFFFFF - (0x0F << k))) | nucleotide << k;
 				}
 
-	#ifdef DEBUG
 				//printf("KERNEL DEBUG: Word read : %x, after complement: %x\n", *(packed_batch + *(packed_batch_idx) + i), rpac);
-	#endif
 
 				*(packed_batch + *(packed_batch_idx) + i) = rpac;
 

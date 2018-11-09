@@ -1,141 +1,70 @@
-#include <iostream>
-#include <string>
-#include <fstream>
+
+
+#include "../include/gasal.h"		// include cstdlib, cstdint
+#include "../include/args_parser.h" // include iostream, string, fstream
+#include "../include/gasal_align.h" 
+#include "../include/host_batch.h"  // include cstdio, cstring
+#include "../include/ctors.h"
+#include "../include/interfaces.h"  // inclued cstdio, cstring, cstdlib
+
 #include <vector>
 #include <unistd.h>
-#include <cstdlib>
-#include <stdint.h>
 #include <math.h>
 #include <omp.h>
 #include "Timer.h"
-#include <string.h>
-
-#include "../include/gasal.h"
-
-using namespace std;
 
 #define NB_STREAMS 2
 
-#define GPU_BATCH_SIZE (262144)
+#define GPU_BATCH_SIZE (6000)
 //#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
 
-//#define DEBUG
+#define DEBUG
 
 #define MAX(a,b) (a>b ? a : b)
 
+// Test server : 0 is for K40c, 1 is for GTX 750 Ti
+#define GPU_SELECT 1
 
-int main(int argc, char *argv[]) {
-	int32_t c, sa = 1, sb = 4;
-	int32_t gapo = 6, gape = 1;
-	comp_start start_pos = WITHOUT_START;
-	int print_out = 0;
-	int n_threads = 1;
-	std::string al_type;
-	int32_t k_band = 20;
 
-// parse command line
-	while ((c = getopt(argc, argv, "a:b:q:r:n:y:k:sp")) >= 0) {
-		switch (c) {
-		case 'a':
-			sa = atoi(optarg);
-			break;
-		case 'b':
-			sb = atoi(optarg);
-			break;
-		case 'q':
-			gapo = atoi(optarg);
-			break;
-		case 'r':
-			gape = atoi(optarg);
-			break;
-			break;
-		case 's':
-			start_pos = WITH_START;
-			break;
-		case 'p':
-			print_out = 1;
-			break;
-		case 'n':
-			n_threads = atoi(optarg);
-			break;
-		case 'y':
-			al_type = std::string(optarg);
-			break;
-		case 'k':
-			k_band = atoi(optarg);
-			break;
+int main(int argc, char **argv) {
 
-		}
-	}
 
-	if (optind + 2 > argc) {
-		fprintf(stderr, "Usage: ./test_prog.out [-a] [-b] [-q] [-r] [-s] [-p] [-n] [-y] <query_batch.fasta> <target_batch.fasta>\n");
-		fprintf(stderr, "Options: -a INT    match score [%d]\n", sa);
-		fprintf(stderr, "         -b INT    mismatch penalty [%d]\n", sb);
-		fprintf(stderr, "         -q INT    gap open penalty [%d]\n", gapo);
-		fprintf(stderr, "         -r INT    gap extension penalty [%d]\n", gape);
-		fprintf(stderr, "         -s        also find the start position \n");
-		fprintf(stderr, "         -p        print the alignment results \n");
-		fprintf(stderr, "         -n        Number of threads \n");
-		fprintf(stderr, "         -y        Alignment type . Must be \"local\", \"semi_global\", \"global\"  \"banded INT\" (size of band) \n");
-		fprintf(stderr, "         -k INT    Band width in case \"banded\" is selected.\n");
-		fprintf(stderr, "		  ");
-		fprintf(stderr, "\n");
-		return 1;
-	}
-	if (al_type.empty()) {
-		fprintf(stderr, "Must specify the alignment type (local, semi_global)\n");
-		return 1;
 
-	}
-	algo_type algo = UNKNOWN;
-	if (!al_type.compare("local"))
-		algo = LOCAL;
-	else if (!al_type.compare("semi_global"))
-		algo = SEMI_GLOBAL;
-	else if (!al_type.compare("global"))
-		algo = GLOBAL;
-	else if (!al_type.compare("banded"))
-		algo = BANDED;
-	else if (!al_type.compare("microloc"))
-		algo = MICROLOCAL;
-	else if (!al_type.compare("fixedband"))
-		algo = FIXEDBAND;
+	gasal_set_device(GPU_SELECT);
 
-	if ( algo == UNKNOWN) {
-		fprintf(stderr, "Unknown alignment type. Must be either \"local\" or \"semi_global\", \"global\", or \"banded\" (fixed width of 4--4)\n");
-		return 1;
-	}
 
-	fprintf(stderr, "Options: algo=%d, start_pos=%d, band k_band=%d\n", algo, start_pos, k_band);
+	Parameters *args;
+	args = new Parameters(argc, argv);
+	args->parse();
+	args->print();
+
+	int print_out = args->print_out;
+	int n_threads = args->n_threads;
 
 	//--------------copy substitution scores to GPU--------------------
 	gasal_subst_scores sub_scores;
 
-	sub_scores.match = sa;
-	sub_scores.mismatch = sb;
-	sub_scores.gap_open = gapo;
-	sub_scores.gap_extend = gape;
+	sub_scores.match = args->sa;
+	sub_scores.mismatch = args->sb;
+	sub_scores.gap_open = args->gapo;
+	sub_scores.gap_extend = args->gape;
 
 	gasal_copy_subst_scores(&sub_scores);
 
 	//-------------------------------------------------------------------
 
 
-	ifstream query_batch_fasta(argv[optind]);
-	ifstream target_batch_fasta(argv[optind + 1]);
-
-	vector<string> query_seqs;
-	vector<string> target_seqs;
-	vector<string> query_headers;
-	vector<string> target_headers;
-	string query_batch_line, target_batch_line;
+	std::vector<std::string> query_seqs;
+	std::vector<std::string> target_seqs;
+	std::vector<std::string> query_headers;
+	std::vector<std::string> target_headers;
+	std::string query_batch_line, target_batch_line;
 
 	int total_seqs = 0;
 	uint32_t maximum_sequence_length = 0;
 	uint32_t target_seqs_len = 0;
 	uint32_t query_seqs_len = 0;
-	cerr << "Loading files...." << endl;
+	std::cerr << "Loading files...." << std::endl;
 
 	/*
 		Reads FASTA files and fill the corresponding buffers.
@@ -162,7 +91,7 @@ int main(int argc, char *argv[]) {
 	 * No protection is done, so any other number will only have its two first bytes counted as above.	 
 	 */
 
-	while (getline(query_batch_fasta, query_batch_line) && getline(target_batch_fasta, target_batch_line)) { 
+	while (getline(args->query_batch_fasta, query_batch_line) && getline(args->target_batch_fasta, target_batch_line)) { 
 
 		//load sequences from the files
 		char *q = NULL;
@@ -206,7 +135,7 @@ int main(int argc, char *argv[]) {
 			target_seqs.back() += target_batch_line;
 		} else { // should never happen but always put an else, for safety...
 			seq_begin = 0;
-			cerr << "Batch1 and target_batch files should be fasta having same number of sequences" << endl;
+			std::cerr << "Batch1 and target_batch files should be fasta having same number of sequences" << std::endl;
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -220,8 +149,9 @@ int main(int argc, char *argv[]) {
 	maximum_sequence_length = MAX((query_seqs.back()).length(), maximum_sequence_length);
 
 	#ifdef DEBUG
-		fprintf(stderr, "Size of read batches are: query=%d, target=%d. maximum_sequence_length=%d\n", query_seqs_len, target_seqs_len, maximum_sequence_length);
-	 #endif
+		std::cerr << "[TEST_PROG DEBUG]: ";
+		std::cerr << "Size of read batches are: query=" << query_seqs_len << ", target=" << target_seqs_len << ". maximum_sequence_length=" << maximum_sequence_length << std::endl;
+	#endif
 
 
 	// transforming the _mod into a char* array (to be passed to GASAL, which deals with C types)
@@ -230,19 +160,21 @@ int main(int argc, char *argv[]) {
 	uint32_t *target_seq_id = (uint32_t*) malloc(total_seqs * sizeof(uint32_t) );
 	uint32_t *query_seq_id  = (uint32_t*) malloc(total_seqs * sizeof(uint32_t) );
 
-#ifdef DEBUG
-	fprintf(stderr, "DEBUG: query, mod@id=disabeld");
-#endif
 	for (int i = 0; i < total_seqs; i++)
 	{
 		query_seq_mod[i] = query_mod.at(i);
 		query_seq_id[i] = query_id.at(i);
-#ifdef DEBUG
-		//fprintf(stderr, "%d@%d| ", query_seq_mod[i], query_seq_id[i]);
-#endif
 	}
+
 #ifdef DEBUG
-	fprintf(stderr, "\n");
+	std::cerr << "[TEST_PROG DEBUG]: query, mod@id=";
+	for (int i = 0; i < total_seqs; i++)
+	{
+		if ((query_seq_mod[i]) > 0)
+			std::cerr << +(query_seq_mod[i]) << "@" << query_seq_id[i] << "| ";
+	}
+	
+	std::cerr << std::endl;
 #endif
 
 	for (int i = 0; i < total_seqs; i++)
@@ -264,10 +196,9 @@ int main(int argc, char *argv[]) {
 		else thread_n_seqs[i] = total_seqs - n_seqs_alloc;
 		thread_n_batchs[i] = (int)ceil((double)thread_n_seqs[i]/(GPU_BATCH_SIZE));
 		n_seqs_alloc += thread_n_seqs[i];
-
 	}
 
-	cerr << "Processing..." << endl;
+	std::cerr << "Processing..." << std::endl;
 
 	Timer total_time;
 	total_time.Start();
@@ -284,10 +215,9 @@ int main(int argc, char *argv[]) {
 			Modifying the factor '1' in front of each size lets you see how GASAL2 expands the memory when needed.
 		*/
 
-		//initializing the streams by allocating the required CPU and GPU memory
-		// note: the calculations of the detailed sizes to allocate could be done on the library side (to hide it from the user's perspective)
 		
 		/*
+		// For exemple, this is exactly the memory needed to allocate to fit all sequences is a single GPU BATCH.
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
 							1 * ceil((double)(query_seqs_len +7*total_seqs) / (double)(NB_STREAMS)) , 
 							1 * ceil((double)(query_seqs_len +7*total_seqs) / (double)(NB_STREAMS)) , 
@@ -295,10 +225,12 @@ int main(int argc, char *argv[]) {
 							1 * ceil((double)(query_seqs_len +7*total_seqs) / (double)(NB_STREAMS))  , 
 							ceil((double)target_seqs.size() / (double)(NB_STREAMS)), // maximum number of alignments is bigger on target than on query side.
 							ceil((double)target_seqs.size() / (double)(NB_STREAMS)), 
-							LOCAL, 
-							WITH_START);
+							args);
 		*/		
 		
+		//initializing the streams by allocating the required CPU and GPU memory
+		// note: the calculations of the detailed sizes to allocate could be done on the library side (to hide it from the user's perspective)
+
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
@@ -306,12 +238,12 @@ int main(int argc, char *argv[]) {
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
 						GPU_BATCH_SIZE, // maximum number of alignments is bigger on target than on query side.
 						GPU_BATCH_SIZE, 
-						LOCAL, 
-						WITH_START);
+						args);
 
 	}
 	#ifdef DEBUG
-		fprintf(stderr, "size of host_unpack_query is %d\n", (query_seqs_len +7*total_seqs) / (NB_STREAMS) );
+		std::cerr << "[TEST_PROG DEBUG]: ";
+		std::cerr << "size of host_unpack_query is " << (query_seqs_len +7*total_seqs) / (NB_STREAMS) << std::endl ;
 	#endif
 
 	#pragma omp parallel
@@ -328,8 +260,10 @@ int main(int argc, char *argv[]) {
 	};
 
 	#ifdef DEBUG
-		fprintf(stderr, "Number of gpu_batch in gpu_batch_arr : %d\n", gpu_storage_vecs[omp_get_thread_num()].n);
-		fprintf(stderr, "Number of gpu_storage_vecs in a gpu_batch : %d\n", omp_get_thread_num()+1);
+		std::cerr << "[TEST_PROG DEBUG]: ";
+		std::cerr << "Number of gpu_batch in gpu_batch_arr : " << gpu_storage_vecs[omp_get_thread_num()].n << std::endl;
+		std::cerr << "[TEST_PROG DEBUG]: ";
+		std::cerr << "Number of gpu_storage_vecs in a gpu_batch : " << omp_get_thread_num()+1 << std::endl;
 	#endif
 
 	gpu_batch gpu_batch_arr[gpu_storage_vecs[omp_get_thread_num()].n];
@@ -346,131 +280,136 @@ int main(int argc, char *argv[]) {
 			while(gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n && (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->is_free != 1) {
 				gpu_batch_arr_idx++;
 			}
-			//---------------------------------------------------------------------------
 
 			if (seqs_done < n_seqs && gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n) {
-					uint32_t query_batch_idx = 0;
-					uint32_t target_batch_idx = 0;
-					unsigned int j = 0;
-					//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
+				uint32_t query_batch_idx = 0;
+				uint32_t target_batch_idx = 0;
+				unsigned int j = 0;
+				//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
 
 
-					for (int i = curr_idx; seqs_done < n_seqs && j < (GPU_BATCH_SIZE); i++, j++, seqs_done++) {
+				for (int i = curr_idx; seqs_done < n_seqs && j < (GPU_BATCH_SIZE); i++, j++, seqs_done++) {
 
-						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
-						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;
+					(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
+					(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;
 
-						/*
-							All the filling is moved on the library size, to take care of the memory size and expansions (when needed).
-							The function gasal_host_batch_fill takes care of how to fill, how much to pad with 'N', and how to deal with memory. 
-							It's the same function for query and target, and you only need to set the final flag to either ; this avoides code duplication.
-							The way the host memory is filled changes the current _idx (it's increased by size, and by the padding). That's why it's returned by the function.
-						*/
+					/*
+						All the filling is moved on the library size, to take care of the memory size and expansions (when needed).
+						The function gasal_host_batch_fill takes care of how to fill, how much to pad with 'N', and how to deal with memory. 
+						It's the same function for query and target, and you only need to set the final flag to either ; this avoides code duplication.
+						The way the host memory is filled changes the current _idx (it's increased by size, and by the padding). That's why it's returned by the function.
+					*/
 
-						query_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
-										query_batch_idx, 
-										query_seqs[i].c_str(), 
-										query_seqs[i].size(),
-										QUERY);
+					query_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
+									query_batch_idx, 
+									query_seqs[i].c_str(), 
+									query_seqs[i].size(),
+									QUERY);
 
-						target_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
-										target_batch_idx, 
-										target_seqs[i].c_str(), 
-										target_seqs[i].size(),
-										TARGET);
+					target_batch_idx = gasal_host_batch_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, 
+									target_batch_idx, 
+									target_seqs[i].c_str(), 
+									target_seqs[i].size(),
+									TARGET);
 
-						
-						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_lens[j] = query_seqs[i].size();
-						(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_lens[j] = target_seqs[i].size();
-
-					}
-
-					#ifdef DEBUG
-						fprintf(stderr, "Stream %d: j = %d, seqs_done = %d, query_batch_idx=%d, target_batch_idx=%d\n", gpu_batch_arr_idx, j, seqs_done, query_batch_idx, target_batch_idx);
-					#endif
-
-					// Here, we fill the operations arrays for the current batch to be processed by the stream
-					gasal_op_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_seq_mod + seqs_done - j, j, QUERY);
-					gasal_op_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, target_seq_mod + seqs_done - j, j, TARGET);
-
-
-					gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch = j;
-					uint32_t query_batch_bytes = query_batch_idx;
-					uint32_t target_batch_bytes = target_batch_idx;
-					gpu_batch_arr[gpu_batch_arr_idx].batch_start = curr_idx;
-					curr_idx += (GPU_BATCH_SIZE);
-
-					//----------------------------------------------------------------------------------------------------
-
-
-					//-----------------calling the GASAL2 non-blocking alignment function---------------------------------
 					
-						
-					gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch,  algo, start_pos, k_band);
-						
+					(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_lens[j] = query_seqs[i].size();
+					(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_lens[j] = target_seqs[i].size();
 
-					//---------------------------------------------------------------------------------
+				}
+
+				#ifdef DEBUG
+					std::cerr << "[TEST_PROG DEBUG]: ";
+					std::cerr << "Stream " << gpu_batch_arr_idx << ": j = " << j << ", seqs_done = " << seqs_done <<", query_batch_idx=" << query_batch_idx << " , target_batch_idx=" << target_batch_idx << std::endl;
+				#endif
+
+				// Here, we fill the operations arrays for the current batch to be processed by the stream
+				gasal_op_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_seq_mod + seqs_done - j, j, QUERY);
+				gasal_op_fill(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, target_seq_mod + seqs_done - j, j, TARGET);
+
+
+				gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch = j;
+				uint32_t query_batch_bytes = query_batch_idx;
+				uint32_t target_batch_bytes = target_batch_idx;
+				gpu_batch_arr[gpu_batch_arr_idx].batch_start = curr_idx;
+				curr_idx += (GPU_BATCH_SIZE);
+
+				//----------------------------------------------------------------------------------------------------
+				//-----------------calling the GASAL2 non-blocking alignment function---------------------------------
+
+				gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch, args);
+					
+				//---------------------------------------------------------------------------------
 			}
 
 
 			//-------------------------------print alignment results----------------------------------------
-			
-				gpu_batch_arr_idx = 0;
-				while (gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n) {//loop through all the streams and print the results
-																					  //of the finished streams.
-					if (gasal_is_aln_async_done(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage) == 0) {
-						int j = 0;
-						if(print_out) {
-#pragma omp critical
-						for (int i = gpu_batch_arr[gpu_batch_arr_idx].batch_start; j < gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch; i++, j++) {
-							if(al_type.compare("local") == 0 || al_type.compare("banded") == 0 || al_type.compare("microloc") == 0 || al_type.compare("fixedband") == 0) {
-								if (start_pos == WITH_START){
-									fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\tquery_batch_start=%d\ttarget_batch_start=%d\tquery_batch_end=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(),(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_start[j],
-											(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_start[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_end[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
-								}
-								else {
-									fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\tquery_batch_end=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_end[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
-								}
-							} else if(al_type.compare("semi_global") == 0) {
-								if (start_pos == WITH_START){
-									fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\ttarget_batch_start=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_start[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
-
-								}
-								else {
-									fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\ttarget_batch_end=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j], (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_end[j]);
-								}
-							}   else{
-								fprintf(stdout, "query_name=%s\ttarget_name=%s\tscore=%d\n", query_headers[i].c_str(), target_headers[i].c_str(), (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_aln_score[j]);
-							}
-						}
-						}
-						n_batchs_done++;
-					}
-					gpu_batch_arr_idx++;
-				}
-			}
-			//----------------------------------------------------------------------------------------------------
-
 		
+			gpu_batch_arr_idx = 0;
+			while (gpu_batch_arr_idx < gpu_storage_vecs[omp_get_thread_num()].n) {//loop through all the streams and print the results
+																					//of the finished streams.
+				if (gasal_is_aln_async_done(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage) == 0) {
+					int j = 0;
+					if(print_out) {
+					#pragma omp critical
+					for (int i = gpu_batch_arr[gpu_batch_arr_idx].batch_start; j < gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch; i++, j++) {
+						
+						std::cout << "query_name=" << query_headers[i] ;
+						std::cout << "\ttarget_name=" << target_headers[i] ;
+						std::cout << "\tscore=" << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->aln_score[j] ;
 
+						if (args->algo != GLOBAL)
+						{
+							std::cout << "\tquery_batch_end="  << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->query_batch_end[j];
+							std::cout << "\ttarget_batch_end=" << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->target_batch_end[j] ;
+						}
+
+						/// WARNING : INEQUALITY ON ENUM: CAN BREAK IF ENUM ORDER IS CHANGED
+						if (args->start_pos == WITH_START 
+							&& ((args->algo == SEMI_GLOBAL && (args->semiglobal_skipping_head != NONE || args->semiglobal_skipping_head != NONE))
+								|| args->algo > SEMI_GLOBAL))
+						{
+							std::cout << "\tquery_batch_start=" << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->query_batch_start[j];
+							std::cout << "\ttarget_batch_start=" << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->target_batch_start[j];
+						}
+
+						if (args->secondBest)
+						{
+							std::cout << "\t2nd_score=" << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res_second->aln_score[j] ;
+							std::cout << "\t2nd_query_batch_end="  << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res_second->query_batch_end[j];
+							std::cout << "\t2nd_target_batch_end=" << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res_second->target_batch_end[j] ;
+						}
+
+						std::cout << std::endl;
+					}
+					}
+					n_batchs_done++;
+				}
+				gpu_batch_arr_idx++;
+			}
+		}
 	}
 
 
 	}
 	for (int z = 0; z < n_threads; z++) {
-		gasal_destroy_streams(&(gpu_storage_vecs[z]));
+		gasal_destroy_streams(&(gpu_storage_vecs[z]), args);
 		gasal_destroy_gpu_storage_v(&(gpu_storage_vecs[z]));
 	}
 	free(gpu_storage_vecs);
 	total_time.Stop();
+	/*
 	string algorithm = al_type;
 	string start_type[2] = {"without_start", "with_start"};
 	al_type += "_";
 	al_type += start_type[start_pos==WITH_START];
+	*/
 	double av_misc_time = 0.0;
 	for (int i = 0; i < n_threads; ++i){
 		av_misc_time += (thread_misc_time[i]/n_threads);
 	}
-	fprintf(stderr, "\nDone\n");
+	std::cerr << std::endl << "Done" << std::endl;
 	fprintf(stderr, "Total execution time (in milliseconds): %.3f\n", total_time.GetTime());
+	delete args; // closes the files
+	//free(args); // closes the files
 }
