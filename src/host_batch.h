@@ -1,9 +1,9 @@
 #ifndef __HOST_BACTH_H__
 #define __HOST_BACTH_H__
 
-#include <cstdio>
-#include <cstdlib>
-#include <cstring> // useful for memcpy, strlen
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h> // useful for memcpy, strlen
 
 // host data structure methods
 host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t offset); 								// constructor

@@ -2,8 +2,8 @@
 #define __GASAL_H__
 
 
-#include <cstdlib>
-#include <cstdint>
+#include <stdlib.h>
+#include <stdint.h>
 #include "/usr/local/cuda-9.2/targets/x86_64-linux/include/cuda_runtime.h"
 
 #ifndef HOST_MALLOC_SAFETY_FACTOR

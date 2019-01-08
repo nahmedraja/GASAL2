@@ -7,10 +7,11 @@
 
 #include "gasal.h"
 */
-#include "gasal.h"
-#include <string>
 #include <fstream>
 #include <iostream>
+#include "gasal.h"
+#include <string.h>
+
 
 enum fail_type {
     NOT_ENOUGH_ARGS,
