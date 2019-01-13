@@ -23,7 +23,7 @@
 #define MAX(a,b) (a>b ? a : b)
 
 // Test server : 0 is for K40c, 1 is for GTX 750 Ti
-#define GPU_SELECT 1
+#define GPU_SELECT 0
 
 
 int main(int argc, char **argv) {
