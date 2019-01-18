@@ -1,4 +1,4 @@
-CUDA_LD_LIBRARY=/usr/local/cuda-9.2/targets/x86_64-linux/lib
+CUDA_LD_LIBRARY=/usr/local/cuda-8.0//targets/x86_64-linux/lib
 ANALYSIS_FILENAME=analysis
 # prefix1 can be optirun in case you need to run it from an optimus-enabled laptop.
 PREFIX1=
