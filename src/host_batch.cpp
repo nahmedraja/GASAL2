@@ -110,6 +110,75 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx,
 	return idx;
 }
 
+
+uint32_t gasal_host_batch_addbase(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx, const char base, data_source SRC )
+{	
+	// Modified version of fill that adds a single base. Padding is removed, size is fixed at 1.
+	// If needed, it can be adapted to a larger size, 
+	uint32_t size = 1;
+	const char *data = &base;
+
+	// since query and target are very symmetric here, we use pointers to route the data where it has to, 
+	// while keeping the actual memory management 'source-agnostic'.
+	host_batch_t *cur_page = NULL;
+	uint32_t *p_batch_bytes = NULL;
+	
+
+	switch(SRC) {
+		case QUERY:
+			cur_page = (gpu_storage_t->extensible_host_unpacked_query_batch);
+			p_batch_bytes = &(gpu_storage_t->host_max_query_batch_bytes);
+		break;
+		case TARGET:
+			cur_page = (gpu_storage_t->extensible_host_unpacked_target_batch);
+			p_batch_bytes = &(gpu_storage_t->host_max_target_batch_bytes);
+		break;
+		default:
+		break;
+	}
+
+	int is_done = 0;
+
+	while (!is_done)
+	{
+		if (*p_batch_bytes >= idx + size && (cur_page->next == NULL || (cur_page->next->offset >= idx + size)) )
+		{
+
+			memcpy(&(cur_page->data[idx - cur_page->offset]), data, size);
+			idx = idx + size;
+			is_done = 1;
+
+		} else if ((*p_batch_bytes >= idx + size) && (cur_page->next != NULL) && (cur_page->next->offset < idx + size)) {
+		
+			cur_page = cur_page->next;
+
+		} else {
+			fprintf(stderr,"[GASAL WARNING:] Trying to write %d bytes at position %d on host memory (%s) while only  %d bytes are available. Therefore, allocating %d bytes more on CPU. Repeating this many times can provoke a degradation of performance.\n",
+					size,
+					idx,
+					(SRC == QUERY ? "query":"target"),
+					*p_batch_bytes,
+					*p_batch_bytes * 2);
+			
+	
+			*p_batch_bytes += *p_batch_bytes;
+
+			// corner case: if we allocated less than a single sequence length to begin with... it shouldn't be allowed actually, but at least it's caught here.
+			while (*p_batch_bytes < size)
+				*p_batch_bytes += *p_batch_bytes;
+
+			host_batch_t *res = gasal_host_batch_new(*p_batch_bytes, idx);
+	
+			cur_page->next = res;
+			
+			cur_page = cur_page->next;
+		}
+	}
+	//gasal_host_batch_printall(gasal_host_batch_getlast(cur_page));
+	return idx;
+}
+
+
 // this printer displays the whole sequence. It is heavy and shouldn't be called when you have more than a couple sequences.
 void gasal_host_batch_print(host_batch_t *res) 
 {

@@ -18,7 +18,7 @@ gasal_res_t *gasal_res_new_host(uint32_t max_n_alns, Parameters *params)
 	
 	if(res ==NULL)
 	{
-		std::cerr << "Malloc error on res host " << std::endl;
+		fprintf(stderr,  "Malloc error on res host ");
 		exit(1);
 	}
 
