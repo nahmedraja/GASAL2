@@ -15,7 +15,7 @@
 
 #define NB_STREAMS 2
 
-#define GPU_BATCH_SIZE (6000)
+#define GPU_BATCH_SIZE (262000)
 //#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
 
 #define DEBUG
