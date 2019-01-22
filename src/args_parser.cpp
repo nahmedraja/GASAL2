@@ -20,7 +20,8 @@ Parameters::Parameters(int argc_, char **argv_) {
     k_band = (0);
 
     isPacked = false;
-    
+    isReverseComplement = false;
+
     secondBest = FALSE;
 
     // query head, target head, query tail, target tail

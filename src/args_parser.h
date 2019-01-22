@@ -46,6 +46,7 @@ class Parameters{
         Bool secondBest;
 
         bool isPacked;
+        bool isReverseComplement;
 
         data_source semiglobal_skipping_head;
         data_source semiglobal_skipping_tail;
