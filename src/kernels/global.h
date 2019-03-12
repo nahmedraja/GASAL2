@@ -59,15 +59,15 @@ __global__ void gasal_global_kernel(uint32_t *packed_query_batch, uint32_t *pack
 	}
 
 
-	h[u++] = 0;
-	p[u++] = 0;
+	h[0] = 0;
+	p[0] = 0;
 	for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows, for all WORDS (i=WORD index)
 		gidx = i << 3;
 		ridx = 0;
 		for (m = 1; m < 9; m++, u++) {
-			h[m] = -(_cudaGapO + (_cudaGapExtend*(u-1))); 
+			h[m] = -(_cudaGapO + (_cudaGapExtend*(u))); 
 			f[m] = MINUS_INF; 
-			p[m] = -(_cudaGapO + (_cudaGapExtend*(u-1))); 
+			p[m] = -(_cudaGapO + (_cudaGapExtend*(u))); 
 		}
 		register uint32_t gpac =packed_target_batch[packed_target_batch_idx + i];//load 8 packed bases from target_batch sequence
 
