@@ -4,7 +4,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
-#include "/usr/local/cuda-8.0//targets/x86_64-linux/include/cuda_runtime.h"
+#include "/usr/local/cuda-10.0//targets/x86_64-linux/include/cuda_runtime.h"
 
 #ifndef HOST_MALLOC_SAFETY_FACTOR
 #define HOST_MALLOC_SAFETY_FACTOR 5
@@ -128,6 +128,7 @@ typedef struct {
 	uint32_t host_max_n_alns;
 	cudaStream_t str;
 	int is_free;
+	int id; //this can be useful in cases where a gasal_gpu_storage only contains PARTS of an alignment (like a seed-extension...), to gather results.
 
 } gasal_gpu_storage_t;
 

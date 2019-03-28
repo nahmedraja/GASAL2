@@ -76,7 +76,7 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx,
 	
 			while(idx%8)
 			{
-				cur_page->data[idx - cur_page->offset] = 'N';
+				cur_page->data[idx - cur_page->offset] = N_CODE;
 				idx++;
 			}
 			is_done = 1;
@@ -112,11 +112,13 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx,
 
 
 uint32_t gasal_host_batch_addbase(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx, const char base, data_source SRC )
+{	 
+    return gasal_host_batch_add(gpu_storage_t, idx, &base, 1, SRC );
+}
+
+
+uint32_t gasal_host_batch_add(gasal_gpu_storage_t *gpu_storage_t, uint32_t idx, const char *data, uint32_t size, data_source SRC )
 {	
-	// Modified version of fill that adds a single base. Padding is removed, size is fixed at 1.
-	// If needed, it can be adapted to a larger size, 
-	uint32_t size = 1;
-	const char *data = &base;
 
 	// since query and target are very symmetric here, we use pointers to route the data where it has to, 
 	// while keeping the actual memory management 'source-agnostic'.
@@ -177,6 +179,7 @@ uint32_t gasal_host_batch_addbase(gasal_gpu_storage_t *gpu_storage_t, uint32_t i
 	//gasal_host_batch_printall(gasal_host_batch_getlast(cur_page));
 	return idx;
 }
+
 
 
 // this printer displays the whole sequence. It is heavy and shouldn't be called when you have more than a couple sequences.
