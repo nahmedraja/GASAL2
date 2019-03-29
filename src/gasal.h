@@ -56,9 +56,8 @@ enum algo_type{
 	GLOBAL,
 	SEMI_GLOBAL,
 	LOCAL,
-	BANDED,
 	MICROLOCAL,
-	FIXEDBAND
+	KSW
 };
 
 enum operation_on_seq{
