@@ -73,14 +73,19 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
 	int32_t p[9];
 	//--------------------------------------------
     
-    // copies initialization from ksw "fill the first row"
+    // copies initialization from ksw "fill the first row", line-by-line
     global[0] = initHD;
-    global[1] = (initHD.x > _cudaGapOE ? (initHD.x - _cudaGapOE) : (0));
+    global[1] = make_short2((initHD.x > _cudaGapOE) ? (initHD.x - _cudaGapOE) : (0) , 0);
     for (i = 2; i < MAX_SEQ_LEN; i++) {
-        initHD = make_short2(max(initHD.x - _cudaGapE, 0) , 0)
+        initHD = make_short2(max(initHD.x - _cudaGapExtend, 0) , 0);
         global[i] = initHD;
     }
-
+    /*
+        // begin / end to skip some stuff. BUT TILES FUCK
+        // So let's forget about it.
+        int beg = 0, end = ref_len;
+    */
+    // bwa does: for (j = beg; LIKELY(j < end); ++j)
 	for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
 		for (m = 0; m < 9; m++) {
             h[m] = 0;
@@ -146,9 +151,22 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
                 ridx++;
                 //-------------------------------------------------------
 
-            }
-        }
-	}
+            } // end for (compute tile)
+        } // end for (pack of 8 bases for query)
+
+        /* This is defining from where to start the next row and where to end the computation of next row
+         it skips some of the cells in the beginning and in the end of the row
+        */
+       /*
+        for (j = beg; j < end && eh[j].h == 0 && eh[j].e == 0; ++j)
+            ;
+        beg = j;
+        for (j = end; j >= beg && eh[j].h == 0 && eh[j].e == 0; --j)
+            ;
+        end = j + 2 < ref_len ? j + 2 : query_len;
+        */
+
+	} // end for (pack of 8 bases for target)
 
 	device_res->aln_score[tid] = maxHH;//copy the max score to the output array in the GPU mem
 	device_res->query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
