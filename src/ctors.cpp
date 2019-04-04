@@ -9,6 +9,8 @@
 
 #include "ctors.h"
 
+#include "interfaces.h"
+
 
 
 
@@ -36,6 +38,12 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 
 		CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_query_op), host_max_n_alns * sizeof(uint8_t), cudaHostAllocDefault));
 		CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_target_op), host_max_n_alns * sizeof(uint8_t), cudaHostAllocDefault));
+		uint8_t *no_ops = NULL;
+		no_ops = (uint8_t*) calloc(host_max_n_alns * sizeof(uint8_t), sizeof(uint8_t));
+		gasal_op_fill(&(gpu_storage_vec->a[i]), no_ops, host_max_n_alns, QUERY);
+		gasal_op_fill(&(gpu_storage_vec->a[i]), no_ops, host_max_n_alns, TARGET);
+		free(no_ops);
+
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].query_op), gpu_max_n_alns * sizeof(uint8_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].target_op), gpu_max_n_alns * sizeof(uint8_t)));
 
