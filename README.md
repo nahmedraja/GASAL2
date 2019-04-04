@@ -1,27 +1,29 @@
 
 # GASAL 2 - GPU-accelerated DNA alignment library
-
+<!--
 ## List of new features:
-
 - Added expandable memory management on host side: the user doesn't have to guess the memory size they will take up anymore,
 - Added kernel to reverse-complement sequences. This kernel runs on GPU. It hasn't been optimized and polished for speed (yet!),
 - Added banded alignment operating by tile to try to speedup (only speeds up with small (e.g. 150) sequence lengths)
 - Cleaned up, inconsistencies fixed, and a small optimization has been added (around 9% speedup with exact same result) 
-
+-->
 # GASAL2
 
 GASAL2 is an easy-to-use CUDA library for DNA/RNA sequence alignment algorithms. Currently it supports different kind of alignments:
  - local alignment
  - semi-global alignment
  - global alignment
+ - tile-based banded alignment.
+ 
+It can also reverse and, or complement any sequences independently before alignment, and report second-best scores for certain alignment types.
 
-It is an extension of GASAL (https://github.com/nahmedraja/GASAL) and allows full overlapping of CPU and GPU execution. It can also reverse and, or complement any sequences independently before alignment.
+It is an extension of GASAL (https://github.com/nahmedraja/GASAL) and allows full overlapping of CPU and GPU execution. 
 
 ## Requirements
 A Linux platform with CUDA toolkit 8 or higher is required. GASAL2 has been tested over NVIDIA GPUs with compute capabilities of 2.0, 3.5 and 5.0. Although lower versions of the CUDA framework might work, they have not been tested.
 
 ## Compiling GASAL2
-To compile the library, you need to specify the path of your CUDA installation and the 3 variables for the Makefile in the script `run_all.sh`. Then you can compile GASAL2 by running this `run_all`script.
+To compile the library, you need to specify the path of your CUDA installation and the variables for the Makefile in the script `run_all.sh`. Then you can compile GASAL2 by running this `run_all.sh` script. In the current script, an example of values is shown for  a GPU with Compute Capability of 3.5, a maximum sequence length of 300, a "N" code of 0xQF (representing the character "N"), and a N penalty of 1.
 
 In this script, these are the two lines where you have to adjust the parameters:
 ```bash
@@ -81,14 +83,10 @@ In GASAL2, the sequences to be alignned are conatined in two batches. A sequence
 Most GASAL2 functions operate with a Parameters object. This object holds all the informations about the alignment options selected. In particular, the alignment type, the default values when opening or extending gaps, etc. All features are explained in the files `args_parser.cpp` and `args_parser.h`. The Parameters object comes with a dedicated argument parser for the command-line, but one can also instantiate an object and fill its fields manually, like this :
 
 ```C
-//J.L. 2018-12-20 17:24 Added params object.
-                    Parameters *args;
-                    args = new Parameters(0, NULL);
-                    args->algo = LOCAL;
-                    args->semiglobal_skipping_head = TARGET;
-                    args->semiglobal_skipping_tail = TARGET;
-
-                    args->start_pos = WITHOUT_START;
+Parameters *args;
+args = new Parameters(0, NULL);
+args->algo = LOCAL;
+args->start_pos = WITHOUT_START;
 ```
 The possible values for the fields are explained in `args_parser.cpp`, in a help function. Default values are in the object constructor in the same file.
 
@@ -105,24 +103,33 @@ The `gasal_gpu_storage_t` in `gasal.h` holds the data structures for a stream. I
 ```C
 typedef struct{
 	...
-	uint8_t *host_unpacked_query_batch;
-	uint8_t *host_unpacked_target_batch;
+	uint8_t *host_query_op;
+	uint8_t *host_target_op;
+	...
 	uint32_t *host_query_batch_offsets;
 	uint32_t *host_target_batch_offsets;
 	uint32_t *host_query_batch_lens;
 	uint32_t *host_target_batch_lens;
-	int32_t *host_aln_score;
-	int32_t *host_query_batch_end;
-	int32_t *host_target_batch_end;
-	int32_t *host_query_batch_start;
-	int32_t *host_target_batch_start;
 	uint32_t host_max_query_batch_bytes;
 	uint32_t host_max_target_batch_bytes;
+	gasal_res_t *host_res;
 	uint32_t host_max_n_alns;
 	int is_free;
 	...
-
 } gasal_gpu_storage_t;
+```
+
+The structure `gasal_res_t` holds the results of the alignment and can be accessed manually. Its fields are the following:
+
+```C
+struct gasal_res{
+	int32_t *aln_score;
+	int32_t *query_batch_end;
+	int32_t *target_batch_end;
+	int32_t *query_batch_start;
+	int32_t *target_batch_start;
+};
+typedef struct gasal_res gasal_res_t;
 ```
 
 To align the sequences the user first need to check the availability of a stream. If `is_free` is  1, the user can use the current stream to perform the alignment on the GPU. 
@@ -130,7 +137,16 @@ To do this, the user must fill the sequences with the `gasal_host_batch_fill` fu
 
 Alternatively, one can use the `gasal_host_batch_addbase` to add a single base to the sequence. This takes care of memory reallocation if needed, but does not take care of padding, so this has to be used carefully.
 
-The the list of pre-processing operation (nothing, reverse, complement, reverse-complement) that has to be done on the batch of sequence can be loaded into the gpu_storage with the function `gasal_op_fill`. Its code is in `interfaces.cpp`.
+The the list of pre-processing operation (nothing, reverse, complement, reverse-complement) that has to be done on the batch of sequence can be loaded into the gpu_storage with the function `gasal_op_fill`. Its code is in `interfaces.cpp`. It fills `host_query_op` and `host_query_op` with an array of size `host_max_n_alns` where each value is the value of the enumeration of `operation_on_seq` (in gasal.h):
+```C
+enum operation_on_seq{
+	FORWARD_NATURAL,
+	REVERSE_NATURAL,
+	FORWARD_COMPLEMENT,
+	REVERSE_COMPLEMENT,
+};
+```
+By default, no operations are done on the sequences (that is, the fields `host_query_op` and `host_target_op` arrays are initialized to 0, which is the value of FORWARD_NATURAL).
 
 To launch the alignment, the following function is used:
 
@@ -147,10 +163,11 @@ int gasal_is_aln_async_done(gasal_gpu_storage *gpu_storage);
 ```
 If the function returns 0 the alignment on the GPU is finished and the output arrays contain valid results. Moreover, `is_free` is set to 1 by GASAL2. Thus, the current stream can be used for the alignment of another batch of sequences. The function returns `-1` if the results are not ready. It returns `-2` if the function is called on a stream in which no alignment has been launced, i.e. `is_free == 1`.
 
+Scores can be retrieved manually by accessing the fields in `host_res` inside the `gasal_gpu_storage_t` structure. In case of second-best result, the same applies with the fields in `host_res_secondbest`.
+
 ## Example
 The `test_prog` directory conatins an example program which uses GASAL2 for sequence alignment on GPU. See the README in the directory for the instructions about running the program.
 
-
 ## Problems and suggestions
-For any issues and suugestions contact Jonathan LEVY (j.levy@student.tudelft.nl)
+For any issues and suugestions contact Jonathan LEVY (j.levy@student.tudelft.nl) or Nauman Ahmed (n.ahmed@tudelft.nl).
 
