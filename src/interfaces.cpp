@@ -2,6 +2,22 @@
 #include "interfaces.h"
 
 
+
+// Function for general resizing
+void cudaHostRealloc(void *destination, void *source, int new_size, int old_size) {
+	cudaError_t err;
+	if (old_size < new_size)
+	{
+		fprintf(stderr, "[GASAL ERROR] cudoHostRealloc: invalid sizes. New size < old size (%d < %d)", new_size, old_size);
+		exit(EXIT_FAILURE);
+	}
+	CHECKCUDAERROR(cudaHostAlloc(&destination, new_size, cudaHostAllocDefault));
+	CHECKCUDAERROR(cudaMemcpy(&destination, &source, old_size, cudaMemcpyHostToHost));
+	cudaFreeHost(source);
+	return;
+};
+
+// operation (Reverse/complement) filler.
 void gasal_op_fill(gasal_gpu_storage_t *gpu_storage_t, uint8_t *data, uint32_t nbr_seqs_in_stream, data_source SRC)
 {
 	uint8_t *host_op = NULL;

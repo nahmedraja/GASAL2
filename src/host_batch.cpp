@@ -1,20 +1,7 @@
 #include "gasal.h"
 #include "host_batch.h"
 
-// Functions for general resizing
 
-void cudoHostRealloc(void *destination, void *source, int new_size, int old_size) {
-	cudaError_t err;
-	if (old_size < new_size)
-	{
-		fprintf(stderr, "[GASAL ERROR] cudoHostRealloc: invalid sizes. New size < old size (%d < %d)", new_size, old_size);
-		exit(EXIT_FAILURE);
-	}
-	CHECKCUDAERROR(cudaHostAlloc(&destination, new_size, cudaHostAllocDefault));
-	CHECKCUDAERROR(cudaMemcpy(&destination, &source, old_size, cudaMemcpyHostToHost));
-	cudaFreeHost(source);
-	return;
-};
 
 
 // Functions for host batches handling. 

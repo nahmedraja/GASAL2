@@ -25,8 +25,6 @@
     (sidenote: it's based on an enum instead of a bool in order to generalize its type from its Int value, with Int2Type meta-programming-template)
 */
 
-// Define a fake base score, to avoid passing the seed length
-#define BASE_SCORE_SEED (30)
 
 template <typename B>
 __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, uint32_t *seed_score, gasal_res_t *device_res, gasal_res_t *device_res_second, int n_tasks)
@@ -58,7 +56,7 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
 
 	int32_t ridx, gidx;
 	short2 HD;
-	short2 initHD = make_short2(BASE_SCORE_SEED, 0);
+	short2 initHD = make_short2(seed_score[tid], 0);
 	
 	uint32_t packed_target_batch_idx = target_batch_offsets[tid] >> 3; //starting index of the target_batch sequence
 	uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
@@ -168,7 +166,6 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
 
 	} // end for (pack of 8 bases for target)
 
-	maxHH = (maxHH > BASE_SCORE_SEED ? maxHH - BASE_SCORE_SEED : 0);
 	device_res->aln_score[tid] = maxHH;//copy the max score to the output array in the GPU mem
 	device_res->query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
 	device_res->target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
