@@ -57,6 +57,7 @@ enum algo_type{
 	SEMI_GLOBAL,
 	LOCAL,
 	MICROLOCAL,
+	BANDED,
 	KSW
 };
 

@@ -9,7 +9,7 @@
 
 #include "ctors.h"
 
-
+#include "interfaces.h"
 
 
 gasal_gpu_storage_v gasal_init_gpu_storage_v(int n_streams) {

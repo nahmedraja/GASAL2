@@ -14,8 +14,8 @@ inline void gasal_kernel_launcher(int32_t N_BLOCKS, int32_t BLOCKDIM, algo_type 
 		KERNEL_SWITCH(LOCAL,		start, semiglobal_skipping_head, semiglobal_skipping_tail, secondBest);
 		KERNEL_SWITCH(SEMI_GLOBAL,  start, semiglobal_skipping_head, semiglobal_skipping_tail, secondBest);		// MACRO that expands all 32 semi-global kernels
 		KERNEL_SWITCH(GLOBAL,		start, semiglobal_skipping_head, semiglobal_skipping_tail, secondBest);
-		KERNEL_SWITCH(KSW,		start, semiglobal_skipping_head, semiglobal_skipping_tail, secondBest);
-
+		KERNEL_SWITCH(KSW,			start, semiglobal_skipping_head, semiglobal_skipping_tail, secondBest);
+		KERNEL_SWITCH(BANDED,		start, semiglobal_skipping_head, semiglobal_skipping_tail, secondBest);
 		default:
 		break;
 
