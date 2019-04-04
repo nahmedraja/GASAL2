@@ -6,8 +6,9 @@
 - Added kernel to reverse-complement sequences. This kernel runs on GPU. It hasn't been optimized and polished for speed (yet!),
 - Added banded alignment operating by tile to try to speedup (only speeds up with small (e.g. 150) sequence lengths)
 - Cleaned up, inconsistencies fixed, and a small optimization has been added (around 9% speedup with exact same result) 
--->
 # GASAL2
+-->
+
 
 GASAL2 is an easy-to-use CUDA library for DNA/RNA sequence alignment algorithms. Currently it supports different kind of alignments:
  - local alignment
@@ -20,7 +21,7 @@ It can also reverse and, or complement any sequences independently before alignm
 It is an extension of GASAL (https://github.com/nahmedraja/GASAL) and allows full overlapping of CPU and GPU execution. 
 
 ## Requirements
-A Linux platform with CUDA toolkit 8 or higher is required. GASAL2 has been tested over NVIDIA GPUs with compute capabilities of 2.0, 3.5 and 5.0. Although lower versions of the CUDA framework might work, they have not been tested.
+A Linux platform with CUDA toolkit 8 or higher is required, along with usual build environment for C and C++ code. GASAL2 has been tested over NVIDIA GPUs with compute capabilities of 2.0, 3.5 and 5.0. Although lower versions of the CUDA framework might work, they have not been tested.
 
 ## Compiling GASAL2
 To compile the library, you need to specify the path of your CUDA installation and the variables for the Makefile in the script `run_all.sh`. Then you can compile GASAL2 by running this `run_all.sh` script. In the current script, an example of values is shown for  a GPU with Compute Capability of 3.5, a maximum sequence length of 300, a "N" code of 0xQF (representing the character "N"), and a N penalty of 1.
@@ -169,5 +170,5 @@ Scores can be retrieved manually by accessing the fields in `host_res` inside th
 The `test_prog` directory conatins an example program which uses GASAL2 for sequence alignment on GPU. See the README in the directory for the instructions about running the program.
 
 ## Problems and suggestions
-For any issues and suugestions contact Jonathan LEVY (j.levy@student.tudelft.nl) or Nauman Ahmed (n.ahmed@tudelft.nl).
+For any issues and suugestions contact Jonathan Lévy (j.levy@student.tudelft.nl) or Nauman Ahmed (n.ahmed@tudelft.nl).
 
