@@ -96,6 +96,9 @@ typedef struct {
 	uint32_t *target_batch_offsets;
 	uint32_t *query_batch_lens;
 	uint32_t *target_batch_lens;
+
+	uint32_t *host_seed_scores;
+	uint32_t *seed_scores;
 	
 	host_batch_t *extensible_host_unpacked_query_batch;
 	host_batch_t *extensible_host_unpacked_target_batch;

@@ -113,10 +113,14 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 		if (gpu_storage->query_batch_lens != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->query_batch_lens));
 		if (gpu_storage->target_batch_lens != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->target_batch_lens));
 
+		if (gpu_storage->seed_scores != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->seed_scores));
+
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage->query_batch_lens), gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_lens), gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage->query_batch_offsets), gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_offsets), gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
+
+		CHECKCUDAERROR(cudaMalloc(&(gpu_storage->seed_scores), gpu_storage->gpu_max_n_alns * sizeof(uint32_t)));
 
 		gasal_res_destroy_device(gpu_storage->device_res, gpu_storage->device_cpy);
 		gpu_storage->device_cpy = gasal_res_new_device_cpy(gpu_storage->gpu_max_n_alns, params);
@@ -212,7 +216,25 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
     CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->query_batch_lens, gpu_storage->host_query_batch_lens, actual_n_alns * sizeof(uint32_t), cudaMemcpyHostToDevice, gpu_storage->str));
     CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->target_batch_lens, gpu_storage->host_target_batch_lens, actual_n_alns * sizeof(uint32_t), cudaMemcpyHostToDevice,  gpu_storage->str));
     CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->query_batch_offsets, gpu_storage->host_query_batch_offsets, actual_n_alns * sizeof(uint32_t), cudaMemcpyHostToDevice,  gpu_storage->str));
-    CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->target_batch_offsets, gpu_storage->host_target_batch_offsets, actual_n_alns * sizeof(uint32_t), cudaMemcpyHostToDevice,  gpu_storage->str));
+	CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->target_batch_offsets, gpu_storage->host_target_batch_offsets, actual_n_alns * sizeof(uint32_t), cudaMemcpyHostToDevice,  gpu_storage->str));
+	
+	// if needed copy seed scores
+	if (params->algo == KSW)
+	{
+		if (gpu_storage->seed_scores == NULL)
+		{
+			fprintf(stderr, "seed_scores == NULL\n");
+			
+		}
+		if (gpu_storage->host_seed_scores == NULL)
+		{
+			fprintf(stderr, "host_seed_scores == NULL\n");
+		}
+		if (gpu_storage->seed_scores == NULL || gpu_storage->host_seed_scores == NULL)
+			exit(EXIT_FAILURE);
+
+		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->seed_scores, gpu_storage->host_seed_scores, actual_n_alns * sizeof(uint32_t), cudaMemcpyHostToDevice, gpu_storage->str));
+	}
     //--------------------------------------------------------------------------------------------------------------------------
 
 	//----------------------launch copying of sequence operations (reverse/complement) from CPU to GPU--------------------------
