@@ -16,7 +16,7 @@ void* cudaHostRealloc(void *source, int new_size, int old_size)
 		exit(EXIT_FAILURE);
 	}
 	CHECKCUDAERROR(cudaHostAlloc(&destination, new_size * sizeof(T), cudaHostAllocMapped));
-	fprintf(stderr, "\ndest=%p\tsrc=%p", destination, source);
+	//fprintf(stderr, "\ndest=%p\tsrc=%p", destination, source);
 	CHECKCUDAERROR(cudaMemcpy(destination, source, old_size * sizeof(T), cudaMemcpyHostToHost));
 	CHECKCUDAERROR(cudaFreeHost(source));
 	return destination;
@@ -43,15 +43,15 @@ void gasal_host_alns_resize(gasal_gpu_storage_t *gpu_storage, int new_max_alns, 
 	
 	if (params->algo == KSW)
 		gpu_storage->host_seed_scores = (uint32_t*) cudaHostRealloc<uint32_t>(gpu_storage->host_seed_scores, new_max_alns, gpu_storage->host_max_n_alns);
-	fprintf(stderr, "_ops done ");
+	//fprintf(stderr, "_ops done ");
 
 	gpu_storage->host_query_batch_lens = (uint32_t*) cudaHostRealloc<uint32_t>((void*) gpu_storage->host_query_batch_lens, new_max_alns, gpu_storage->host_max_n_alns);
 	gpu_storage->host_target_batch_lens = (uint32_t*) cudaHostRealloc<uint32_t>((void*) gpu_storage->host_target_batch_lens, new_max_alns, gpu_storage->host_max_n_alns);
-	fprintf(stderr, "_lens done ");
+	//fprintf(stderr, "_lens done ");
 
 	gpu_storage->host_query_batch_offsets = (uint32_t*) cudaHostRealloc<uint32_t>((void*) gpu_storage->host_query_batch_offsets, new_max_alns, gpu_storage->host_max_n_alns);
 	gpu_storage->host_target_batch_offsets = (uint32_t*) cudaHostRealloc<uint32_t>((void*) gpu_storage->host_target_batch_offsets, new_max_alns, gpu_storage->host_max_n_alns);
-	fprintf(stderr, "_offsets done ");
+	//fprintf(stderr, "_offsets done ");
 	
 	gasal_res_destroy_host(gpu_storage->host_res);
 	gpu_storage->host_res = gasal_res_new_host(new_max_alns, params);
@@ -61,11 +61,11 @@ void gasal_host_alns_resize(gasal_gpu_storage_t *gpu_storage, int new_max_alns, 
 		gasal_res_destroy_host(gpu_storage->host_res_second);
 		gpu_storage->host_res_second = gasal_res_new_host(new_max_alns, params);
 	}
-	fprintf(stderr, "_res done ");
+	//fprintf(stderr, "_res done ");
 
 	gpu_storage->host_max_n_alns = new_max_alns;
 	//gpu_storage->gpu_max_n_alns = gpu_max_n_alns;
-	fprintf(stderr, "... done.\n");
+	fprintf(stderr, " done. This can harm performance.\n");
 }
 
 // operation (Reverse/complement) filler.
