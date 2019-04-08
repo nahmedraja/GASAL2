@@ -1,7 +1,7 @@
 CUDA_LD_LIBRARY=/usr/local/cuda-10.0//targets/x86_64-linux/lib
 ANALYSIS_FILENAME=analysis
 # prefix1 can be optirun in case you need to run it from an optimus-enabled laptop.
-PREFIX1=
+PREFIX1=valgrind
 #i prefix2 can be nvprof. use preferably the following : nvprof --profile-api-trace none -s -f -o /tmp/.nvprof/$(ANALYSIS_FILENAME).nvprof
 PREFIX2= 
 #suffix1 and 2 can be an output file.

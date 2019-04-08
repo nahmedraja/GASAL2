@@ -236,8 +236,8 @@ int main(int argc, char **argv) {
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE ,
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
-						GPU_BATCH_SIZE, // maximum number of alignments is bigger on target than on query side.
-						GPU_BATCH_SIZE, 
+						GPU_BATCH_SIZE/3, // maximum number of alignments is bigger on target than on query side.
+						GPU_BATCH_SIZE/3, 
 						args);
 
 	}
@@ -288,7 +288,15 @@ int main(int argc, char **argv) {
 				//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
 
 
-				for (int i = curr_idx; seqs_done < n_seqs && j < (GPU_BATCH_SIZE); i++, j++, seqs_done++) {
+				for (int i = curr_idx; seqs_done < n_seqs && j < (GPU_BATCH_SIZE); i++, j++, seqs_done++) 
+				{
+
+					gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->current_n_alns ++ ;
+
+					if(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->current_n_alns >= gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->host_max_n_alns)
+					{
+						gasal_host_alns_resize(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->host_max_n_alns * 2, args);
+					}
 
 					(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
 					(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;

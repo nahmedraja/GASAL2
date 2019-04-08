@@ -129,6 +129,7 @@ typedef struct {
 	
 	uint32_t gpu_max_n_alns;
 	uint32_t host_max_n_alns;
+	uint32_t current_n_alns;
 	cudaStream_t str;
 	int is_free;
 	int id; //this can be useful in cases where a gasal_gpu_storage only contains PARTS of an alignment (like a seed-extension...), to gather results.

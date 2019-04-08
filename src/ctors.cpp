@@ -104,62 +104,9 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 		gpu_storage_vec->a[i].gpu_max_query_batch_bytes = gpu_max_query_batch_bytes;
 		gpu_storage_vec->a[i].gpu_max_target_batch_bytes = gpu_max_target_batch_bytes;
 		gpu_storage_vec->a[i].gpu_max_n_alns = gpu_max_n_alns;
+		gpu_storage_vec->a[i].current_n_alns = 0;
 	}
 }
-
-
-void gasal_gpu_mem_alloc(gasal_gpu_storage_t *gpu_storage, int gpu_max_query_batch_bytes, int gpu_max_target_batch_bytes, int gpu_max_n_alns, Parameters *params) {
-
-	cudaError_t err;
-	//	if (gpu_storage->gpu_max_query_batch_bytes % 8) {
-	//		fprintf(stderr, "[GASAL ERROR:] max_query_batch_bytes=%d is not a multiple of 8\n", gpu_storage->gpu_max_query_batch_bytes % 8);
-	//		exit(EXIT_FAILURE);
-	//	}
-	//	if (gpu_storage->gpu_max_target_batch_bytes % 8) {
-	//		fprintf(stderr, "[GASAL ERROR:] max_target_batch_bytes=%d is not a multiple of 8\n", gpu_storage->gpu_max_target_batch_bytes % 8);
-	//		exit(EXIT_FAILURE);
-	//	}
-
-	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->unpacked_query_batch), gpu_max_query_batch_bytes * sizeof(uint8_t)));
-	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->unpacked_target_batch), gpu_max_target_batch_bytes * sizeof(uint8_t)));
-
-	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->packed_query_batch), (gpu_max_query_batch_bytes/8) * sizeof(uint32_t)));
-	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->packed_target_batch), (gpu_max_target_batch_bytes/8) * sizeof(uint32_t)));
-
-	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->query_batch_lens), gpu_max_n_alns * sizeof(uint32_t)));
-	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_lens), gpu_max_n_alns * sizeof(uint32_t)));
-	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->query_batch_offsets), gpu_max_n_alns * sizeof(uint32_t)));
-	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_offsets), gpu_max_n_alns * sizeof(uint32_t)));
-
-	gpu_storage->device_res = gasal_res_new_device(gpu_storage->device_cpy);
-
-	gpu_storage->gpu_max_query_batch_bytes = gpu_max_query_batch_bytes;
-	gpu_storage->gpu_max_target_batch_bytes = gpu_max_target_batch_bytes;
-	gpu_storage->gpu_max_n_alns = gpu_max_n_alns;
-
-}
-
-
-void gasal_gpu_mem_free(gasal_gpu_storage_t *gpu_storage, Parameters *params) {
-
-	cudaError_t err;
-
-	if (gpu_storage->unpacked_query_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->unpacked_query_batch));
-	if (gpu_storage->unpacked_target_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->unpacked_target_batch));
-	if (gpu_storage->packed_query_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->packed_query_batch));
-	if (gpu_storage->packed_target_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->packed_target_batch));
-	if (gpu_storage->query_batch_offsets != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->query_batch_offsets));
-	if (gpu_storage->target_batch_offsets != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->target_batch_offsets));
-	if (gpu_storage->query_batch_lens != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->query_batch_lens));
-	if (gpu_storage->target_batch_lens != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->target_batch_lens));
-	
-	gasal_res_destroy_device(gpu_storage->device_res,gpu_storage->device_cpy);
-	if (params->secondBest)
-	{
-		gasal_res_destroy_device(gpu_storage->device_res_second, gpu_storage->device_cpy_second);
-	}
-}
-
 
 void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec, Parameters *params) {
 
@@ -227,3 +174,58 @@ void gasal_destroy_gpu_storage_v(gasal_gpu_storage_v *gpu_storage_vec) {
 	if(gpu_storage_vec->a != NULL) free(gpu_storage_vec->a);
 }
 
+
+
+
+// Deprecated
+void gasal_gpu_mem_alloc(gasal_gpu_storage_t *gpu_storage, int gpu_max_query_batch_bytes, int gpu_max_target_batch_bytes, int gpu_max_n_alns, Parameters *params) {
+
+	cudaError_t err;
+	//	if (gpu_storage->gpu_max_query_batch_bytes % 8) {
+	//		fprintf(stderr, "[GASAL ERROR:] max_query_batch_bytes=%d is not a multiple of 8\n", gpu_storage->gpu_max_query_batch_bytes % 8);
+	//		exit(EXIT_FAILURE);
+	//	}
+	//	if (gpu_storage->gpu_max_target_batch_bytes % 8) {
+	//		fprintf(stderr, "[GASAL ERROR:] max_target_batch_bytes=%d is not a multiple of 8\n", gpu_storage->gpu_max_target_batch_bytes % 8);
+	//		exit(EXIT_FAILURE);
+	//	}
+
+	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->unpacked_query_batch), gpu_max_query_batch_bytes * sizeof(uint8_t)));
+	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->unpacked_target_batch), gpu_max_target_batch_bytes * sizeof(uint8_t)));
+
+	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->packed_query_batch), (gpu_max_query_batch_bytes/8) * sizeof(uint32_t)));
+	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->packed_target_batch), (gpu_max_target_batch_bytes/8) * sizeof(uint32_t)));
+
+	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->query_batch_lens), gpu_max_n_alns * sizeof(uint32_t)));
+	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_lens), gpu_max_n_alns * sizeof(uint32_t)));
+	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->query_batch_offsets), gpu_max_n_alns * sizeof(uint32_t)));
+	CHECKCUDAERROR(cudaMalloc(&(gpu_storage->target_batch_offsets), gpu_max_n_alns * sizeof(uint32_t)));
+
+	gpu_storage->device_res = gasal_res_new_device(gpu_storage->device_cpy);
+
+	gpu_storage->gpu_max_query_batch_bytes = gpu_max_query_batch_bytes;
+	gpu_storage->gpu_max_target_batch_bytes = gpu_max_target_batch_bytes;
+	gpu_storage->gpu_max_n_alns = gpu_max_n_alns;
+
+}
+
+// Deprecated
+void gasal_gpu_mem_free(gasal_gpu_storage_t *gpu_storage, Parameters *params) {
+
+	cudaError_t err;
+
+	if (gpu_storage->unpacked_query_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->unpacked_query_batch));
+	if (gpu_storage->unpacked_target_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->unpacked_target_batch));
+	if (gpu_storage->packed_query_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->packed_query_batch));
+	if (gpu_storage->packed_target_batch != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->packed_target_batch));
+	if (gpu_storage->query_batch_offsets != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->query_batch_offsets));
+	if (gpu_storage->target_batch_offsets != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->target_batch_offsets));
+	if (gpu_storage->query_batch_lens != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->query_batch_lens));
+	if (gpu_storage->target_batch_lens != NULL) CHECKCUDAERROR(cudaFree(gpu_storage->target_batch_lens));
+	
+	gasal_res_destroy_device(gpu_storage->device_res,gpu_storage->device_cpy);
+	if (params->secondBest)
+	{
+		gasal_res_destroy_device(gpu_storage->device_res_second, gpu_storage->device_cpy_second);
+	}
+}
