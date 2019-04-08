@@ -11,7 +11,7 @@ OBJ_DIR=./obj/
 LIB_DIR=./lib/
 INCLUDE_DIR=./include/
 
-SOURCES=  args_parser.cpp gasal_align.cu host_batch.cpp ctors.cpp interfaces.cpp res.cpp
+SOURCES=  args_parser.cpp host_batch.cpp ctors.cpp interfaces.cpp res.cpp gasal_align.cu 
 LOBJS=$(patsubst %,%o,$(SOURCES))
 
 LOBJS_PATH=$(addprefix $(OBJ_DIR),$(LOBJS))
