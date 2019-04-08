@@ -1,6 +1,7 @@
 #include "gasal.h"
+#include "args_parser.h"
 #include "interfaces.h"
-
+#include "res.h"
 
 
 // Function for general resizing
@@ -14,8 +15,56 @@ void cudaHostRealloc(void *destination, void *source, int new_size, int old_size
 	CHECKCUDAERROR(cudaHostAlloc(&destination, new_size, cudaHostAllocDefault));
 	CHECKCUDAERROR(cudaMemcpy(&destination, &source, old_size, cudaMemcpyHostToHost));
 	cudaFreeHost(source);
+	source = destination;
 	return;
 };
+
+// Realloc new fields when more alignments are added. 
+void gasal_host_alns_resize(gasal_gpu_storage_t *gpu_storage, int new_max_alns, Parameters *params)
+{
+	/*  // Don't reallocate the extensible batches. They're extensible.
+		gpu_storage->extensible_host_unpacked_query_batch = gasal_host_batch_new(host_max_query_batch_bytes, 0);
+		gpu_storage->extensible_host_unpacked_target_batch = gasal_host_batch_new(host_max_target_batch_bytes, 0);
+	*/
+	/*  // don't realloc gpu-sided batches as they will be taken care of before aligning.
+		CHECKCUDAERROR(cudaMalloc(&(gpu_storage->unpacked_query_batch), gpu_max_query_batch_bytes * sizeof(uint8_t)));
+		CHECKCUDAERROR(cudaMalloc(&(gpu_storage->unpacked_target_batch), gpu_max_target_batch_bytes * sizeof(uint8_t)));
+	*/
+
+
+	// don't care about realloc'ing gpu-sided fields as they will be taken care of before aligning.
+	uint32_t *host_seed_scores = NULL;
+	uint8_t *host_query_op = NULL;
+	uint8_t *host_target_op = NULL;
+	uint32_t *host_query_batch_offsets = NULL;
+	uint32_t *host_target_batch_offsets = NULL;
+	uint32_t *host_query_batch_lens = NULL;
+	uint32_t *host_target_batch_lens = NULL;
+
+
+	cudaHostRealloc((void*) host_query_op, (void*) gpu_storage->host_query_op, new_max_alns, gpu_storage->host_max_n_alns);
+	cudaHostRealloc((void*) host_target_op, (void*) gpu_storage->host_target_op, new_max_alns, gpu_storage->host_max_n_alns);
+	
+	if (params->algo == KSW)
+		cudaHostRealloc((void*) host_seed_scores, (void*) gpu_storage->host_seed_scores, new_max_alns, gpu_storage->host_max_n_alns);
+
+	cudaHostRealloc((void*) host_query_batch_lens, (void*) gpu_storage->host_query_batch_lens, new_max_alns, gpu_storage->host_max_n_alns);
+	cudaHostRealloc((void*) host_target_batch_lens, (void*) gpu_storage->host_target_batch_lens, new_max_alns, gpu_storage->host_max_n_alns);
+	cudaHostRealloc((void*) host_query_batch_offsets, (void*) gpu_storage->host_query_batch_offsets, new_max_alns, gpu_storage->host_max_n_alns);
+	cudaHostRealloc((void*) host_target_batch_offsets, (void*) gpu_storage->host_target_batch_offsets, new_max_alns, gpu_storage->host_max_n_alns);
+	
+	gasal_res_destroy_host(gpu_storage->host_res);
+	gpu_storage->host_res = gasal_res_new_host(new_max_alns, params);
+	
+	if (params->secondBest)
+	{	
+		gasal_res_destroy_host(gpu_storage->host_res_second);
+		gpu_storage->host_res_second = gasal_res_new_host(new_max_alns, params);
+	}
+
+	gpu_storage->host_max_n_alns = new_max_alns;
+	//gpu_storage->gpu_max_n_alns = gpu_max_n_alns;
+}
 
 // operation (Reverse/complement) filler.
 void gasal_op_fill(gasal_gpu_storage_t *gpu_storage_t, uint8_t *data, uint32_t nbr_seqs_in_stream, data_source SRC)
