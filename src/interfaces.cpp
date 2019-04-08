@@ -8,15 +8,14 @@
 template <typename T>
 void cudaHostRealloc(void *destination, void *source, int new_size, int old_size) 
 {
-	fprintf(stderr, "dest=%x\tsrc=%x\t", (unsigned int) destination, (unsigned int) source);
 	cudaError_t err;
 	if (new_size < old_size)
 	{
 		fprintf(stderr, "[GASAL ERROR] cudoHostRealloc: invalid sizes. New size < old size (%d < %d)", new_size, old_size);
 		exit(EXIT_FAILURE);
 	}
-	CHECKCUDAERROR(cudaHostAlloc(&destination, new_size, cudaHostAllocMapped));
-	CHECKCUDAERROR(cudaMemcpy(&destination, &source, old_size * sizeof(T), cudaMemcpyHostToHost));
+	CHECKCUDAERROR(cudaHostAlloc(&destination, new_size * sizeof(T), cudaHostAllocMapped));
+	CHECKCUDAERROR(cudaMemcpy(destination, source, old_size * sizeof(T), cudaMemcpyHostToHost));
 	CHECKCUDAERROR(cudaFreeHost(source));
 	source = destination;
 	return;
@@ -51,11 +50,13 @@ void gasal_host_alns_resize(gasal_gpu_storage_t *gpu_storage, int new_max_alns, 
 	
 	if (params->algo == KSW)
 		cudaHostRealloc<uint32_t>((void*) host_seed_scores, (void*) gpu_storage->host_seed_scores, new_max_alns, gpu_storage->host_max_n_alns);
-
+	fprintf(stderr, "_ops done ");
 	cudaHostRealloc<uint32_t>((void*) host_query_batch_lens, (void*) gpu_storage->host_query_batch_lens, new_max_alns, gpu_storage->host_max_n_alns);
 	cudaHostRealloc<uint32_t>((void*) host_target_batch_lens, (void*) gpu_storage->host_target_batch_lens, new_max_alns, gpu_storage->host_max_n_alns);
+	fprintf(stderr, "_lens done");
 	cudaHostRealloc<uint32_t>((void*) host_query_batch_offsets, (void*) gpu_storage->host_query_batch_offsets, new_max_alns, gpu_storage->host_max_n_alns);
 	cudaHostRealloc<uint32_t>((void*) host_target_batch_offsets, (void*) gpu_storage->host_target_batch_offsets, new_max_alns, gpu_storage->host_max_n_alns);
+	fprintf(stderr, "_offsets done");
 	
 	gasal_res_destroy_host(gpu_storage->host_res);
 	gpu_storage->host_res = gasal_res_new_host(new_max_alns, params);
@@ -65,10 +66,11 @@ void gasal_host_alns_resize(gasal_gpu_storage_t *gpu_storage, int new_max_alns, 
 		gasal_res_destroy_host(gpu_storage->host_res_second);
 		gpu_storage->host_res_second = gasal_res_new_host(new_max_alns, params);
 	}
+	fprintf(stderr, "_res done");
 
 	gpu_storage->host_max_n_alns = new_max_alns;
 	//gpu_storage->gpu_max_n_alns = gpu_max_n_alns;
-	fprintf(stderr, "done.\n");
+	fprintf(stderr, "... done.\n");
 }
 
 // operation (Reverse/complement) filler.
