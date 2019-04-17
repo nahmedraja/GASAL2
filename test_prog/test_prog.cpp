@@ -15,7 +15,7 @@
 
 #define NB_STREAMS 2
 
-#define GPU_BATCH_SIZE (262000)
+#define GPU_BATCH_SIZE (262144)
 //#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
 
 #define DEBUG
@@ -236,8 +236,8 @@ int main(int argc, char **argv) {
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE ,
 						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
-						GPU_BATCH_SIZE/3, // maximum number of alignments is bigger on target than on query side.
-						GPU_BATCH_SIZE/3, 
+						GPU_BATCH_SIZE, // maximum number of alignments is bigger on target than on query side.
+						GPU_BATCH_SIZE, 
 						args);
 
 	}
@@ -293,7 +293,7 @@ int main(int argc, char **argv) {
 
 					gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->current_n_alns ++ ;
 
-					if(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->current_n_alns >= gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->host_max_n_alns)
+					if(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->current_n_alns > gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->host_max_n_alns)
 					{
 						gasal_host_alns_resize(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->host_max_n_alns * 2, args);
 					}
