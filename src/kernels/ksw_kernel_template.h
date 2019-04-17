@@ -115,9 +115,9 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
 	for (target_tile_id = 0; target_tile_id < target_batch_regs; target_tile_id++) //target_batch sequence in rows
     {
         for (m = 0; m < 9; m++, u++) {
-            h[m] = max(seed_score[tid] -(_cudaGapO + (_cudaGapExtend*(u))), 0); 
+            h[m] = max(seed_score[tid] -(_cudaGapO + (_cudaGapExtend*(u))), 0);
             f[m] = 0;
-            p[m] = max(seed_score[tid] -(_cudaGapO + (_cudaGapExtend*(u))), 0); 
+            p[m] = max(seed_score[tid] -(_cudaGapO + (_cudaGapExtend*(u))), 0);
         }
 		for (query_tile_id = 0; query_tile_id < query_batch_regs; query_tile_id++) //query_batch sequence in columns
         {
@@ -127,7 +127,6 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
                 HD = global[query_tile_id * TILE_SIDE + query_base_id];
                 h[0] = HD.x;
                 e = HD.y;
-                register int32_t prev_hm_diff = h[0] - _cudaGapOE;
 
                 for (target_base_id = 0; target_base_id < TILE_SIDE; target_base_id++)
                 {
@@ -136,26 +135,28 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
                     uint32_t rbase = (rpac >> (32 - (query_base_id+1)*4 )) & 0x0F;//get a base from query_batch sequence
                     uint32_t gbase = (gpac >> (32 - (target_base_id+1)*4 )) & 0x0F; /* get a base from target_batch sequence */ 
 
+                    /*
+                    h[target_base_id] = max(seed_score[tid] -(_cudaGapO + (_cudaGapExtend*(target_tile_id * TILE_SIDE + target_base_id))), 0); 
+                    f[target_base_id] = 0;
+                    p[target_base_id] = max(seed_score[tid] -(_cudaGapO + (_cudaGapExtend*(target_tile_id * TILE_SIDE + target_base_id))), 0); 
+                    */
 
-                    //--------------compute a tile of 8x8 cells-------------------
-                    DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);/* check equality of rbase and gbase */\
-                    register int32_t curr_hm_diff = h[target_base_id+1] - _cudaGapOE;\
-                    f[target_base_id+1] = max(curr_hm_diff, f[target_base_id+1] - _cudaGapExtend);/* whether to introduce or extend a gap in query_batch sequence */\
-                    curr_hm_diff = p[target_base_id+1] + subScore;/* score if rbase is aligned to gbase */\
-                    curr_hm_diff = max(curr_hm_diff, f[target_base_id+1]);\
-                    curr_hm_diff = max(curr_hm_diff, 0);\
-                    e = max(prev_hm_diff, e - _cudaGapExtend);/* whether to introduce or extend a gap in target_batch sequence */\
-                    curr_hm_diff = max(curr_hm_diff, e);\
-                    maxXY_y = (maxHH < curr_hm_diff) ? target_tile_id * TILE_SIDE + target_base_id : maxXY_y; \
-                    maxHH = (maxHH < curr_hm_diff) ? curr_hm_diff : maxHH;\
-                    h[target_base_id+1] = curr_hm_diff;\
-                    p[target_base_id+1] = prev_hm_diff + _cudaGapOE;\
-                    prev_hm_diff=curr_hm_diff - _cudaGapOE;
+                    DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);/* check equality of rbase and gbase */ \
+                    f[target_base_id+1] = max(h[target_base_id+1]- _cudaGapOE, f[target_base_id+1] - _cudaGapExtend);/* whether to introduce or extend a gap in query_batch sequence */ \
+                    h[target_base_id+1] = p[target_base_id+1] + subScore; /*score if rbase is aligned to gbase*/ \
+                    h[target_base_id+1] = max(h[target_base_id+1], f[target_base_id+1]); \
+                    h[target_base_id+1] = max(h[target_base_id+1], 0); \
+                    e = max(h[target_base_id] - _cudaGapOE, e - _cudaGapExtend);/*whether to introduce or extend a gap in target_batch sequence */\
+                    h[target_base_id+1] = max(h[target_base_id+1], e); \
+                    maxXY_y = (maxHH < h[target_base_id+1]) ? (target_tile_id * TILE_SIDE + target_base_id) : maxXY_y; \
+                    maxHH = (maxHH < h[target_base_id+1]) ? h[target_base_id+1] : maxHH; \
+                    p[target_base_id+1] = h[target_base_id];
+
                     if (SAMETYPE(B, Int2Type<TRUE>))
                     {
-                        bool override_second = (maxHH_second < curr_hm_diff) && (maxHH > curr_hm_diff);
+                        bool override_second = (maxHH_second < h[target_base_id+1]) && (maxHH > h[target_base_id+1]);
                         maxXY_y_second = (override_second) ? target_tile_id * TILE_SIDE + target_base_id : maxXY_y_second; 
-                        maxHH_second = (override_second) ? curr_hm_diff : maxHH_second;
+                        maxHH_second = (override_second) ? h[target_base_id+1] : maxHH_second;
                     }
                 }
                 
