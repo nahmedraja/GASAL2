@@ -109,6 +109,8 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
     */
     // bwa does: for (j = beg; LIKELY(j < end); ++j)
     int32_t u = 0;
+	h[0] = seed_score[tid];
+	p[0] = seed_score[tid];
 	for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
 		for (m = 1; m < 9; m++, u++) {
 			h[m] = max(seed_score[tid] -(_cudaGapO + (_cudaGapExtend*(u))), 0); 
