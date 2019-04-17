@@ -19,7 +19,7 @@
 
 
 
-#define CIGAR_MATRIX_SIDE (5)
+#define TILE_SIDE (8)
 
 /* typename meaning : 
     - B is for computing the Second Best Score. Its values are on enum FALSE(0)/TRUE(1).
@@ -32,7 +32,7 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
 
     const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
 	if (tid >= n_tasks) return;
-	int32_t i, j, k, m, l;
+	int32_t i, m;
 	int32_t e;
 
     int32_t maxHH = 0; //initialize the maximum score to zero
@@ -109,70 +109,69 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
     */
     // bwa does: for (j = beg; LIKELY(j < end); ++j)
     int32_t u = 0;
-	for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows
-		for (m = 1; m < 9; m++, u++) {
-			h[m] = max(seed_score[tid] -(_cudaGapO + (_cudaGapExtend*(u))), 0); 
-			f[m] = 0; 
-			p[m] = max(seed_score[tid] -(_cudaGapO + (_cudaGapExtend*(u))), 0); 
-		}
-
-		register uint32_t gpac =packed_target_batch[packed_target_batch_idx + i];//load 8 packed bases from target_batch sequence
-		gidx = i << 3;
-		ridx = 0;
-		
-		for (j = 0; j < query_batch_regs; j+=1) { //query_batch sequence in columns
-			register uint32_t rpac =packed_query_batch[packed_query_batch_idx + j];//load 8 bases from query_batch sequence
-
-            //--------------compute a tile of 8x8 cells-------------------
-            for (k = 28; k >= 0; k -= 4) {
-                uint32_t rbase = (rpac >> k) & 15;//get a base from query_batch sequence
+    register uint32_t gpac;
+    register uint32_t rpac;
+    int target_tile_id, query_tile_id, query_base_id, target_base_id;
+	for (target_tile_id = 0; target_tile_id < target_batch_regs; target_tile_id++) //target_batch sequence in rows
+    {
+        for (m = 0; m < 9; m++, u++) {
+            h[m] = max(seed_score[tid] -(_cudaGapO + (_cudaGapExtend*(u))), 0); 
+            f[m] = 0;
+            p[m] = max(seed_score[tid] -(_cudaGapO + (_cudaGapExtend*(u))), 0); 
+        }
+		for (query_tile_id = 0; query_tile_id < query_batch_regs; query_tile_id++) //query_batch sequence in columns
+        {
+            for (query_base_id = 0; query_base_id < TILE_SIDE; query_base_id++)
+            {
                 //-----load intermediate values--------------
-                HD = global[ridx];
+                HD = global[query_tile_id * TILE_SIDE + query_base_id];
                 h[0] = HD.x;
                 e = HD.y;
-
                 register int32_t prev_hm_diff = h[0] - _cudaGapOE;
-                #pragma unroll 8
-                for (l = 28, m = 1; m < 9; l -= 4, m++) {
-                    uint32_t gbase = (gpac >> l) & 15; /* get a base from target_batch sequence */ 
-                    DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);/* check equality of rbase and gbase */
-                    register int32_t curr_hm_diff = h[m] - _cudaGapOE;
-                    f[m] = max(curr_hm_diff, f[m] - _cudaGapExtend);/* whether to introduce or extend a gap in query_batch sequence */
-                    curr_hm_diff = p[m] + subScore;/* score if rbase is aligned to gbase */
-                    curr_hm_diff = max(curr_hm_diff, f[m]);
-                    curr_hm_diff = max(curr_hm_diff, 0);
-                    e = max(prev_hm_diff, e - _cudaGapExtend);/* whether to introduce or extend a gap in target_batch sequence */
-                    curr_hm_diff = max(curr_hm_diff, e);
-                    maxXY_y = (maxHH < curr_hm_diff) ? gidx + (m-1) : maxXY_y; 
-                    maxHH = (maxHH < curr_hm_diff) ? curr_hm_diff : maxHH;
-                    h[m] = curr_hm_diff;
-                    p[m] = prev_hm_diff + _cudaGapOE;
+
+                for (target_base_id = 0; target_base_id < TILE_SIDE; target_base_id++)
+                {
+        			rpac = packed_query_batch[packed_query_batch_idx + query_tile_id];//load 8 bases from query_batch sequence
+		            gpac = packed_target_batch[packed_target_batch_idx + target_tile_id];//load 8 packed bases from target_batch sequence
+                    uint32_t rbase = (rpac >> (32 - (query_base_id+1)*4 )) & 0x0F;//get a base from query_batch sequence
+                    uint32_t gbase = (gpac >> (32 - (target_base_id+1)*4 )) & 0x0F; /* get a base from target_batch sequence */ 
+
+
+                    //--------------compute a tile of 8x8 cells-------------------
+                    DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);/* check equality of rbase and gbase */\
+                    register int32_t curr_hm_diff = h[target_base_id+1] - _cudaGapOE;\
+                    f[target_base_id+1] = max(curr_hm_diff, f[target_base_id+1] - _cudaGapExtend);/* whether to introduce or extend a gap in query_batch sequence */\
+                    curr_hm_diff = p[target_base_id+1] + subScore;/* score if rbase is aligned to gbase */\
+                    curr_hm_diff = max(curr_hm_diff, f[target_base_id+1]);\
+                    curr_hm_diff = max(curr_hm_diff, 0);\
+                    e = max(prev_hm_diff, e - _cudaGapExtend);/* whether to introduce or extend a gap in target_batch sequence */\
+                    curr_hm_diff = max(curr_hm_diff, e);\
+                    maxXY_y = (maxHH < curr_hm_diff) ? target_tile_id * TILE_SIDE + target_base_id : maxXY_y; \
+                    maxHH = (maxHH < curr_hm_diff) ? curr_hm_diff : maxHH;\
+                    h[target_base_id+1] = curr_hm_diff;\
+                    p[target_base_id+1] = prev_hm_diff + _cudaGapOE;\
                     prev_hm_diff=curr_hm_diff - _cudaGapOE;
                     if (SAMETYPE(B, Int2Type<TRUE>))
                     {
                         bool override_second = (maxHH_second < curr_hm_diff) && (maxHH > curr_hm_diff);
-                        maxXY_y_second = (override_second) ? gidx + (m-1) : maxXY_y_second; 
+                        maxXY_y_second = (override_second) ? target_tile_id * TILE_SIDE + target_base_id : maxXY_y_second; 
                         maxHH_second = (override_second) ? curr_hm_diff : maxHH_second;
                     }
                 }
-
+                
                 //----------save intermediate values------------
-                HD.x = h[m-1];
+                HD.x = h[TILE_SIDE];
                 HD.y = e;
-                global[ridx] = HD;
+                global[query_tile_id * TILE_SIDE + query_base_id] = HD;
                 //---------------------------------------------
             
-
-                maxXY_x = (prev_maxHH < maxHH) ? ridx : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
-
+                maxXY_x = (prev_maxHH < maxHH) ? (query_tile_id * TILE_SIDE + query_base_id) : maxXY_x;//end position on query_batch sequence corresponding to current maximum score
                 if (SAMETYPE(B, Int2Type<TRUE>))
                 {
-                    maxXY_x_second = (prev_maxHH_second < maxHH) ? ridx : maxXY_x_second;
+                    maxXY_x_second = (prev_maxHH_second < maxHH) ? (query_tile_id * TILE_SIDE + query_base_id) : maxXY_x_second;
                     prev_maxHH_second = max(maxHH_second, prev_maxHH_second);
                 }
                 prev_maxHH = max(maxHH, prev_maxHH);
-                ridx++;
-                //-------------------------------------------------------
 
             } // end for (compute tile)
         } // end for (pack of 8 bases for query)
@@ -180,7 +179,7 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
         /* This is defining from where to start the next row and where to end the computation of next row
          it skips some of the cells in the beginning and in the end of the row
         */
-       /*
+        /*
         for (j = beg; j < end && eh[j].h == 0 && eh[j].e == 0; ++j)
             ;
         beg = j;
@@ -188,7 +187,6 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
             ;
         end = j + 2 < ref_len ? j + 2 : query_len;
         */
-
 	} // end for (pack of 8 bases for target)
 
 	device_res->aln_score[tid] = maxHH;//copy the max score to the output array in the GPU mem
@@ -202,8 +200,6 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
         device_res_second->target_batch_end[tid] = maxXY_y_second;
     }
 
-
-    // 
     return;
 
 
