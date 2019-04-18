@@ -206,10 +206,10 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
                 h_val = HD.x;
                 e_val = HD.y;
             }
-            if (query_end + 2 < ref_len_padded)
+            if (query_end + 2 < ref_len)
                 query_end = query_end + 2;
             else
-                query_end = read_len_padded;
+                query_end = read_len;
             
 
             // disable bound check for testing
