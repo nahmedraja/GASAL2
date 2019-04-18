@@ -64,36 +64,14 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
 	uint32_t ref_len = target_batch_lens[tid];
 	uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
 	uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
+    uint32_t read_len_padded = query_batch_regs << 3;
+    uint32_t ref_len_padded = target_batch_regs << 3;
 	//-----arrays for saving intermediate values------
 	short2 global[MAX_SEQ_LEN];
 	int32_t h[9];
 	int32_t f[9];
 	int32_t p[9];
 	//--------------------------------------------
-
-
-    /*
-    //CIGAR-related matrix that modifies somewhat the score. It seems like it's fixed.
-    //it is defined by opt->a=1 and opt->b=4.
-    int32_t mat[CIGAR_MATRIX_SIDE * CIGAR_MATRIX_SIDE];
-    int a = 1;
-    int b = 4;
-    //copy-pasted from bwa.c:109
-    int _i, _j, _k;
-    for (_i = _k = 0; _i < CIGAR_MATRIX_SIDE-1; ++_i) {
-        for (_j = 0; _j < CIGAR_MATRIX_SIDE-1; ++_j)
-            mat[_k++] = _i == _j? a : -b;
-        mat[_k++] = -1; // ambiguous base
-    }
-    for (j = 0; j < CIGAR_MATRIX_SIDE; ++j) mat[k++] = -1;
-    
-    // generate the query profile
-    int qp[MAX_SEQ_LEN * CIGAR_MATRIX_SIDE];
-	for (_k = _i = 0; _k < CIGAR_MATRIX_SIDE; ++_k) {
-		const int8_t *p = &mat[k * CIGAR_MATRIX_SIDE];
-		for (_j = 0; _j < read_len; ++_j) qp[i++] = p[query[j]];
-	}
-    */
     
     // copies initialization from ksw "fill the first row", line-by-line
     global[0] = initHD;
@@ -111,7 +89,11 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
     int32_t u = 0;
     register uint32_t gpac;
     register uint32_t rpac;
-    int target_tile_id, query_tile_id, query_base_id, target_base_id;
+    int target_tile_id, query_tile_id, query_base_id, target_base_id; 
+    int query_begin = 0;
+    int query_end = read_len_padded; // these are the values to fix the beginning and end of the column of calculation
+    int query_tile_bound, query_base_bound;
+
     h[0] = seed_score[tid];
     p[0] = seed_score[tid];
 	for (target_tile_id = 0; target_tile_id < target_batch_regs; target_tile_id++) //target_batch sequence in rows
@@ -123,9 +105,21 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
         }
         for (target_base_id = 0; target_base_id < TILE_SIDE; target_base_id++)
         {
-            for (query_tile_id = 0; query_tile_id < query_batch_regs; query_tile_id++) //query_batch sequence in columns
+            query_tile_id = (query_begin / TILE_SIDE);
+            query_tile_bound = (query_end / TILE_SIDE);
+            for (/*query_tile_id initialized*/; query_tile_id < query_tile_bound; query_tile_id++) //query_batch sequence in columns
             {
-                for (query_base_id = 0; query_base_id < TILE_SIDE; query_base_id++)
+                if (query_tile_id == (query_begin / TILE_SIDE))
+                    query_base_id = query_begin % TILE_SIDE;
+                else
+                    query_base_id = 0;
+
+                if (query_tile_id == query_tile_bound - 1)
+                    query_base_bound = (query_end % TILE_SIDE) + ((query_end % TILE_SIDE) == 0)*TILE_SIDE;
+                else
+                    query_base_bound = TILE_SIDE;
+                    
+                for (/*query_base_id initialized*/; query_base_id < query_base_bound; query_base_id++)
                 {
         			rpac = packed_query_batch[packed_query_batch_idx + query_tile_id];//load 8 bases from query_batch sequence
 		            gpac = packed_target_batch[packed_target_batch_idx + target_tile_id];//load 8 packed bases from target_batch sequence
@@ -175,21 +169,57 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
                     }
                     prev_maxHH = max(maxHH, prev_maxHH);
                 }
-            } // end for (compute tile)
+            } // end for (compute query line)
+            /* This is defining from where to start the next row and where to end the computation of next row
+                it skips some of the cells in the beginning and in the end of the row
+            */
+            /*
+            for (j = beg; j < end && eh[j].h == 0 && eh[j].e == 0; ++j)
+                ;
+            beg = j;
+            for (j = end; j >= beg && eh[j].h == 0 && eh[j].e == 0; --j)
+                ;
+            end = j + 2 < ref_len ? j + 2 : query_len;
+            */
+             
+            global[query_end].x = h[target_base_id+1]; //eh[end].h = h1;
+            global[query_end].y = 0; //eh[end].e = 0;
+            int h_val;
+            int e_val;
+            HD = global[query_begin];
+            h_val = HD.x;
+            e_val = HD.y;
+            while (query_begin < query_end && h_val == 0 && e_val == 0)
+            {
+                query_begin++;
+                HD = global[query_begin];
+                h_val = HD.x;
+                e_val = HD.y;
+            }
+            HD = global[query_end];
+            h_val = HD.x;
+            e_val = HD.y;
+            while (query_end >= query_begin && h_val == 0 && e_val == 0)
+            {
+                query_end--;
+                HD = global[query_end];
+                h_val = HD.x;
+                e_val = HD.y;
+            }
+            if (query_end + 2 < ref_len_padded)
+                query_end = query_end + 2;
+            else
+                query_end = read_len_padded;
+            
+
+            // disable bound check for testing
+            //query_begin = 0;
+            //query_end = read_len_padded;
+
         } // end for (pack of 8 bases for query)
 	} // end for (pack of 8 bases for target)
 
-    /* This is defining from where to start the next row and where to end the computation of next row
-        it skips some of the cells in the beginning and in the end of the row
-    */
-    /*
-    for (j = beg; j < end && eh[j].h == 0 && eh[j].e == 0; ++j)
-        ;
-    beg = j;
-    for (j = end; j >= beg && eh[j].h == 0 && eh[j].e == 0; --j)
-        ;
-    end = j + 2 < ref_len ? j + 2 : query_len;
-    */
+
 
 	device_res->aln_score[tid] = maxHH;//copy the max score to the output array in the GPU mem
 	device_res->query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
