@@ -107,6 +107,9 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
         {
             query_tile_id = (query_begin / TILE_SIDE);
             query_tile_bound = (query_end / TILE_SIDE);
+			gpac = packed_target_batch[packed_target_batch_idx + target_tile_id];//load 8 packed bases from target_batch sequence
+			uint32_t gbase = (gpac >> (32 - (target_base_id+1)*4 )) & 0x0F; /* get a base from target_batch sequence */ 
+
             for (/*query_tile_id initialized*/; query_tile_id < query_tile_bound; query_tile_id++) //query_batch sequence in columns
             {
                 if (query_tile_id == (query_begin / TILE_SIDE))
@@ -121,11 +124,10 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
                     
                 for (/*query_base_id initialized*/; query_base_id < query_base_bound; query_base_id++)
                 {
-        			rpac = packed_query_batch[packed_query_batch_idx + query_tile_id];//load 8 bases from query_batch sequence
-		            gpac = packed_target_batch[packed_target_batch_idx + target_tile_id];//load 8 packed bases from target_batch sequence
-                    uint32_t rbase = (rpac >> (32 - (query_base_id+1)*4 )) & 0x0F;//get a base from query_batch sequence
-                    uint32_t gbase = (gpac >> (32 - (target_base_id+1)*4 )) & 0x0F; /* get a base from target_batch sequence */ 
-
+					
+					rpac = packed_query_batch[packed_query_batch_idx + query_tile_id];//load 8 bases from query_batch sequence
+					uint32_t rbase = (rpac >> (32 - (query_base_id+1)*4 )) & 0x0F;//get a base from query_batch sequence
+                    
                     /*
                         h[target_base_id+1] = max(seed_score[tid] -(_cudaGapO + (_cudaGapExtend*(target_tile_id * TILE_SIDE + target_base_id))), 0); 
                         f[target_base_id+1] = 0;
