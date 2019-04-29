@@ -54,7 +54,6 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
 
 	int32_t subScore;
 
-	int32_t ridx, gidx;
 	short2 HD;
 	short2 initHD = make_short2(seed_score[tid], 0); //copies score from seed.
 	
@@ -65,7 +64,7 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
 	uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
 	uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
     uint32_t read_len_padded = query_batch_regs << 3;
-    uint32_t ref_len_padded = target_batch_regs << 3;
+    //uint32_t ref_len_padded = target_batch_regs << 3; //unused
 	//-----arrays for saving intermediate values------
 	short2 global[MAX_SEQ_LEN];
 	int32_t h[9];
@@ -103,29 +102,33 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
             f[m] = 0;
             p[m] = max(seed_score[tid] -(_cudaGapO + (_cudaGapExtend*(u))), 0);
         }
+
         for (target_base_id = 0; target_base_id < TILE_SIDE; target_base_id++)
         {
-            query_tile_id = (query_begin / TILE_SIDE);
-            query_tile_bound = (query_end / TILE_SIDE);
 			gpac = packed_target_batch[packed_target_batch_idx + target_tile_id];//load 8 packed bases from target_batch sequence
 			uint32_t gbase = (gpac >> (32 - (target_base_id+1)*4 )) & 0x0F; /* get a base from target_batch sequence */ 
 
+			query_tile_id = (query_begin / TILE_SIDE);
+			query_tile_bound = (query_end / TILE_SIDE) - (query_end % TILE_SIDE == 0? 1 : 0);
+
             for (/*query_tile_id initialized*/; query_tile_id < query_tile_bound; query_tile_id++) //query_batch sequence in columns
             {
-                if (query_tile_id == (query_begin / TILE_SIDE))
-                    query_base_id = query_begin % TILE_SIDE;
-                else
-                    query_base_id = 0;
 
-                if (query_tile_id == query_tile_bound - 1)
-                    query_base_bound = (query_end % TILE_SIDE) + ((query_end % TILE_SIDE) == 0)*TILE_SIDE;
-                else
-                    query_base_bound = TILE_SIDE;
-                    
+				if (query_tile_id == (query_begin / TILE_SIDE))
+					query_base_id = query_begin % TILE_SIDE;
+				else
+					query_base_id = 0;
+
+				if (query_tile_id == query_tile_bound - 1)
+					query_base_bound = (query_end % TILE_SIDE) + ((query_end % TILE_SIDE) == 0)*TILE_SIDE;
+				else
+					query_base_bound = TILE_SIDE;
+
+				rpac = packed_query_batch[packed_query_batch_idx + query_tile_id];//load 8 bases from query_batch sequence
+
                 for (/*query_base_id initialized*/; query_base_id < query_base_bound; query_base_id++)
                 {
 					
-					rpac = packed_query_batch[packed_query_batch_idx + query_tile_id];//load 8 bases from query_batch sequence
 					uint32_t rbase = (rpac >> (32 - (query_base_id+1)*4 )) & 0x0F;//get a base from query_batch sequence
                     
                     /*
@@ -170,7 +173,7 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
                         prev_maxHH_second = max(maxHH_second, prev_maxHH_second);
                     }
                     prev_maxHH = max(maxHH, prev_maxHH);
-                }
+                } // end fo( compute query tile)
             } // end for (compute query line)
             /* This is defining from where to start the next row and where to end the computation of next row
                 it skips some of the cells in the beginning and in the end of the row
@@ -211,12 +214,12 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
             if (query_end + 2 < ref_len)
                 query_end = query_end + 2;
             else
-                query_end = read_len;
+                query_end = read_len_padded;
             
 
             // disable bound check for testing
             //query_begin = 0;
-            //query_end = read_len_padded;
+            query_end = read_len_padded;
 
         } // end for (pack of 8 bases for query)
 	} // end for (pack of 8 bases for target)
