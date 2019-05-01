@@ -42,11 +42,11 @@ endif
 
 ifeq ($(N_PENALTY),)
 %.cuo: %.cu
-	$(NVCC) -c -g -O3 -std=c++11 -Xcompiler -Wall,-DMAX_SEQ_LEN=$(MAX_SEQ_LEN),-DN_CODE=$(N_CODE) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
+	$(NVCC) -c -g -G -O3 -std=c++11 -Xcompiler -Wall,-DMAX_SEQ_LEN=$(MAX_SEQ_LEN),-DN_CODE=$(N_CODE) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
 	
 else
 %.cuo: %.cu
-	$(NVCC) -c -g -O3 -std=c++11 -Xcompiler -Wall,-DMAX_SEQ_LEN=$(MAX_SEQ_LEN),-DN_CODE=$(N_CODE),-DN_PENALTY=$(N_PENALTY) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
+	$(NVCC) -c -g -G -O3 -std=c++11 -Xcompiler -Wall,-DMAX_SEQ_LEN=$(MAX_SEQ_LEN),-DN_CODE=$(N_CODE),-DN_PENALTY=$(N_PENALTY) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
 	
 endif
 

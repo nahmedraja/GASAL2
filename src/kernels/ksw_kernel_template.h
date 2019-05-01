@@ -1,6 +1,7 @@
 #ifndef __KSW_KERNEL_TEMPLATE__
 #define __KSW_KERNEL_TEMPLATE__
 
+#include <stdio.h>
 
 // This old core provides the same result as the currently LOCAL core, but lacks some optimization. Left for historical / comparative purposes.
 #define CORE_LOCAL_DEPRECATED_COMPUTE() \
@@ -17,7 +18,7 @@
     p[m] = h[m-1];
 
 
-
+#define PEN_CLIP5 (5)
 
 #define TILE_SIDE (8)
 
@@ -79,20 +80,18 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
         initHD = make_short2(max(initHD.x - _cudaGapExtend, 0) , 0);
         global[i] = initHD;
     }
-    /*
-        // begin / end to skip some stuff. BUT TILES FUCK
-        // So let's forget about it.
-        int beg = 0, end = ref_len;
-    */
+
+
     // bwa does: for (j = beg; LIKELY(j < end); ++j)
     int32_t u = 0;
     register uint32_t gpac;
     register uint32_t rpac;
     int target_tile_id, query_tile_id, query_base_id, target_base_id; 
     int query_begin = 0;
-    int query_end = read_len_padded; // these are the values to fix the beginning and end of the column of calculation
+    int query_end = read_len; // these are the values to fix the beginning and end of the column of calculation
     int query_tile_bound, query_base_bound;
-
+    int global_score = -1;
+    int global_target_end = -1;
     h[0] = seed_score[tid];
     p[0] = seed_score[tid];
 	for (target_tile_id = 0; target_tile_id < target_batch_regs; target_tile_id++) //target_batch sequence in rows
@@ -109,18 +108,17 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
 			uint32_t gbase = (gpac >> (32 - (target_base_id+1)*4 )) & 0x0F; /* get a base from target_batch sequence */ 
 
 			query_tile_id = (query_begin / TILE_SIDE);
-			query_tile_bound = (query_end / TILE_SIDE) - (query_end % TILE_SIDE == 0? 1 : 0);
+			query_tile_bound = (query_end / TILE_SIDE);
 
-            for (/*query_tile_id initialized*/; query_tile_id < query_tile_bound; query_tile_id++) //query_batch sequence in columns
+            for (/*query_tile_id initialized*/; query_tile_id < query_tile_bound; query_tile_id++)
             {
-
 				if (query_tile_id == (query_begin / TILE_SIDE))
 					query_base_id = query_begin % TILE_SIDE;
 				else
 					query_base_id = 0;
 
 				if (query_tile_id == query_tile_bound - 1)
-					query_base_bound = (query_end % TILE_SIDE) + ((query_end % TILE_SIDE) == 0)*TILE_SIDE;
+					query_base_bound = (query_end % TILE_SIDE);
 				else
 					query_base_bound = TILE_SIDE;
 
@@ -128,7 +126,6 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
 
                 for (/*query_base_id initialized*/; query_base_id < query_base_bound; query_base_id++)
                 {
-					
 					uint32_t rbase = (rpac >> (32 - (query_base_id+1)*4 )) & 0x0F;//get a base from query_batch sequence
                     
                     /*
@@ -142,15 +139,17 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
                     h[target_base_id] = HD.x;
                     e = HD.y;
 
-                    DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);/* check equality of rbase and gbase */ \
-                    f[target_base_id+1] = max(h[target_base_id+1]- _cudaGapOE, f[target_base_id+1] - _cudaGapExtend);/* whether to introduce or extend a gap in query_batch sequence */ \
-                    h[target_base_id+1] = p[target_base_id+1] + subScore; /*score if rbase is aligned to gbase*/ \
-                    h[target_base_id+1] = max(h[target_base_id+1], f[target_base_id+1]); \
-                    h[target_base_id+1] = max(h[target_base_id+1], 0); \
-                    e = max(h[target_base_id] - _cudaGapOE, e - _cudaGapExtend);/*whether to introduce or extend a gap in target_batch sequence */\
-                    h[target_base_id+1] = max(h[target_base_id+1], e); \
-                    maxXY_y = (maxHH < h[target_base_id+1]) ? (target_tile_id * TILE_SIDE + target_base_id) : maxXY_y; \
-                    maxHH = (maxHH < h[target_base_id+1]) ? h[target_base_id+1] : maxHH; \
+                    DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);/* check equality of rbase and gbase */ 
+                    f[target_base_id+1] = max(h[target_base_id+1]- _cudaGapOE, f[target_base_id+1] - _cudaGapExtend);/* whether to introduce or extend a gap in query_batch sequence */ 
+                    f[target_base_id+1] = max(f[target_base_id+1], 0); // added ???
+                    h[target_base_id+1] = p[target_base_id+1] + subScore; /*score if rbase is aligned to gbase*/ 
+                    h[target_base_id+1] = max(h[target_base_id+1], f[target_base_id+1]); 
+                    h[target_base_id+1] = max(h[target_base_id+1], 0); 
+                    e = max(h[target_base_id] - _cudaGapOE, e - _cudaGapExtend);/*whether to introduce or extend a gap in target_batch sequence */
+                    e = max(e, 0); // added ???
+                    h[target_base_id+1] = max(h[target_base_id+1], e); 
+                    maxXY_y = (maxHH < h[target_base_id+1]) ? (target_tile_id * TILE_SIDE + target_base_id) : maxXY_y; 
+                    maxHH = (maxHH < h[target_base_id+1]) ? h[target_base_id+1] : maxHH; 
                     p[target_base_id+1] = h[target_base_id];
 
                     if (SAMETYPE(B, Int2Type<TRUE>))
@@ -174,7 +173,16 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
                     }
                     prev_maxHH = max(maxHH, prev_maxHH);
                 } // end fo( compute query tile)
-            } // end for (compute query line)
+            } // end for (compute all query tiles, so the whole query line)
+
+            // store global_score
+            if (query_tile_id * TILE_SIDE + query_base_id >= read_len) 
+            {
+                global_target_end = global_score > h[target_base_id+1] ? global_target_end : target_tile_id*TILE_SIDE + target_base_id;
+                global_score = max(global_score, h[target_base_id+1]);
+            }
+
+
             /* This is defining from where to start the next row and where to end the computation of next row
                 it skips some of the cells in the beginning and in the end of the row
             */
@@ -186,7 +194,7 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
                 ;
             end = j + 2 < ref_len ? j + 2 : query_len;
             */
-             
+
             global[query_end].x = h[target_base_id+1]; //eh[end].h = h1;
             global[query_end].y = 0; //eh[end].e = 0;
             int h_val;
@@ -211,24 +219,32 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
                 h_val = HD.x;
                 e_val = HD.y;
             }
-            if (query_end + 2 < ref_len)
+            if (query_end + 2 < read_len)
                 query_end = query_end + 2;
             else
                 query_end = read_len_padded;
             
-
             // disable bound check for testing
             //query_begin = 0;
-            query_end = read_len_padded;
-
+            // query_end = read_len_padded;
+            
         } // end for (pack of 8 bases for query)
 	} // end for (pack of 8 bases for target)
 
 
 
-	device_res->aln_score[tid] = maxHH;//copy the max score to the output array in the GPU mem
-	device_res->query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
-	device_res->target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
+    //Penclip handling
+    // check whether we prefer to reach the end of the query
+    if (global_score <= 0 || global_score <= maxHH - PEN_CLIP5)     // TODO: define global_score
+    {
+        device_res->aln_score[tid] = maxHH;//copy the max score to the output array in the GPU mem
+        device_res->query_batch_end[tid] = maxXY_x;//copy the end position on query_batch sequence to the output array in the GPU mem
+        device_res->target_batch_end[tid] = maxXY_y;//copy the end position on target_batch sequence to the output array in the GPU mem
+    } else {
+        device_res->aln_score[tid] = global_score;
+        device_res->query_batch_end[tid] = read_len; // the alignment reaches the end
+        device_res->target_batch_end[tid] = global_target_end; // TODO: define global_target_end
+    }
 
     if (SAMETYPE(B, Int2Type<TRUE>))
     {
