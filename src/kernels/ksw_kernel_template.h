@@ -1,7 +1,6 @@
 #ifndef __KSW_KERNEL_TEMPLATE__
 #define __KSW_KERNEL_TEMPLATE__
 
-#include <stdio.h>
 
 // This old core provides the same result as the currently LOCAL core, but lacks some optimization. Left for historical / comparative purposes.
 #define CORE_LOCAL_DEPRECATED_COMPUTE() \
@@ -69,7 +68,7 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
 
 
 
-    eh_t eh[MAX_SEQ_LEN]; // score array
+    eh_t eh[MAX_SEQ_LEN] ; // score array
     //int8_t *qp; // query profile
     int i, j, k, oe_del = o_del + e_del, oe_ins = o_ins + e_ins, beg, end, max, max_i, max_j, max_ins, max_del, max_ie, gscore, max_off;
     // assert(h0 > 0);
@@ -219,5 +218,7 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
     }
 
 }
+
+
 #endif
 
