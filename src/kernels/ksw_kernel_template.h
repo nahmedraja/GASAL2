@@ -53,11 +53,11 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
 	uint32_t packed_query_batch_idx = query_batch_offsets[tid] >> 3;//starting index of the query_batch sequence
 	uint32_t qlen = query_batch_lens[tid];
 	uint32_t tlen = target_batch_lens[tid];
-	uint32_t query_batch_regs = (qlen >> 3) + (qlen&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
-	uint32_t target_batch_regs = (tlen >> 3) + (tlen&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
+	uint32_t query_batch_regs = (qlen >> 3) + 1;//(qlen >> 3) + (qlen & 0b0111 ? 1 : 0);//number of 32-bit words holding query_batch sequence
+	uint32_t target_batch_regs = (tlen >> 3) + 1;//(tlen >> 3) + (tlen & 0b0111 ? 1 : 0);//number of 32-bit words holding target_batch sequence
     uint32_t h0 = seed_score[tid];
     int32_t subScore;
-    uint32_t target_tile_id, target_base_id, query_tile_id, query_base_id, target_base, query_base;
+    uint32_t target_tile_id, target_base_id, query_tile_id, query_base_id, query_begin, query_tile_bound, query_base_bound;
     uint32_t gpac, rpac, gbase, rbase;
     int zdrop = 0;
 
@@ -66,145 +66,137 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
     int e_del = _cudaGapExtend;
     int e_ins = _cudaGapExtend;
 
-
-
     eh_t eh[MAX_SEQ_LEN] ; // score array
-    //int8_t *qp; // query profile
-    int i, j, k, oe_del = o_del + e_del, oe_ins = o_ins + e_ins, beg, end, max, max_i, max_j, max_ins, max_del, max_ie, gscore, max_off;
-    // assert(h0 > 0);
-    // allocate memory
-    // qp = malloc(qlen * m);
-    // eh = calloc(qlen + 1, 8);
+    int i, j, k, oe_del = o_del + e_del, oe_ins = o_ins + e_ins, beg, end, max, max_i, max_j, max_ie, gscore, max_off;
     for (i = 0; i < MAX_SEQ_LEN; i++)
     {
         eh[i].h = 0;
         eh[i].e = 0;
     }
-    // generate the query profile
-    // for (k = i = 0; k < m; ++k) {
-    //    const int8_t *p = &mat[k * m];
-    //    for (j = 0; j < qlen; ++j)
-    //        qp[i++] = p[query[j]];
-    //}
+
     // fill the first row
     eh[0].h = h0;
     eh[1].h = h0 > oe_ins ? h0 - oe_ins : 0;
     for (j = 2; j <= qlen && eh[j - 1].h > e_ins; ++j)
         eh[j].h = eh[j - 1].h - e_ins;
-    // adjust $w if it is too large
-    // k = m * m;
-    // for (i = 0, max = 0; i < k; ++i) // get the max score
-    //     max = max > mat[i] ? max : mat[i];
-    // max_ins = (int) ((double) (qlen * max + end_bonus - o_ins) / e_ins + 1.);
-    // max_ins = max_ins > 1 ? max_ins : 1;
-    // w = w < max_ins ? w : max_ins;
-    // max_del = (int) ((double) (qlen * max + end_bonus - o_del) / e_del + 1.);
-    // max_del = max_del > 1 ? max_del : 1;
-    // w = w < max_del ? w : max_del; // TODO: is this necessary?
+   
     // DP loop
     max = h0, max_i = max_j = -1;
     max_ie = -1, gscore = -1;
     max_off = 0;
     beg = 0, end = qlen;
-    for (i = 0; (i < tlen); ++i) {
-        target_tile_id = i / TILE_SIDE;
-        target_base_id = i % TILE_SIDE;
-        gpac = packed_target_batch[packed_target_batch_idx + target_tile_id];
-        gbase = (gpac >> (32 - (target_base_id+1)*4 )) & 0x0F; /* get a base from target_batch sequence */ 
+    
+    for (target_tile_id = 0; target_tile_id < target_batch_regs; target_tile_id++) //target_batch sequence in rows
+    {
+        gpac = packed_target_batch[packed_target_batch_idx + target_tile_id];//load 8 packed bases from target_batch sequence
 
-        int t, f = 0, h1, m = 0, mj = -1;
-        //int8_t *q = &qp[target[i] * qlen];
-        // if (opt_ext) {
-        // // apply the band and the constraint (if provided)
-        //     if (beg < i - w) beg = i - w;
-        //     if (end > i + w + 1) end = i + w + 1;
-        //     if (end > qlen) end = qlen;
-        // }
-        // compute the first column
-        if (beg == 0) {
-            h1 = h0 - (o_del + e_del * (i + 1));
-            if (h1 < 0)
-            h1 = 0;
-        } else
-            h1 = 0;
-        for (j = beg; (j < end); ++j) {
-            query_tile_id = j / TILE_SIDE;
-            query_base_id = j % TILE_SIDE;
-            rpac = packed_query_batch[packed_query_batch_idx + query_tile_id];//load 8 bases from query_batch sequence
-            rbase = (rpac >> (32 - (query_base_id+1)*4 )) & 0x0F;//get a base from query_batch sequence
-
-            // At the beginning of the loop: eh[j] = { H(i-1,j-1), E(i,j) }, f = F(i,j) and h1 = H(i,j-1)
-            // Similar to SSE2-SW, cells are computed in the following order:
-            //   H(i,j)   = max{H(i-1,j-1)+S(i,j), E(i,j), F(i,j)}
-            //   E(i+1,j) = max{H(i,j)-gapo, E(i,j)} - gape
-            //   F(i,j+1) = max{H(i,j)-gapo, F(i,j)} - gape
-            eh_t *p = &eh[j];
-            int h, M = p->h, e = p->e; // get H(i-1,j-1) and E(i-1,j)
-            p->h = h1;          // set H(i,j-1) for the next row
-            subScore = (rbase == gbase) ? _cudaMatchScore : -_cudaMismatchScore;
-	        subScore = ((rbase == N_VALUE) || (gbase == N_VALUE)) ? -N_PENALTY : subScore;
-            M = M ? M + subScore : 0;          // separating H and M to disallow a cigar like "100M3I3D20M"
-            h = M > e ? M : e;   // e and f are guaranteed to be non-negative, so h>=0 even if M<0
-            h = h > f ? h : f;
-            h1 = h;             // save H(i,j) to h1 for the next column
-            mj = m > h ? mj : j; // record the position where max score is achieved
-            m = m > h ? m : h;   // m is stored at eh[mj+1]
-            t = M - oe_del;
-            t = t > 0 ? t : 0;
-            e -= e_del;
-            e = e > t ? e : t;   // computed E(i+1,j)
-            p->e = e;           // save E(i+1,j) for the next row
-            t = M - oe_ins;
-            t = t > 0 ? t : 0;
-            f -= e_ins;
-            f = f > t ? f : t;   // computed F(i,j+1)
-        }
-        eh[end].h = h1;
-        eh[end].e = 0;
-        if (j == qlen) {
-            max_ie = gscore > h1 ? max_ie : i;
-            gscore = gscore > h1 ? gscore : h1;
-        }
-        if (m == 0)
-            break;
-        if (m > max) {
-            max = m, max_i = i, max_j = mj;
-            max_off = max_off > abs(mj - i) ? max_off : abs(mj - i);
-        } else if (zdrop > 0) {
-            if (i - max_i > mj - max_j) {
-            if (max - m - ((i - max_i) - (mj - max_j)) * e_del > zdrop)
-                break;
-            } else {
-            if (max - m - ((mj - max_j) - (i - max_i)) * e_ins > zdrop)
-                break;
-            }
-        }
-        /* This is defining from where to start the next row and where to end the computation of next row
-            it skips some of the cells in the beginning and in the end of the row
+        for (target_base_id = 0; target_base_id < TILE_SIDE; target_base_id++)
+        {
+        /*
+        for (i = 0; (i < tlen); ++i) 
+        {
+            target_tile_id = i / TILE_SIDE;
+            target_base_id = i % TILE_SIDE;
         */
-        // update beg and end for the next round
-        // COULD be done over a constant value...
-        for (j = beg; (j < end) && eh[j].h == 0 && eh[j].e == 0; ++j)
-            ;
-        beg = j;
-        for (j = end; (j >= beg) && eh[j].h == 0 && eh[j].e == 0; --j)
-            ;
-        end = j + 2 < qlen ? j + 2 : qlen;
-        //beg = 0; end = qlen; // uncomment this line for debugging
+            i = target_tile_id * TILE_SIDE + target_base_id;
+
+            if (i >= tlen) // skip padding
+                break;
+            
+            //gpac = packed_target_batch[packed_target_batch_idx + target_tile_id];//load 8 packed bases from target_batch sequence
+            gbase = (gpac >> (32 - (target_base_id+1)*4 )) & 0x0F; /* get a base from target_batch sequence */
+
+            int t, f = 0, h1, m = 0, mj = -1;
+            // compute the first column
+            if (beg == 0) {
+                h1 = h0 - (o_del + e_del * (i + 1));
+                if (h1 < 0)
+                h1 = 0;
+            } else
+                h1 = 0;
+            
+            //for (j = beg; (j < end); ++j) {
+            // FIXME: could be a problem with borderline cases like 1 to 7 bases only (explaining the very small difference)
+
+            
+            for(query_tile_id = 0; (query_tile_id < query_batch_regs); query_tile_id++)
+            {
+                rpac = packed_query_batch[packed_query_batch_idx + query_tile_id];//load 8 bases from query_batch sequence
+
+                for(query_base_id = 0; (query_base_id < TILE_SIDE); query_base_id++)
+                {
+                    j = query_tile_id * TILE_SIDE + query_base_id;
+                    //query_tile_id = j / TILE_SIDE;
+                    //query_base_id = j % TILE_SIDE;
+                    if (j < beg)
+                        continue;      
+                    if (j >= end)
+                        break;
+
+
+                    rbase = (rpac >> (32 - (query_base_id+1)*4 )) & 0x0F;//get a base from query_batch sequence
+
+                    // At the beginning of the loop: eh[j] = { H(i-1,j-1), E(i,j) }, f = F(i,j) and h1 = H(i,j-1)
+                    // Similar to SSE2-SW, cells are computed in the following order:
+                    //   H(i,j)   = max{H(i-1,j-1)+S(i,j), E(i,j), F(i,j)}
+                    //   E(i+1,j) = max{H(i,j)-gapo, E(i,j)} - gape
+                    //   F(i,j+1) = max{H(i,j)-gapo, F(i,j)} - gape
+                    eh_t *p = &eh[j];
+                    int h, M = p->h, e = p->e; // get H(i-1,j-1) and E(i-1,j)
+                    p->h = h1;          // set H(i,j-1) for the next row
+                    subScore = (rbase == gbase) ? _cudaMatchScore : -_cudaMismatchScore;
+                    subScore = ((rbase == N_VALUE) || (gbase == N_VALUE)) ? -N_PENALTY : subScore;
+                    M = M ? M + subScore : 0;          // separating H and M to disallow a cigar like "100M3I3D20M"
+                    h = M > e ? M : e;   // e and f are guaranteed to be non-negative, so h>=0 even if M<0
+                    h = h > f ? h : f;
+                    h1 = h;             // save H(i,j) to h1 for the next column
+                    mj = m > h ? mj : j; // record the position where max score is achieved
+                    m = m > h ? m : h;   // m is stored at eh[mj+1]
+                    t = M - oe_del;
+                    t = t > 0 ? t : 0;
+                    e -= e_del;
+                    e = e > t ? e : t;   // computed E(i+1,j)
+                    p->e = e;           // save E(i+1,j) for the next row
+                    t = M - oe_ins;
+                    t = t > 0 ? t : 0;
+                    f -= e_ins;
+                    f = f > t ? f : t;   // computed F(i,j+1)
+                }
+            }
+            eh[end].h = h1;
+            eh[end].e = 0;
+            if (j == qlen) {
+                max_ie = gscore > h1 ? max_ie : i;
+                gscore = gscore > h1 ? gscore : h1;
+            }
+            if (m == 0)
+                break;
+            if (m > max) {
+                max = m, max_i = i, max_j = mj;
+                max_off = max_off > abs(mj - i) ? max_off : abs(mj - i);
+            } else if (zdrop > 0) {
+                if (i - max_i > mj - max_j) {
+                if (max - m - ((i - max_i) - (mj - max_j)) * e_del > zdrop)
+                    break;
+                } else {
+                if (max - m - ((mj - max_j) - (i - max_i)) * e_ins > zdrop)
+                    break;
+                }
+            }
+            /* This is defining from where to start the next row and where to end the computation of next row
+                it skips some of the cells in the beginning and in the end of the row
+            */
+            // update beg and end for the next round
+            // COULD be done over a constant value...
+            for (j = beg; (j < end) && eh[j].h == 0 && eh[j].e == 0; ++j)
+                ;
+            beg = j;
+            for (j = end; (j >= beg) && eh[j].h == 0 && eh[j].e == 0; --j)
+                ;
+            end = j + 2 < qlen ? j + 2 : qlen;
+            //beg = 0; end = qlen; // uncomment this line for debugging
+        }
     }
-    // free(eh);
-    // free(qp);
-    // if (_qle)
-    //     *_qle = max_j + 1;
-    // if (_tle)
-    //     *_tle = max_i + 1;
-    // if (_gtle)
-    //     *_gtle = max_ie + 1;
-    // if (_gscore)
-    //     *_gscore = gscore;
-    // if (_max_off)
-    //     *_max_off = max_off;
-    // return max;
 
     if (gscore <= 0 || gscore <= max - PEN_CLIP5)
     {
