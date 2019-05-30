@@ -306,7 +306,6 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 	}
 
     gpu_storage->is_free = 0; //set the availability of current stream to false
-
 }
 
 
@@ -323,7 +322,7 @@ int gasal_is_aln_async_done(gasal_gpu_storage_t *gpu_storage)
 		}
 	}
 	gpu_storage->is_free = 1;
-
+	gpu_storage->current_n_alns = 0;
 	return 0;
 }
 

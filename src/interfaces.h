@@ -11,6 +11,5 @@ void gasal_host_alns_resize(gasal_gpu_storage_t *gpu_storage, int new_max_alns, 
 // operation filler method (field in the gasal_gpu_storage_t field)
 void gasal_op_fill(gasal_gpu_storage_t *gpu_storage_t, uint8_t *data, uint32_t nbr_seqs_in_stream, data_source SRC);
 
-void gasal_set_device(int gpu_select = 0);
-
+void gasal_set_device(int gpu_select = 0, bool isPrintingProp = true);
 #endif
