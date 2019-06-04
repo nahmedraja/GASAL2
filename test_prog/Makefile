@@ -10,7 +10,7 @@ SUFFIX2=> out.log
 
 PRGM=test_prog.out
  
-OPTARGS1=-p -y local 
+OPTARGS1=-p -y ksw 
 OPTARGS2=-p -y ksw 
 
 
