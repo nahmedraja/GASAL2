@@ -73,24 +73,8 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage, uint32_t idx, c
 
 	while (!is_done)
 	{
-		if (*p_batch_bytes >= idx + size + nbr_N && (cur_page->next == NULL || (cur_page->next->offset >= idx + size + nbr_N)) )
+		if (*p_batch_bytes < idx + size + nbr_N)
 		{
-
-			memcpy(&(cur_page->data[idx - cur_page->offset]), data, size);
-	
-			idx = idx + size;
-	
-			while(idx%8)
-			{
-				cur_page->data[idx - cur_page->offset] = N_CODE;
-				idx++;
-			}
-			is_done = 1;
-		} else if ((*p_batch_bytes >= idx + size + nbr_N) && (cur_page->next != NULL) && (cur_page->next->offset < idx + size + nbr_N)) {
-			 
-			cur_page = cur_page->next;
-
-		} else {
 			fprintf(stderr,"[GASAL WARNING:] Trying to write %d bytes at position %d on host memory (%s) while only  %d bytes are available. Therefore, allocating %d bytes more on CPU. Repeating this many times can provoke a degradation of performance.\n",
 					size,
 					idx,
@@ -104,16 +88,30 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage, uint32_t idx, c
 			// corner case: if we allocated less than a single sequence length to begin with... it shouldn't be allowed actually, but at least it's caught here.
 			while (*p_batch_bytes < size)
 				*p_batch_bytes += *p_batch_bytes;
-
+			cur_page = gasal_host_batch_getlast(cur_page);
 			host_batch_t *res = gasal_host_batch_new(*p_batch_bytes, idx);
-	
+
 			cur_page->next = res;
 			
 			cur_page = cur_page->next;
+		} else if ((cur_page->next != NULL) && (cur_page->next->offset < idx + size + nbr_N)) {
+			cur_page = cur_page->next;
+		} else {
+			memcpy(&(cur_page->data[idx - cur_page->offset]), data, size);
+	
+			idx = idx + size;
+	
+			while(idx%8)
+			{
+				cur_page->data[idx - cur_page->offset] = N_CODE;
+				idx++;
+			}
+			is_done = 1;
 		}
+		
+
 	}
 
-	//gasal_host_batch_printall(gasal_host_batch_getlast(cur_page));
 	return idx;
 }
 
