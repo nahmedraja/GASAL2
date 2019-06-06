@@ -8,11 +8,11 @@
 
 // Functions for host batches handling. 
 
-host_batch_t *gasal_host_batch_new(uint32_t host_max_query_batch_bytes, uint32_t offset)
+host_batch_t *gasal_host_batch_new(uint32_t batch_bytes, uint32_t offset)
 {
 	cudaError_t err;
 	host_batch_t *res = (host_batch_t *)calloc(1, sizeof(host_batch_t));
-	CHECKCUDAERROR(cudaMallocHost(&(res->data), host_max_query_batch_bytes*sizeof(uint8_t)));
+	CHECKCUDAERROR(cudaHostAlloc(&(res->data), batch_bytes*sizeof(uint8_t), cudaHostAllocDefault));
 	res->offset = offset;
 	res->next = NULL;
 	return res;
@@ -76,7 +76,7 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage, uint32_t idx, c
 		if (*p_batch_bytes < idx + size + nbr_N)
 		{
 			fprintf(stderr,"[GASAL WARNING:] Trying to write %d bytes at position %d on host memory (%s) while only  %d bytes are available. Therefore, allocating %d bytes more on CPU. Repeating this many times can provoke a degradation of performance.\n",
-					size,
+					size + nbr_N,
 					idx,
 					(SRC == QUERY ? "query":"target"),
 					*p_batch_bytes,
@@ -94,9 +94,15 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage, uint32_t idx, c
 			cur_page->next = res;
 			
 			cur_page = cur_page->next;
+
 		} else if ((cur_page->next != NULL) && (cur_page->next->offset < idx + size + nbr_N)) {
 			cur_page = cur_page->next;
+			// if it's the first time you have to jump to the next page, reset idx - 
+			// between recyclings, the offset can change for the TARGET in particular ; and if idx > offset, then you will try to write at a negative offset - that is, hit an unknown memory block
+			if (cur_page->offset > idx)
+				cur_page->offset = idx;
 		} else {
+
 			memcpy(&(cur_page->data[idx - cur_page->offset]), data, size);
 	
 			idx = idx + size;
@@ -108,7 +114,7 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage, uint32_t idx, c
 			}
 			is_done = 1;
 		}
-		
+		//gasal_host_batch_printall(gasal_host_batch_getlast(cur_page));
 
 	}
 
