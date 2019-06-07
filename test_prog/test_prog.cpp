@@ -19,7 +19,7 @@
 // this gives each stream HALF of the sequences.
 //#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
 
-#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2 * 3))
+#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2 * 8))
 
 
 #define DEBUG
