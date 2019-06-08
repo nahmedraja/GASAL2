@@ -83,14 +83,18 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage, uint32_t idx, c
 					*p_batch_bytes * 2);
 			
 	
-			*p_batch_bytes += *p_batch_bytes;
+			int remainder = *p_batch_bytes - idx;
+			*p_batch_bytes = *p_batch_bytes * 2;
 
 			// corner case: if we allocated less than a single sequence length to begin with... it shouldn't be allowed actually, but at least it's caught here.
 			while (*p_batch_bytes < size)
 				*p_batch_bytes += *p_batch_bytes;
+			
+			
 			cur_page = gasal_host_batch_getlast(cur_page);
 			host_batch_t *res = gasal_host_batch_new(*p_batch_bytes, idx);
 
+			*p_batch_bytes -= remainder;
 			cur_page->next = res;
 			
 			cur_page = cur_page->next;
@@ -206,6 +210,7 @@ void gasal_host_batch_print(host_batch_t *res)
 void gasal_host_batch_printall(host_batch_t *res)
 {
 	int len = strlen((char*) res->data);
+	
 	fprintf(stderr, "[GASAL PRINT] Page data: offset=%d, next_offset=%d, data size=%d, data=%c%c%c%c...%c%c%c%c\n", res->offset, (res->next == NULL? -1 : (int)res->next->offset), (unsigned int)len, res->data[0], res->data[1], res->data[2], res->data[3], res->data[len-4], res->data[len-3], res->data[len-2], res->data[len-1]);
 	if (res->next != NULL)
 	{
