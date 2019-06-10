@@ -3,6 +3,7 @@
 #include "res.h"
 #include "gasal_align.h"
 #include "gasal_kernels.h"
+#include "host_batch.h"
 
 
 
@@ -145,43 +146,25 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 	host_batch_t *current = gpu_storage->extensible_host_unpacked_query_batch;
 	while (current != NULL)
 	{
-		if (current->next != NULL ) 
-		{
-			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->offset]), 
-											current->data, 
-											current->next->offset - current->offset,
-											cudaMemcpyHostToDevice, 
-											gpu_storage->str ) );
-			
-		} else {
-			// it's the last page to copy
-			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->offset]), 
-											current->data, 
-											actual_query_batch_bytes - current->offset, 
-											cudaMemcpyHostToDevice, 
-											gpu_storage->str ) );
-		}
+		//gasal_host_batch_printall(current);
+		CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_query_batch[current->offset]), 
+										current->data, 
+										current->data_size,
+										cudaMemcpyHostToDevice, 
+										gpu_storage->str ) );
+
 		current = current->next;
 	}
 
 	current = gpu_storage->extensible_host_unpacked_target_batch;
 	while (current != NULL)
 	{
-		if (current->next != NULL ) {
-			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_target_batch[current->offset]), 
-											current->data, 
-											current->next->offset - current->offset,
-											cudaMemcpyHostToDevice, 
-											gpu_storage->str ) );
+		CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_target_batch[current->offset]), 
+										current->data, 
+										current->data_size,
+										cudaMemcpyHostToDevice, 
+										gpu_storage->str ) );
 
-		} else {
-			// it's the last page to copy
-			CHECKCUDAERROR(cudaMemcpyAsync( &(gpu_storage->unpacked_target_batch[current->offset]), 
-											current->data, 
-											actual_target_batch_bytes - current->offset, 
-											cudaMemcpyHostToDevice, 
-											gpu_storage->str ) );
-		}
 		current = current->next;
 	}
 
@@ -321,6 +304,7 @@ int gasal_is_aln_async_done(gasal_gpu_storage_t *gpu_storage)
 			exit(EXIT_FAILURE);
 		}
 	}
+	gasal_host_batch_reset(gpu_storage);
 	gpu_storage->is_free = 1;
 	gpu_storage->current_n_alns = 0;
 	return 0;
