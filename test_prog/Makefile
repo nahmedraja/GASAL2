@@ -3,7 +3,7 @@ ANALYSIS_FILENAME=analysis
 # prefix1 can be optirun in case you need to run it from an optimus-enabled laptop.
 PREFIX1=
 #i prefix2 can be nvprof. use preferably the following : nvprof --profile-api-trace none -s -f -o /tmp/.nvprof/$(ANALYSIS_FILENAME).nvprof
-PREFIX2=
+PREFIX2=valgrind
 #suffix1 and 2 can be an output file.
 SUFFIX1=> golden.log
 SUFFIX2=> out.log

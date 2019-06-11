@@ -74,6 +74,7 @@ struct host_batch{
 	uint32_t page_size;
 	uint32_t data_size;
 	uint32_t offset;
+	int is_locked;
 	struct host_batch* next;
 };
 typedef struct host_batch host_batch_t;

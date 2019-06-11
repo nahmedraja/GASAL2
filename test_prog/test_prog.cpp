@@ -230,12 +230,12 @@ int main(int argc, char **argv) {
 		//initializing the streams by allocating the required CPU and GPU memory
 		// note: the calculations of the detailed sizes to allocate could be done on the library side (to hide it from the user's perspective)
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
-						0.01 * (maximum_sequence_length_query + 7) * GPU_BATCH_SIZE , //TODO: remove maximum_sequence_length_query
-						0.04 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
-						0.03 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE ,
-						0.01 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
+						00.1 * (maximum_sequence_length_query + 7) * GPU_BATCH_SIZE , //TODO: remove maximum_sequence_length_query
+						004 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
+						0.04 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE ,
+						001 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
 						002 * GPU_BATCH_SIZE, //host // maximum number of alignments is bigger on target than on query side.
-						0001 * GPU_BATCH_SIZE, //device
+						001 * GPU_BATCH_SIZE, //device
 						args);
 	}
 	#ifdef DEBUG

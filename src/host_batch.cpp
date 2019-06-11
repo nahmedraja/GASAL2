@@ -15,6 +15,7 @@ host_batch_t *gasal_host_batch_new(uint32_t batch_bytes, uint32_t offset)
 	CHECKCUDAERROR(cudaHostAlloc(&(res->data), batch_bytes*sizeof(uint8_t), cudaHostAllocDefault));
 	res->page_size = batch_bytes;
 	res->data_size = 0;
+	res->is_locked = 0;
 	res->offset = offset;
 	res->next = NULL;
 	return res;
@@ -65,6 +66,7 @@ void gasal_host_batch_reset(gasal_gpu_storage_t *gpu_storage)
 		{
 			cur_page->data_size = 0;
 			cur_page->offset = 0;
+			cur_page->is_locked = 0;
 			cur_page = cur_page->next;
 		}
 	}
@@ -99,48 +101,49 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage, uint32_t idx, c
 	while((size+nbr_N)%8)
 		nbr_N++;
 
-	int is_done = 0;
+	while(cur_page->is_locked)
+		cur_page = cur_page->next;
 
-	while (!is_done)
+	if (cur_page->next == NULL && cur_page->page_size - cur_page->data_size < size + nbr_N)
 	{
-		if (cur_page->next == NULL && cur_page->page_size - cur_page->data_size < size + nbr_N)
-		{
-			fprintf(stderr,"[GASAL WARNING:] size + nbr_N=%d @idx=%d (%s) while only *p_batch_bytes=%d. \n",
-					size + nbr_N,
-					idx,
-					(SRC == QUERY ? "query":"target"),
-					*p_batch_bytes);
-			
-			host_batch_t *res = gasal_host_batch_new(cur_page->page_size * 2, cur_page->offset + cur_page->data_size);
-			cur_page->next = res;
-
-			*p_batch_bytes = *p_batch_bytes + cur_page->page_size * 2;
-
-			cur_page = cur_page->next;
-			// gasal_host_batch_print(cur_page);
-		} 
+		fprintf(stderr,"[GASAL WARNING:] size + nbr_N=%d @idx=%d (%s) while only *p_batch_bytes=%d. \n",
+				size + nbr_N,
+				idx,
+				(SRC == QUERY ? "query":"target"),
+				*p_batch_bytes);
 		
-		if (cur_page->next != NULL && cur_page->page_size - cur_page->data_size < size + nbr_N)
-		{
-			// re-write offset for the next page to correspond to what has been filled on the current page.
-			cur_page->next->offset = cur_page->offset + cur_page->data_size;
-			// then, jump to next page
-			cur_page = cur_page->next;
-		} 
-		
-		if (cur_page->page_size - cur_page->data_size >= size + nbr_N)
-		{
-			memcpy(&(cur_page->data[idx - cur_page->offset]), data, size);
+		host_batch_t *res = gasal_host_batch_new(cur_page->page_size * 2, cur_page->offset + cur_page->data_size);
+		cur_page->next = res;
+		cur_page->is_locked = 1;
+		*p_batch_bytes = *p_batch_bytes + cur_page->page_size * 2;
+
+		cur_page = cur_page->next;
+		//fprintf(stderr, "CREATED: "); gasal_host_batch_print(cur_page);
+	}
 	
-			for(int i = 0; i < nbr_N; i++)
-			{
-				cur_page->data[idx + size - cur_page->offset + i] = N_CODE;
-			}
-			idx = idx + size + nbr_N;
+	if (cur_page->next != NULL && cur_page->page_size - cur_page->data_size < size + nbr_N)
+	{
+		// re-write offset for the next page to correspond to what has been filled on the current page.
+		cur_page->next->offset = cur_page->offset + cur_page->data_size;
+		cur_page->is_locked = 1;
+		// then, jump to next page
+		cur_page = cur_page->next;
+	}
 
-			cur_page->data_size += size + nbr_N;
-			is_done = 1;
+
+	if (cur_page->page_size - cur_page->data_size >= size + nbr_N)
+	{
+		// fprintf(stderr, "FILL: "); gasal_host_batch_print(cur_page);
+		memcpy(&(cur_page->data[idx - cur_page->offset]), data, size);
+
+		for(int i = 0; i < nbr_N; i++)
+		{
+			cur_page->data[idx + size - cur_page->offset + i] = N_CODE;
 		}
+		idx = idx + size + nbr_N;
+
+		cur_page->data_size += size + nbr_N;
+		//is_done = 1;
 	}
 
 	return idx;
