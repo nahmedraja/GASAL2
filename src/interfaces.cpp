@@ -34,7 +34,7 @@ void gasal_host_alns_resize(gasal_gpu_storage_t *gpu_storage, int new_max_alns, 
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage->unpacked_target_batch), gpu_max_target_batch_bytes * sizeof(uint8_t)));
 	*/
 
-	fprintf(stderr, "[GASAL RESIZER] Resizing gpu_storage from %d sequences to %d sequences... ", gpu_storage->host_max_n_alns,new_max_alns);
+	fprintf(stderr, "[GASAL WARNING] Resizing gpu_storage from %d sequences to %d sequences... ", gpu_storage->host_max_n_alns,new_max_alns);
 	// don't care about realloc'ing gpu-sided fields as they will be taken care of before aligning.
 
 	gpu_storage->host_query_op =  cudaHostRealloc<uint8_t>((void*) gpu_storage->host_query_op, new_max_alns, gpu_storage->host_max_n_alns);

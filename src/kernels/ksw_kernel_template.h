@@ -57,7 +57,7 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
 	uint32_t target_batch_regs = (tlen >> 3) + 1;//(tlen >> 3) + (tlen & 0b0111 ? 1 : 0);//number of 32-bit words holding target_batch sequence
     uint32_t h0 = seed_score[tid];
     int32_t subScore;
-    uint32_t target_tile_id, target_base_id, query_tile_id, query_base_id, query_begin, query_tile_bound, query_base_bound;
+    uint32_t target_tile_id, target_base_id, query_tile_id, query_base_id;
     uint32_t gpac, rpac, gbase, rbase;
     int zdrop = 0;
 
@@ -67,7 +67,7 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
     int e_ins = _cudaGapExtend;
 
     eh_t eh[MAX_SEQ_LEN] ; // score array
-    int i, j, k, oe_del = o_del + e_del, oe_ins = o_ins + e_ins, beg, end, max, max_i, max_j, max_ie, gscore, max_off;
+    int i, j, oe_del = o_del + e_del, oe_ins = o_ins + e_ins, beg, end, max, max_i, max_j, max_ie, gscore, max_off;
     for (i = 0; i < MAX_SEQ_LEN; i++)
     {
         eh[i].h = 0;

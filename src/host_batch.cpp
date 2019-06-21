@@ -106,11 +106,14 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage, uint32_t idx, c
 
 	if (cur_page->next == NULL && cur_page->page_size - cur_page->data_size < size + nbr_N)
 	{
-		fprintf(stderr,"[GASAL WARNING:] size + nbr_N=%d @idx=%d (%s) while only *p_batch_bytes=%d. \n",
+		fprintf(stderr,"[GASAL WARNING:] Trying to write %d bytes while only %d remain (%s) (block size %d, filled %d bytes).\n                 Allocating a new block of size %d, total size available reaches %d. Doing this repeadtedly slows down the execution.\n",
 				size + nbr_N,
-				idx,
+				cur_page->page_size - cur_page->data_size,
 				(SRC == QUERY ? "query":"target"),
-				*p_batch_bytes);
+				cur_page->page_size,
+				cur_page->data_size,
+				cur_page->page_size * 2,
+				*p_batch_bytes + cur_page->page_size * 2);
 		
 		host_batch_t *res = gasal_host_batch_new(cur_page->page_size * 2, cur_page->offset + cur_page->data_size);
 		cur_page->next = res;
