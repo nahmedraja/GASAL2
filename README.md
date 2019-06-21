@@ -1,9 +1,5 @@
 
-# GASAL 2.1: adding features to the GASAL2 library
-
-## About this branch "bwa"
-
-**This branch is made as an access to BWA-MEM repository, which integrates GASAL2 as a submodule. This helps to keep work organized. If GASAL2 needs to be modified for its integration with BWA-MAM (which SHOULD NOT HAPPEN but you never know!), then this branch will be the place where things will happen.**
+# GASAL 2.2: adding features to the GASAL2 library
 
 ## List of new features:
 
@@ -11,6 +7,8 @@
 - Added kernel to reverse-complement sequences. This kernel runs on GPU. It hasn't been optimized and polished for speed (yet!),
 - Added banded alignment operating by tile to try to speedup (only speeds up with small (e.g. 150) sequence lengths)
 - Cleaned up, inconsistencies fixed, and a small optimization has been added (around 9% speedup with exact same result) 
+
+This new version fixes a lot of problems that could occur with variable batch sizes like crashes and memory leaks.
 
 # GASAL2
 
