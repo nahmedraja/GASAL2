@@ -6,10 +6,10 @@
 
 // Function for general resizing
 template <typename T>
-void* cudaHostRealloc(void *source, int new_size, int old_size) 
+T* cudaHostRealloc(void *source, int new_size, int old_size) 
 {
 	cudaError_t err;
-	void* destination = NULL;
+	T* destination = NULL;
 	if (new_size < old_size)
 	{
 		fprintf(stderr, "[GASAL ERROR] cudoHostRealloc: invalid sizes. New size < old size (%d < %d)", new_size, old_size);
@@ -37,30 +37,39 @@ void gasal_host_alns_resize(gasal_gpu_storage_t *gpu_storage, int new_max_alns, 
 	fprintf(stderr, "[GASAL RESIZER] Resizing gpu_storage from %d sequences to %d sequences... ", gpu_storage->host_max_n_alns,new_max_alns);
 	// don't care about realloc'ing gpu-sided fields as they will be taken care of before aligning.
 
-	gpu_storage->host_query_op = (uint8_t*) cudaHostRealloc<uint8_t>((void*) gpu_storage->host_query_op, new_max_alns, gpu_storage->host_max_n_alns);
-	
-	gpu_storage->host_target_op = (uint8_t*) cudaHostRealloc<uint8_t>((void*) gpu_storage->host_target_op, new_max_alns, gpu_storage->host_max_n_alns);
+	gpu_storage->host_query_op =  cudaHostRealloc<uint8_t>((void*) gpu_storage->host_query_op, new_max_alns, gpu_storage->host_max_n_alns);
+	gpu_storage->host_target_op =  cudaHostRealloc<uint8_t>((void*) gpu_storage->host_target_op, new_max_alns, gpu_storage->host_max_n_alns);
 	
 	if (params->algo == KSW)
-		gpu_storage->host_seed_scores = (uint32_t*) cudaHostRealloc<uint32_t>(gpu_storage->host_seed_scores, new_max_alns, gpu_storage->host_max_n_alns);
+		gpu_storage->host_seed_scores = cudaHostRealloc<uint32_t>(gpu_storage->host_seed_scores, new_max_alns, gpu_storage->host_max_n_alns);
 	//fprintf(stderr, "_ops done ");
 
-	gpu_storage->host_query_batch_lens = (uint32_t*) cudaHostRealloc<uint32_t>((void*) gpu_storage->host_query_batch_lens, new_max_alns, gpu_storage->host_max_n_alns);
-	gpu_storage->host_target_batch_lens = (uint32_t*) cudaHostRealloc<uint32_t>((void*) gpu_storage->host_target_batch_lens, new_max_alns, gpu_storage->host_max_n_alns);
+	gpu_storage->host_query_batch_lens = cudaHostRealloc<uint32_t>((void*) gpu_storage->host_query_batch_lens, new_max_alns, gpu_storage->host_max_n_alns);
+	gpu_storage->host_target_batch_lens = cudaHostRealloc<uint32_t>((void*) gpu_storage->host_target_batch_lens, new_max_alns, gpu_storage->host_max_n_alns);
 	//fprintf(stderr, "_lens done ");
 
-	gpu_storage->host_query_batch_offsets = (uint32_t*) cudaHostRealloc<uint32_t>((void*) gpu_storage->host_query_batch_offsets, new_max_alns, gpu_storage->host_max_n_alns);
-	gpu_storage->host_target_batch_offsets = (uint32_t*) cudaHostRealloc<uint32_t>((void*) gpu_storage->host_target_batch_offsets, new_max_alns, gpu_storage->host_max_n_alns);
+	gpu_storage->host_query_batch_offsets = cudaHostRealloc<uint32_t>((void*) gpu_storage->host_query_batch_offsets, new_max_alns, gpu_storage->host_max_n_alns);
+	gpu_storage->host_target_batch_offsets = cudaHostRealloc<uint32_t>((void*) gpu_storage->host_target_batch_offsets, new_max_alns, gpu_storage->host_max_n_alns);
 	//fprintf(stderr, "_offsets done ");
 	
 	gasal_res_destroy_host(gpu_storage->host_res);
 	gpu_storage->host_res = gasal_res_new_host(new_max_alns, params);
-	
+	gpu_storage->device_cpy = gasal_res_new_device_cpy(new_max_alns, params);
+	gpu_storage->device_res = gasal_res_new_device(gpu_storage->device_cpy);
+
 	if (params->secondBest)
 	{	
 		gasal_res_destroy_host(gpu_storage->host_res_second);
 		gpu_storage->host_res_second = gasal_res_new_host(new_max_alns, params);
+		gpu_storage->device_cpy_second = gasal_res_new_device_cpy(new_max_alns, params);
+		gpu_storage->device_res_second = gasal_res_new_device(gpu_storage->device_cpy_second);
+
+	} else {
+		gpu_storage->host_res_second = NULL;
+		gpu_storage->device_cpy_second = NULL;
+		gpu_storage->device_res_second = NULL;
 	}
+	
 	//fprintf(stderr, "_res done ");
 
 	gpu_storage->host_max_n_alns = new_max_alns;

@@ -71,7 +71,10 @@ enum operation_on_seq{
 // data structure of linked list to allow extension of memory on host side.
 struct host_batch{
 	uint8_t *data;
+	uint32_t page_size;
+	uint32_t data_size;
 	uint32_t offset;
+	int is_locked;
 	struct host_batch* next;
 };
 typedef struct host_batch host_batch_t;
