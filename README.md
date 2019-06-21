@@ -1,12 +1,18 @@
 
 # GASAL 2 - GPU-accelerated DNA alignment library
 <!--
+=======
+# GASAL 2.2: adding features to the GASAL2 library
+
 ## List of new features:
 - Added expandable memory management on host side: the user doesn't have to guess the memory size they will take up anymore,
 - Added kernel to reverse-complement sequences. This kernel runs on GPU. It hasn't been optimized and polished for speed (yet!),
 - Added banded alignment operating by tile to try to speedup (only speeds up with small (e.g. 150) sequence lengths)
 - Cleaned up, inconsistencies fixed, and a small optimization has been added (around 9% speedup with exact same result) 
-# GASAL2
+=======
+
+This new version fixes a lot of problems that could occur with variable batch sizes like crashes and memory leaks.
+
 -->
 
 

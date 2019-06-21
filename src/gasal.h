@@ -4,7 +4,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
-#include "/usr/local/cuda-8.0//targets/x86_64-linux/include/cuda_runtime.h"
+#include "/usr/local/cuda-10.0//targets/x86_64-linux/include/cuda_runtime.h"
 
 #ifndef HOST_MALLOC_SAFETY_FACTOR
 #define HOST_MALLOC_SAFETY_FACTOR 5
@@ -56,9 +56,9 @@ enum algo_type{
 	GLOBAL,
 	SEMI_GLOBAL,
 	LOCAL,
-	BANDED,
 	MICROLOCAL,
-	FIXEDBAND
+	BANDED,
+	KSW
 };
 
 enum operation_on_seq{
@@ -71,7 +71,10 @@ enum operation_on_seq{
 // data structure of linked list to allow extension of memory on host side.
 struct host_batch{
 	uint8_t *data;
+	uint32_t page_size;
+	uint32_t data_size;
 	uint32_t offset;
+	int is_locked;
 	struct host_batch* next;
 };
 typedef struct host_batch host_batch_t;
@@ -96,6 +99,9 @@ typedef struct {
 	uint32_t *target_batch_offsets;
 	uint32_t *query_batch_lens;
 	uint32_t *target_batch_lens;
+
+	uint32_t *host_seed_scores;
+	uint32_t *seed_scores;
 	
 	host_batch_t *extensible_host_unpacked_query_batch;
 	host_batch_t *extensible_host_unpacked_target_batch;
@@ -126,8 +132,10 @@ typedef struct {
 	
 	uint32_t gpu_max_n_alns;
 	uint32_t host_max_n_alns;
+	uint32_t current_n_alns;
 	cudaStream_t str;
 	int is_free;
+	int id; //this can be useful in cases where a gasal_gpu_storage only contains PARTS of an alignment (like a seed-extension...), to gather results.
 
 } gasal_gpu_storage_t;
 

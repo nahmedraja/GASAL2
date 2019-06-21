@@ -15,8 +15,12 @@
 
 #define NB_STREAMS 2
 
-#define GPU_BATCH_SIZE (262000)
+//#define GPU_BATCH_SIZE (262144)
+// this gives each stream HALF of the sequences.
 //#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
+
+#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2 * 2))
+
 
 #define DEBUG
 
@@ -28,10 +32,7 @@
 
 int main(int argc, char **argv) {
 
-
-
 	gasal_set_device(GPU_SELECT);
-
 
 	Parameters *args;
 	args = new Parameters(argc, argv);
@@ -147,6 +148,7 @@ int main(int argc, char **argv) {
 	query_seqs_len += (query_seqs.back()).length();
 	maximum_sequence_length = MAX((target_seqs.back()).length(), maximum_sequence_length);
 	maximum_sequence_length = MAX((query_seqs.back()).length(), maximum_sequence_length);
+	int maximum_sequence_length_query = MAX((query_seqs.back()).length(), 0);
 
 	#ifdef DEBUG
 		std::cerr << "[TEST_PROG DEBUG]: ";
@@ -214,8 +216,6 @@ int main(int argc, char **argv) {
 			Even though the memory can be dynamically expanded both for Host and Device, it is advised to start with a memory large enough so that these expansions rarely occur (for better performance.)
 			Modifying the factor '1' in front of each size lets you see how GASAL2 expands the memory when needed.
 		*/
-
-		
 		/*
 		// For exemple, this is exactly the memory needed to allocate to fit all sequences is a single GPU BATCH.
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
@@ -227,19 +227,16 @@ int main(int argc, char **argv) {
 							ceil((double)target_seqs.size() / (double)(NB_STREAMS)), 
 							args);
 		*/		
-		
 		//initializing the streams by allocating the required CPU and GPU memory
 		// note: the calculations of the detailed sizes to allocate could be done on the library side (to hide it from the user's perspective)
-
 		gasal_init_streams(&(gpu_storage_vecs[z]), 
-						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
-						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
-						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE ,
-						1 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
-						GPU_BATCH_SIZE, // maximum number of alignments is bigger on target than on query side.
-						GPU_BATCH_SIZE, 
+						00.1 * (maximum_sequence_length_query + 7) * GPU_BATCH_SIZE , //TODO: remove maximum_sequence_length_query
+						004 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
+						0.04 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE ,
+						001 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
+						002 * GPU_BATCH_SIZE, //host // maximum number of alignments is bigger on target than on query side.
+						001 * GPU_BATCH_SIZE, //device
 						args);
-
 	}
 	#ifdef DEBUG
 		std::cerr << "[TEST_PROG DEBUG]: ";
@@ -288,7 +285,15 @@ int main(int argc, char **argv) {
 				//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
 
 
-				for (int i = curr_idx; seqs_done < n_seqs && j < (GPU_BATCH_SIZE); i++, j++, seqs_done++) {
+				for (int i = curr_idx; seqs_done < n_seqs && j < (GPU_BATCH_SIZE); i++, j++, seqs_done++) 
+				{
+
+					gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->current_n_alns++ ;
+
+					if(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->current_n_alns > gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->host_max_n_alns)
+					{
+						gasal_host_alns_resize(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->host_max_n_alns * 2, args);
+					}
 
 					(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j] = query_batch_idx;
 					(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_target_batch_offsets[j] = target_batch_idx;
@@ -338,7 +343,7 @@ int main(int argc, char **argv) {
 				//-----------------calling the GASAL2 non-blocking alignment function---------------------------------
 
 				gasal_aln_async(gpu_batch_arr[gpu_batch_arr_idx].gpu_storage, query_batch_bytes, target_batch_bytes, gpu_batch_arr[gpu_batch_arr_idx].n_seqs_batch, args);
-					
+				gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->current_n_alns = 0;
 				//---------------------------------------------------------------------------------
 			}
 

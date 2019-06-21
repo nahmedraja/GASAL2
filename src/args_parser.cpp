@@ -20,7 +20,8 @@ Parameters::Parameters(int argc_, char **argv_) {
     k_band = (0);
 
     isPacked = false;
-    
+    isReverseComplement = false;
+
     secondBest = FALSE;
 
     // query head, target head, query tail, target tail
@@ -78,7 +79,7 @@ void Parameters::help() {
             std::cerr << "         -s        also find the start position" << std::endl;
             std::cerr << "         -p        print the alignment results" << std::endl;
             std::cerr << "         -n INT    Number of threads ["<< n_threads<<"]" << std::endl;
-            std::cerr << "         -y AL_TYPE       Alignment type . Must be \"local\", \"semi_global\", \"global\"  \"banded INT\" (size of band)"  << std::endl;
+            std::cerr << "         -y AL_TYPE       Alignment type . Must be \"local\", \"semi_global\", \"global\", \"ksw\" "  << std::endl;
 	    std::cerr << "         -x HEAD TAIL     specifies, for semi-global alignment, wha should be skipped for heads and tails of the sequences. (NONE, QUERY, TARGET, BOTH)" << std::endl;
             std::cerr << "         -k INT    Band width in case \"banded\" is selected."  << std::endl;
             std::cerr << "         --help, -h : displays this message." << std::endl;
@@ -143,13 +144,11 @@ void Parameters::parse() {
                         algo = SEMI_GLOBAL;
                     else if (!arg_next.compare("global"))
                         algo = GLOBAL;
-                    else if (!arg_next.compare("banded"))
-                        algo = BANDED;
                     else if (!arg_next.compare("microloc"))
                         algo = MICROLOCAL;
-                    else if (!arg_next.compare("fixedband"))
+                    else if (!arg_next.compare("ksw"))
                     {
-                        algo = FIXEDBAND;
+                        algo = KSW;
                     }
                 break;
                 case 'a':

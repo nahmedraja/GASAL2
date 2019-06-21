@@ -4,14 +4,14 @@ N_CODE=
 N_PENALTY=
 
 GPU_COMPUTE_ARCH=$(subst sm,compute,$(GPU_SM_ARCH))
-NVCC=/usr/local/cuda-8.0//bin/nvcc
+NVCC=/usr/local/cuda-10.0//bin/nvcc
 CC=g++
 SRC_DIR=./src/
 OBJ_DIR=./obj/
 LIB_DIR=./lib/
 INCLUDE_DIR=./include/
 
-SOURCES=  args_parser.cpp gasal_align.cu host_batch.cpp ctors.cpp interfaces.cpp res.cpp
+SOURCES=  args_parser.cpp host_batch.cpp ctors.cpp interfaces.cpp res.cpp gasal_align.cu 
 LOBJS=$(patsubst %,%o,$(SOURCES))
 
 LOBJS_PATH=$(addprefix $(OBJ_DIR),$(LOBJS))
