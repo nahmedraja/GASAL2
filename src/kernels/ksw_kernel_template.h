@@ -66,9 +66,9 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
     int e_del = _cudaGapExtend;
     int e_ins = _cudaGapExtend;
 
-    eh_t eh[MAX_SEQ_LEN] ; // score array
+    eh_t eh[MAX_QUERY_LEN] ; // score array
     int i, j, oe_del = o_del + e_del, oe_ins = o_ins + e_ins, beg, end, max, max_i, max_j, max_ie, gscore, max_off;
-    for (i = 0; i < MAX_SEQ_LEN; i++)
+    for (i = 0; i < MAX_QUERY_LEN; i++)
     {
         eh[i].h = 0;
         eh[i].e = 0;

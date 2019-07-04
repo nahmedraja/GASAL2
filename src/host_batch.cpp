@@ -29,7 +29,7 @@ void gasal_host_batch_destroy(host_batch_t *res)
 		fprintf(stderr, "[GASAL ERROR] Trying to free a NULL pointer\n");
 		exit(1);
 	}
-	// recursive function to destroy all the linked list
+	// recursive function to destroy all the linked listgasal_res_destroy_host
 	if (res->next != NULL)
 		gasal_host_batch_destroy(res->next);
 	if (res->data != NULL) 

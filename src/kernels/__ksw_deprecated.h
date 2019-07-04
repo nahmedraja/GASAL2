@@ -35,7 +35,7 @@ __global__ void gasal_ksw2_kernel(uint32_t *packed_query_batch, uint32_t *packed
 	uint32_t query_batch_regs = (query_length >> 3) + (query_length&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
 	uint32_t target_batch_regs = (target_length >> 3) + (target_length&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
 	//-----arrays for saving intermediate values------
-	short2 global[MAX_SEQ_LEN];
+	short2 global[MAX_QUERY_LEN];
 
 	//--------------------------------------------
     // copies initialization from ksw "fill the first row", line-by-line
@@ -65,7 +65,7 @@ __global__ void gasal_ksw2_kernel(uint32_t *packed_query_batch, uint32_t *packed
     p[0] = seed_score[tid];
     int query_tile_bound, query_base_bound, query_id, target_id;
 
-    for (i = 2; i < MAX_SEQ_LEN; i++) 
+    for (i = 2; i < MAX_QUERY_LEN; i++)
     {
         global[i].x = 0;
         global[i].y = 0;
@@ -252,14 +252,14 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
     //uint32_t query_length_padded = query_batch_regs << 3; //unused
     //uint32_t target_length_padded = target_batch_regs << 3; //unused
 	//-----arrays for saving intermediate values------
-	short2 global[MAX_SEQ_LEN];
+	short2 global[MAX_QUERY_LEN];
 
 	//--------------------------------------------
     // copies initialization from ksw "fill the first row", line-by-line
     
     global[0] = make_short2(seed_score[tid] , 0);
     global[1] = make_short2(max(seed_score[tid] - _cudaGapOE, 0) , 0);
-    for (i = 2; i < MAX_SEQ_LEN; i++) 
+    for (i = 2; i < MAX_QUERY_LEN; i++)
     {
         global[i].x = max(global[i].x - _cudaGapExtend, 0);
         global[i].y = 0;

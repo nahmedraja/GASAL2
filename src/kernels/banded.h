@@ -28,7 +28,7 @@ __global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t
 	uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
 	uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
 	//-----arrays for saving intermediate values------
-	short2 global[MAX_SEQ_LEN];
+	short2 global[MAX_QUERY_LEN];
 	int32_t h[9];
 	int32_t f[9];
 	int32_t p[9];
@@ -65,7 +65,7 @@ __global__ void gasal_banded_tiled_kernel(uint32_t *packed_query_batch, uint32_t
 	
 
 	//------------------------
-	for (i = 0; i < MAX_SEQ_LEN; i++) {
+	for (i = 0; i < MAX_QUERY_LEN; i++) {
 		global[i] = initHD;
 	}
 
@@ -169,7 +169,7 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 	uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
 	uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
 	//-----arrays for saving intermediate values------
-	short2 global[MAX_SEQ_LEN];
+	short2 global[MAX_QUERY_LEN];
 	int32_t h[9];
 	int32_t f[9];
 	int32_t p[9];
@@ -205,7 +205,7 @@ __global__ void gasal_banded_kernel(uint32_t *packed_query_batch, uint32_t *pack
 	
 
 	//------------------------
-	for (i = 0; i < MAX_SEQ_LEN; i++) {
+	for (i = 0; i < MAX_QUERY_LEN; i++) {
 		global[i] = initHD;
 	}
 
@@ -309,7 +309,7 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 	uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding query_batch sequence
 	uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding target_batch sequence
 	//-----arrays for saving intermediate values------
-	short2 global[MAX_SEQ_LEN];
+	short2 global[MAX_QUERY_LEN];
 	int32_t h[9];
 	int32_t f[9];
 	int32_t p[9];
@@ -344,7 +344,7 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 	
 
 	//------------------------
-	for (i = 0; i < MAX_SEQ_LEN; i++) {
+	for (i = 0; i < MAX_QUERY_LEN; i++) {
 		global[i] = initHD;
 	}
 
@@ -441,7 +441,7 @@ __global__ void gasal_banded_with_start_kernel(uint32_t *packed_query_batch, uin
 	maxXY_x = 0;
 	maxXY_y = 0;
 
-	for (i = 0; i < MAX_SEQ_LEN; i++) {
+	for (i = 0; i < MAX_QUERY_LEN; i++) {
 		global[i] = initHD;
 	}
 	//------starting from the gend_reg and rend_reg, align the sequences in the reverse direction and exit if the max score >= fwd_score------

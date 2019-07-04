@@ -6,8 +6,10 @@
 */
 #define SEMIGLOBAL_KERNEL_CALL(a,s,h,t,b) \
 	case t:\
-		gasal_semi_global_kernel<Int2Type<a>, Int2Type<s>, Int2Type<b>, Int2Type<h>, Int2Type<t>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->device_res, gpu_storage->device_res_second, actual_n_alns); \
-	break;
+		{\
+		gasal_semi_global_kernel<Int2Type<a>, Int2Type<s>, Int2Type<b>, Int2Type<h>, Int2Type<t>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->device_res, gpu_storage->device_res_second, gpu_storage->packed_tb_matrices, actual_n_alns);\
+		break;\
+		}\
 
 #define SWITCH_SEMI_GLOBAL_TAIL(a,s,h,t,b) \
 	case h:\
@@ -27,7 +29,7 @@
 		SWITCH_SEMI_GLOBAL_TAIL(a,s,TARGET,t,b)\
 		SWITCH_SEMI_GLOBAL_TAIL(a,s,BOTH,t,b)\
 	} \
-	break;\
+	break;
 
 
 /*  ####################################################################################
@@ -38,19 +40,34 @@
 #define SWITCH_SEMI_GLOBAL(a,s,h,t,b) SWITCH_SEMI_GLOBAL_HEAD(a,s,h,t,b)
 
 #define SWITCH_LOCAL(a,s,h,t,b) \
-    case s:\
-        gasal_local_kernel<Int2Type<LOCAL>, Int2Type<s>, Int2Type<b>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->device_res, gpu_storage->device_res_second, actual_n_alns); \
-    break;
-
-#define SWITCH_MICROLOCAL(a,s,h,t,b) \
-    case s:\
-        gasal_local_kernel<Int2Type<MICROLOCAL>, Int2Type<s>, Int2Type<b>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->device_res, gpu_storage->device_res_second, actual_n_alns);\
-    break;
+		case s: {\
+			gasal_local_kernel<Int2Type<LOCAL>, Int2Type<s>, Int2Type<b>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->device_res, gpu_storage->device_res_second, gpu_storage->packed_tb_matrices, actual_n_alns); \
+			if(s == WITH_TB) {\
+				cudaError_t aln_kernel_err = cudaGetLastError();\
+				if ( cudaSuccess != aln_kernel_err )\
+				{\
+					fprintf(stderr, "[GASAL CUDA ERROR:] %s(CUDA error no.=%d). Line no. %d in file %s\n", cudaGetErrorString(aln_kernel_err), aln_kernel_err,  __LINE__, __FILE__);\
+					exit(EXIT_FAILURE);\
+				}\
+				gasal_get_tb<Int2Type<LOCAL>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->unpacked_query_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->packed_tb_matrices, gpu_storage->device_res, gpu_storage->current_n_alns);\
+				break;\
+			}\
+		}
 
 #define SWITCH_GLOBAL(a,s,h,t,b) \
-    case s:\
-        gasal_global_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->device_res, actual_n_alns);\
-    break;
+		case s:{\
+			gasal_global_kernel<Int2Type<s>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->device_res, gpu_storage->packed_tb_matrices, actual_n_alns);\
+			if(s == WITH_TB) {\
+				cudaError_t aln_kernel_err = cudaGetLastError();\
+				if ( cudaSuccess != aln_kernel_err )\
+				{\
+					fprintf(stderr, "[GASAL CUDA ERROR:] %s(CUDA error no.=%d). Line no. %d in file %s\n", cudaGetErrorString(aln_kernel_err), aln_kernel_err,  __LINE__, __FILE__);\
+					exit(EXIT_FAILURE);\
+				}\
+				gasal_get_tb<Int2Type<GLOBAL>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->unpacked_query_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->packed_tb_matrices, gpu_storage->device_res, gpu_storage->current_n_alns);\
+				break;\
+			}\
+		}
 
 
 #define SWITCH_KSW(a,s,h,t,b) \
@@ -60,7 +77,7 @@
 
 #define SWITCH_BANDED(a,s,h,t,b) \
     case s:\
-        gasal_banded_tiled_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->device_res, actual_n_alns, k_band>>3); \
+        gasal_banded_tiled_kernel<<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->packed_query_batch, gpu_storage->packed_target_batch, gpu_storage->query_batch_lens,gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->target_batch_offsets, gpu_storage->device_res, actual_n_alns,  k_band>>3); \
 break;
 
 /*  ####################################################################################
@@ -74,6 +91,7 @@ break;
     switch(s){\
         SWITCH_## a(a,WITH_START,h,t,b)\
         SWITCH_## a(a,WITHOUT_START,h,t,b)\
+        SWITCH_## a(a,WITH_TB,h,t,b)\
     } \
     break;
 

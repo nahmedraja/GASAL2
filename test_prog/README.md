@@ -9,6 +9,7 @@ Options: -a INT    match score [1]
          -q INT    gap open penalty [6]
          -r INT    gap extension penalty [1]
          -s        also find the start position
+	 -t        compute traceback. With this option enabled, "-s" has no effect as start position will always be computed with traceback
          -p        print the alignment results
          -n INT    Number of threads [1]
          -y AL_TYPE       Alignment type . Must be "local", "semi_global", "global", "ksw"
@@ -21,7 +22,7 @@ Single-pack multi-Parameters (e.g. -sp) is not supported.
 ```
 
 
-`query_batch.fasta` and `target_batch.fasta` contain the sequences for the alignment. The sequences in these files are aligned one-to-one, i.e. the first sequence in query_batch.fasta is aligned to the first sequence in target_batch.fasta, the second sequence in query_batch.fasta is aligned to the second sequence in target_batch.fasta, and so on. The directory also contains sample query_batch.fasta and target_batch.fasta files. For the two sample files use `MAX_SEQ_LEN=300` during compilation in the `run_all.sh` script.
+`query_batch.fasta` and `target_batch.fasta` contain the sequences for the alignment. The sequences in these files are aligned one-to-one, i.e. the first sequence in query_batch.fasta is aligned to the first sequence in target_batch.fasta, the second sequence in query_batch.fasta is aligned to the second sequence in target_batch.fasta, and so on. The directory also contains sample query_batch.fasta and target_batch.fasta files. For the two sample files use `MAX_QUERY_LEN=160` during compilation in the `run_all.sh` script.
 
 In order to demonstrate easily the possibilities of reverse-complementing independently, one can change the first character of the sequence delimiter `>` in the .fasta files. The test program parses the first character as the following :
 

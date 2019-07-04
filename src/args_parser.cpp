@@ -71,12 +71,13 @@ void Parameters::failure(fail_type f) {
 }
 
 void Parameters::help() {
-            std::cerr << "Usage: ./test_prog.out [-a] [-b] [-q] [-r] [-s] [-p] [-n] [-y] <query_batch.fasta> <target_batch.fasta>" << std::endl;
+            std::cerr << "Usage: ./test_prog.out [-a] [-b] [-q] [-r] [-s] [-t] [-p] [-n] [-y] <query_batch.fasta> <target_batch.fasta>" << std::endl;
             std::cerr << "Options: -a INT    match score ["<< sa <<"]" << std::endl;
             std::cerr << "         -b INT    mismatch penalty [" << sb << "]"<< std::endl;
             std::cerr << "         -q INT    gap open penalty [" << gapo << "]" << std::endl;
             std::cerr << "         -r INT    gap extension penalty ["<< gape <<"]" << std::endl;
-            std::cerr << "         -s        also find the start position" << std::endl;
+            std::cerr << "         -s        find the start position" << std::endl;
+            std::cerr << "         -t        compute traceback. With this option enabled, \"-s\" has no effect as start position will always be computed with traceback" << std::endl;
             std::cerr << "         -p        print the alignment results" << std::endl;
             std::cerr << "         -n INT    Number of threads ["<< n_threads<<"]" << std::endl;
             std::cerr << "         -y AL_TYPE       Alignment type . Must be \"local\", \"semi_global\", \"global\", \"ksw\" "  << std::endl;
@@ -144,8 +145,6 @@ void Parameters::parse() {
                         algo = SEMI_GLOBAL;
                     else if (!arg_next.compare("global"))
                         algo = GLOBAL;
-                    else if (!arg_next.compare("microloc"))
-                        algo = MICROLOCAL;
                     else if (!arg_next.compare("ksw"))
                     {
                         algo = KSW;
@@ -174,6 +173,9 @@ void Parameters::parse() {
                 case 's':
                     start_pos = WITH_START;
                 break;
+                case 't':
+                	start_pos = WITH_TB;
+                	break;
                 case 'p':
                     print_out = 1;
                 break;

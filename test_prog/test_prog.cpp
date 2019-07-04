@@ -1,11 +1,7 @@
 
 
-#include "../include/gasal.h"		// include cstdlib, cstdint
-#include "../include/args_parser.h" // include iostream, string, fstream
-#include "../include/gasal_align.h" 
-#include "../include/host_batch.h"  // include cstdio, cstring
-#include "../include/ctors.h"
-#include "../include/interfaces.h"  // inclued cstdio, cstring, cstdlib
+#include "../include/gasal_header.h"
+
 
 #include <vector>
 #include <unistd.h>
@@ -13,13 +9,13 @@
 #include <omp.h>
 #include "Timer.h"
 
-#define NB_STREAMS 2
+#define NB_STREAMS 3
 
 //#define GPU_BATCH_SIZE (262144)
 // this gives each stream HALF of the sequences.
 //#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
 
-#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2 * 2))
+#define GPU_BATCH_SIZE 30000//ceil((double)target_seqs.size() / (double)(2 * 2))
 
 
 #define DEBUG
@@ -229,14 +225,10 @@ int main(int argc, char **argv) {
 		*/		
 		//initializing the streams by allocating the required CPU and GPU memory
 		// note: the calculations of the detailed sizes to allocate could be done on the library side (to hide it from the user's perspective)
-		gasal_init_streams(&(gpu_storage_vecs[z]), 
-						00.1 * (maximum_sequence_length_query + 7) * GPU_BATCH_SIZE , //TODO: remove maximum_sequence_length_query
-						004 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
-						0.04 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE ,
-						001 * (maximum_sequence_length + 7) * GPU_BATCH_SIZE , 
-						002 * GPU_BATCH_SIZE, //host // maximum number of alignments is bigger on target than on query side.
-						001 * GPU_BATCH_SIZE, //device
-						args);
+		gasal_init_streams(&(gpu_storage_vecs[z]), (maximum_sequence_length_query + 7) , //TODO: remove maximum_sequence_length_query
+						(maximum_sequence_length + 7) ,
+						 GPU_BATCH_SIZE, //device
+						 args);
 	}
 	#ifdef DEBUG
 		std::cerr << "[TEST_PROG DEBUG]: ";
@@ -365,7 +357,7 @@ int main(int argc, char **argv) {
 						
 						
 						/// WARNING : INEQUALITY ON ENUM: CAN BREAK IF ENUM ORDER IS CHANGED
-						if (args->start_pos == WITH_START 
+						if ((args->start_pos == WITH_START || args->start_pos == WITH_TB)
 							&& ((args->algo == SEMI_GLOBAL && (args->semiglobal_skipping_head != NONE || args->semiglobal_skipping_head != NONE))
 								|| args->algo > SEMI_GLOBAL))
 						{
@@ -388,6 +380,53 @@ int main(int argc, char **argv) {
 							std::cout << "\t2nd_target_batch_end=" << (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res_second->target_batch_end[j] ;
 						}
 
+						if (args->start_pos == WITH_TB) {
+							std::cout << "\tCIGAR=";
+							int u;
+							int offset = (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_query_batch_offsets[j];
+							int n_cigar_ops = (gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->n_cigar_ops[j];
+							int last_op = ((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->cigar[offset + n_cigar_ops - 1]) & 3;
+							int count = ((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->cigar[offset + n_cigar_ops - 1]) >> 2;
+							for (u = n_cigar_ops - 2; u >= 0 ; u--){
+								int curr_op = ((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->cigar[offset + u]) & 3;
+								if (curr_op == last_op) {
+									count +=  ((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->cigar[offset + u]) >> 2;
+								} else {
+									char op;
+									switch (last_op) {
+									case 0: op = 'M';
+									break;
+									case 1: op = 'X';
+									break;
+									case 2: op = 'D';
+									break;
+									case 3: op = 'I';
+									break;
+									default: op = 'E';
+									break;
+
+									}
+									std::cout << count << op;
+									count =  ((gpu_batch_arr[gpu_batch_arr_idx].gpu_storage)->host_res->cigar[offset + u]) >> 2;
+
+								}
+								last_op = curr_op;
+
+							}
+							char op;
+							switch (last_op) {
+							case 0: op = 'M';
+							break;
+							case 1: op = 'X';
+							break;
+							case 2: op = 'D';
+							break;
+							case 3: op = 'I';
+							break;
+
+							}
+							std::cout << count << op;
+						}
 						std::cout << std::endl;
 					}
 					}

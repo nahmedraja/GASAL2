@@ -37,7 +37,7 @@
 */
 
 template <typename T, typename S, typename B, typename HEAD, typename TAIL>
-__global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch, uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, gasal_res_t *device_res, gasal_res_t *device_res_second, int n_tasks) 
+__global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch, uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, gasal_res_t *device_res, gasal_res_t *device_res_second, uint4 *packed_tb_matrices, int n_tasks)
 {
 
 	const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
@@ -74,24 +74,25 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
     maxXY_y_second = read_len;
 
 	//-------arrays to save intermediate values----------------
-	short2 global[MAX_SEQ_LEN];
+	short2 global[MAX_QUERY_LEN];
 	int32_t h[9];
 	int32_t f[9];
 	int32_t p[9];
 	//-------------------------------------------------------
 	int32_t u __attribute__((unused)) ;	// this variable may not be used in some cases, depending on which kernel is generated.
-	u = 0; 
+	int32_t r __attribute__((unused)) ;
+
 
 
 	if (SAMETYPE(HEAD, Int2Type<QUERY>) || SAMETYPE(HEAD, Int2Type<BOTH>))
 	{
-		for (i = 0; i < MAX_SEQ_LEN; i++) 
+		for (i = 0; i < MAX_QUERY_LEN; i++)
 		{
 			global[i] = initHD;
 		}
 	} else {
 		global[0] = make_short2(0, MINUS_INF);
-		for (i = 1; i < MAX_SEQ_LEN; i++) 
+		for (i = 1; i < MAX_QUERY_LEN; i++)
 		{
 			global[i] = make_short2(-(_cudaGapO + (_cudaGapExtend*(i))), MINUS_INF);
 		}
@@ -99,8 +100,10 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 
 	if (SAMETYPE(HEAD, Int2Type<QUERY>) || SAMETYPE(HEAD, Int2Type<NONE>))
 	{
+		u = 0;
+		r = 0;
 		h[u++] = 0;
-		p[u++] = 0;
+		p[r++] = 0;
 	}
 
 	for (i = 0; i < target_batch_regs; i++) 
@@ -117,11 +120,11 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 				p[m] = 0;
 			}
 		} else {
-			for (m = 1; m < 9; m++, u++) 
+			for (m = 1; m < 9; m++, u++, r++)
 			{
 				h[m] = -(_cudaGapO + (_cudaGapExtend*(u-1))); 
 				f[m] = MINUS_INF; 
-				p[m] = -(_cudaGapO + (_cudaGapExtend*(u-1))); 
+				p[m] = r == 1 ? 0 : -(_cudaGapO + (_cudaGapExtend*(r-1)));
 			}
 		}
 
@@ -181,7 +184,7 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 
 	if (SAMETYPE(TAIL, Int2Type<QUERY>) || SAMETYPE(TAIL, Int2Type<BOTH>)) 
 	{
-		for (m = 0; m < MAX_SEQ_LEN; m++) 
+		for (m = 0; m < MAX_QUERY_LEN; m++)
 		{
 			int32_t score_tmp = global[m].x;
 			if (score_tmp > maxHH && m < read_len)
@@ -226,15 +229,15 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 
 		/*------------------Now to find the start position-----------------------*/
 
-		uint32_t reverse_query_batch[(MAX_SEQ_LEN>>3)];//array to hold the reverse query_batch sequence
-		uint32_t reverse_target_batch[(MAX_SEQ_LEN>>3)];//array to hold the reverse query_batch sequence
+		uint32_t reverse_query_batch[(MAX_QUERY_LEN>>3)];//array to hold the reverse query_batch sequence
+		uint32_t reverse_target_batch[(MAX_QUERY_LEN>>3)];//array to hold the reverse query_batch sequence
 		uint32_t reverse_query_batch_reg;
 		uint32_t reverse_target_batch_reg;
 
-		for (i = 0; i < (MAX_SEQ_LEN>>3); i++) {
+		for (i = 0; i < (MAX_QUERY_LEN>>3); i++) {
 			reverse_query_batch[i] = 0;
 		}
-		for (i = 0; i < (MAX_SEQ_LEN>>3); i++) {
+		for (i = 0; i < (MAX_QUERY_LEN>>3); i++) {
 			reverse_target_batch[i] = 0;
 		}
 
@@ -274,13 +277,13 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 
 		if (SAMETYPE(HEAD, Int2Type<QUERY>) || SAMETYPE(HEAD, Int2Type<BOTH>))
 		{
-			for (i = 0; i < MAX_SEQ_LEN; i++) 
+			for (i = 0; i < MAX_QUERY_LEN; i++)
 			{
 				global[i] = initHD;
 			}
 		} else {
 			global[0] = make_short2(0, MINUS_INF);
-			for (i = 1; i < MAX_SEQ_LEN; i++) 
+			for (i = 1; i < MAX_QUERY_LEN; i++)
 			{
 				global[i] = make_short2(-(_cudaGapO + (_cudaGapExtend*(i))), MINUS_INF);
 			}
@@ -288,8 +291,10 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 
 		if (SAMETYPE(HEAD, Int2Type<QUERY>) || SAMETYPE(HEAD, Int2Type<NONE>))
 		{
+			u = 0;
+			r = 0;
 			h[u++] = 0;
-			p[u++] = 0;
+			p[r++] = 0;
 		}
 
 		//------starting from the gend_reg, align the sequences in the reverse direction and exit if the max score >= fwd_score------
@@ -305,11 +310,11 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 					p[m] = 0;
 				}
 			} else {
-				for (m = 1; m < 9; m++, u++) 
+				for (m = 1; m < 9; m++, u++, r++)
 				{
 					h[m] = -(_cudaGapO + (_cudaGapExtend*(u-1))); 
 					f[m] = MINUS_INF; 
-					p[m] = -(_cudaGapO + (_cudaGapExtend*(u-1))); 
+					p[m] = r == 1 ? 0 : -(_cudaGapO + (_cudaGapExtend*(r-1)));
 				}
 			}
 
@@ -356,7 +361,7 @@ __global__ void gasal_semi_global_kernel(uint32_t *packed_query_batch, uint32_t 
 
 		if (SAMETYPE(TAIL, Int2Type<QUERY>) || SAMETYPE(TAIL, Int2Type<BOTH>)) 
 		{
-			for (m = 0; m < MAX_SEQ_LEN; m++) 
+			for (m = 0; m < MAX_QUERY_LEN; m++)
 			{
 				int32_t score_tmp = global[m].x;
 				if (score_tmp > maxHH && m < read_len)

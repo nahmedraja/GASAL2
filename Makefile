@@ -1,10 +1,10 @@
 GPU_SM_ARCH=
-MAX_SEQ_LEN=
+MAX_QUERY_LEN=
 N_CODE=
 N_PENALTY=
 
 GPU_COMPUTE_ARCH=$(subst sm,compute,$(GPU_SM_ARCH))
-NVCC=/usr/local/cuda-10.0//bin/nvcc
+NVCC=/usr/local/cuda-10.1/bin/nvcc
 CC=g++
 SRC_DIR=./src/
 OBJ_DIR=./obj/
@@ -23,7 +23,7 @@ ifeq ($(GPU_SM_ARCH),)
 error1:
 	@echo "Must specify GPU architecture as sm_xx"
 endif
-ifeq ($(MAX_SEQ_LEN),)
+ifeq ($(MAX_QUERY_LEN),)
 error2:
 	@echo "Must specify maximum sequence length"
 endif
@@ -42,11 +42,11 @@ endif
 
 ifeq ($(N_PENALTY),)
 %.cuo: %.cu
-	$(NVCC) -c -g -O3 -std=c++11 -Xcompiler -Wall,-DMAX_SEQ_LEN=$(MAX_SEQ_LEN),-DN_CODE=$(N_CODE) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
+	$(NVCC) -c -g -O3 -std=c++11 -Xcompiler -Wall,-DMAX_QUERY_LEN=$(MAX_QUERY_LEN),-DN_CODE=$(N_CODE) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
 	
 else
 %.cuo: %.cu
-	$(NVCC) -c -g -O3 -std=c++11 -Xcompiler -Wall,-DMAX_SEQ_LEN=$(MAX_SEQ_LEN),-DN_CODE=$(N_CODE),-DN_PENALTY=$(N_PENALTY) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
+	$(NVCC) -c -g -O3 -std=c++11 -Xcompiler -Wall,-DMAX_QUERY_LEN=$(MAX_QUERY_LEN),-DN_CODE=$(N_CODE),-DN_PENALTY=$(N_PENALTY) -Xptxas -Werror  --gpu-architecture=$(GPU_COMPUTE_ARCH) --gpu-code=$(GPU_SM_ARCH) -lineinfo --ptxas-options=-v --default-stream per-thread $< -o $(OBJ_DIR)$@
 	
 endif
 
@@ -55,11 +55,11 @@ endif
 ## If your computer ships gcc-5.3.1 (at least for CUDA 8.0), this is the regular line. You might need to add: -fPIC 
 ifeq ($(N_PENALTY),)
 %.cppo: %.cpp
-	$(CC) -c -g -O3 -std=c++11 -Wall -DMAX_SEQ_LEN=$(MAX_SEQ_LEN) -DN_CODE=$(N_CODE) -Werror $< -o $(OBJ_DIR)$@
+	$(CC) -c -g -O3 -std=c++11 -Wall -DMAX_QUERY_LEN=$(MAX_QUERY_LEN) -DN_CODE=$(N_CODE) -Werror $< -o $(OBJ_DIR)$@
 	
 else
 %.cppo: %.cpp
-	$(CC) -c -g -O3 -std=c++11 -Wall -DMAX_SEQ_LEN=$(MAX_SEQ_LEN) -DN_CODE=$(N_CODE) -DN_PENALTY=$(N_PENALTY) -Werror $< -o $(OBJ_DIR)$@
+	$(CC) -c -g -O3 -std=c++11 -Wall -DMAX_QUERY_LEN=$(MAX_QUERY_LEN) -DN_CODE=$(N_CODE) -DN_PENALTY=$(N_PENALTY) -Werror $< -o $(OBJ_DIR)$@
 	
 endif
 
@@ -71,7 +71,7 @@ makedir:
 	@mkdir -p $(LIB_DIR)
 	@mkdir -p $(INCLUDE_DIR)
 	@cp $(SRC_DIR)/*.h $(INCLUDE_DIR)
-	@sed  -i "s/MAX_SEQ_LEN=[0-9]\{1,9\}/MAX_SEQ_LEN=$(MAX_SEQ_LEN)/" ./test_prog/Makefile
+	@sed  -i "s/MAX_QUERY_LEN=[0-9]\{1,9\}/MAX_QUERY_LEN=$(MAX_QUERY_LEN)/" ./test_prog/Makefile
 	 
 ifeq ($(N_PENALTY),)
 libgasal.a: $(LOBJS)

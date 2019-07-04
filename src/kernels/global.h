@@ -2,41 +2,41 @@
 #define __KERNEL_GLOBAL__
 
 #define CORE_GLOBAL_COMPUTE() \
-    uint32_t gbase = (gpac >> l) & 15; /* get a base from target_batch sequence */ \
-    DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);/* check equality of rbase and gbase */\
-    register int32_t curr_hm_diff = h[m] - _cudaGapOE;\
-    f[m] = max(curr_hm_diff, f[m] - _cudaGapExtend);/* whether to introduce or extend a gap in query_batch sequence */\
-    curr_hm_diff = p[m] + subScore;/* score if rbase is aligned to gbase */\
-    curr_hm_diff = max(curr_hm_diff, f[m]);\
-    e = max(prev_hm_diff, e - _cudaGapExtend);/* whether to introduce or extend a gap in target_batch sequence */\
-    curr_hm_diff = max(curr_hm_diff, e);\
-    h[m] = curr_hm_diff;\
-    p[m] = prev_hm_diff + _cudaGapOE;\
-    prev_hm_diff=curr_hm_diff - _cudaGapOE;
+		uint32_t gbase = (gpac >> l) & 15;\
+		DEV_GET_SUB_SCORE_GLOBAL(subScore, rbase, gbase);\
+		int32_t tmp_hm = p[m] + subScore;\
+		h[m] = max(tmp_hm, f[m]);\
+		h[m] = max(h[m], e);\
+		f[m] =  (tmp_hm - _cudaGapOE) > (f[m] - _cudaGapExtend) ?  (tmp_hm - _cudaGapOE) : (f[m] - _cudaGapExtend);\
+		e =  (tmp_hm - _cudaGapOE) > (e - _cudaGapExtend) ?  (tmp_hm - _cudaGapOE) : (e - _cudaGapExtend);\
+		p[m] = h[m-1];\
 
-/*
-	uint32_t gbase = (gpac >> l) & 15;//get a base from target_batch sequence
-	DEV_GET_SUB_SCORE_GLOBAL(subScore, rbase, gbase);//check the equality of rbase and gbase
-	//int32_t curr_hm_diff = h[m] - _cudaGapOE;
-	f[m] = max(h[m]- _cudaGapOE, f[m] - _cudaGapExtend);//whether to introduce or extend a gap in query_batch sequence
-	h[m] = p[m] + subScore;//score if gbase is aligned to rbase
-	h[m] = max(h[m], f[m]);
-	e = max(h[m - 1] - _cudaGapOE, e - _cudaGapExtend);//whether to introduce or extend a gap in target_batch sequence
-	//prev_hm_diff=curr_hm_diff;
-	h[m] = max(h[m], e);
-	p[m] = h[m-1];
-*/
+#define CORE_GLOBAL_COMPUTE_TB(direction_reg) \
+		uint32_t gbase = (gpac >> l) & 15;\
+		DEV_GET_SUB_SCORE_GLOBAL(subScore, rbase, gbase);\
+		int32_t tmp_hm = p[m] + subScore;\
+		uint32_t m_or_x = tmp_hm >= p[m] ? 0 : 1;\
+		h[m] = max(tmp_hm, f[m]);\
+		h[m] = max(h[m], e);\
+		direction_reg |= h[m] == tmp_hm ? m_or_x << (28 - ((m - 1) << 2)) : (h[m] == f[m] ? (uint32_t)3 << (28 - ((m - 1) << 2)) : (uint32_t)2 << (28 - ((m - 1) << 2)));\
+		direction_reg |= (tmp_hm - _cudaGapOE) > (f[m] - _cudaGapExtend) ?  (uint32_t)0 : (uint32_t)1 << (31 - ((m - 1) << 2));\
+		f[m] =  (tmp_hm - _cudaGapOE) > (f[m] - _cudaGapExtend) ?  (tmp_hm - _cudaGapOE) : (f[m] - _cudaGapExtend);\
+		direction_reg|= (tmp_hm - _cudaGapOE) > (e - _cudaGapExtend) ?  (uint32_t)0 : (uint32_t)1 << (30 - ((m - 1) << 2));\
+		e =  (tmp_hm - _cudaGapOE) > (e - _cudaGapExtend) ?  (tmp_hm - _cudaGapOE) : (e - _cudaGapExtend);\
+		p[m] = h[m-1];\
 
 
-__global__ void gasal_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, gasal_res_t *device_res, int n_tasks)
+
+template <typename S>
+__global__ void gasal_global_kernel(uint32_t *packed_query_batch, uint32_t *packed_target_batch,  uint32_t *query_batch_lens, uint32_t *target_batch_lens, uint32_t *query_batch_offsets, uint32_t *target_batch_offsets, gasal_res_t *device_res, uint4 *packed_tb_matrices, int n_tasks)
 {
 	int32_t i, j, k, l, m;
-	int32_t u = 0;
+	int32_t u = 0, r = 0;
 	int32_t e;
-	int32_t maxHH =  MINUS_INF;//initialize the maximum score to -infinity
 	int32_t subScore;
+	int tile_no = 0;
 
-	int32_t ridx, gidx;
+	int32_t ridx;
 	short2 HD;
 
 	const uint32_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;//thread ID
@@ -48,26 +48,26 @@ __global__ void gasal_global_kernel(uint32_t *packed_query_batch, uint32_t *pack
 	uint32_t query_batch_regs = (read_len >> 3) + (read_len&7 ? 1 : 0);//number of 32-bit words holding sequence of query_batch
 	uint32_t target_batch_regs = (ref_len >> 3) + (ref_len&7 ? 1 : 0);//number of 32-bit words holding sequence of target_batch
 	//-------arrays to save intermediate values----------------
-	short2 global[MAX_SEQ_LEN];
+	short2 global[MAX_QUERY_LEN];
 	int32_t h[9];
 	int32_t f[9];
 	int32_t p[9];
+	int32_t max_h[9];
 	//----------------------------------------------------------
 	global[0] = make_short2(0, MINUS_INF);
-	for (i = 1; i < MAX_SEQ_LEN; i++) {
+	for (i = 1; i < MAX_QUERY_LEN; i++) {
 		global[i] = make_short2(-(_cudaGapO + (_cudaGapExtend*(i))), MINUS_INF);
 	}
 
 
-	h[0] = 0;
-	p[0] = 0;
+	h[u++] = 0;
+	p[r++] = 0;
 	for (i = 0; i < target_batch_regs; i++) { //target_batch sequence in rows, for all WORDS (i=WORD index)
-		gidx = i << 3;
 		ridx = 0;
-		for (m = 1; m < 9; m++, u++) {
+		for (m = 1; m < 9; m++, u++, r++) {
 			h[m] = -(_cudaGapO + (_cudaGapExtend*(u))); 
 			f[m] = MINUS_INF; 
-			p[m] = -(_cudaGapO + (_cudaGapExtend*(u))); 
+			p[m] = r == 1 ? 0 : -(_cudaGapO + (_cudaGapExtend*(r-1)));
 		}
 		register uint32_t gpac =packed_target_batch[packed_target_batch_idx + i];//load 8 packed bases from target_batch sequence
 
@@ -75,7 +75,195 @@ __global__ void gasal_global_kernel(uint32_t *packed_query_batch, uint32_t *pack
 		for (j = 0; j < query_batch_regs; /*++j*/ j+=1) { //query_batch sequence in columns, for all WORDS (j=WORD index).
 
 			register uint32_t rpac =packed_query_batch[packed_query_batch_idx + j];//load 8 packed bases from query_batch sequence
+
 			//--------------compute a tile of 8x8 cells-------------------
+			if (SAMETYPE(S, Int2Type<WITH_TB>)) {
+				uint4 direction = make_uint4(0,0,0,0);
+				uint32_t rbase = (rpac >> 28) & 15;//get a base from query_batch sequence
+				//------------load intermediate values----------------------
+				HD = global[ridx];
+				h[0] = HD.x;
+				e = HD.y;
+#pragma unroll 8
+				for (l = 28, m = 1; m < 9; l -= 4, m++) {
+					CORE_GLOBAL_COMPUTE_TB(direction.x);
+				}
+				//--------------save intermediate values-------------------------
+				HD.x = h[m-1];
+				HD.y = e;//max(e, 0);
+				global[ridx] = HD;
+				ridx++;
+				//--------------------------------------------------------------
+				//------the last column of DP matrix------------
+				if (ridx == read_len) {
+					for (m = 1; m < 9; m++) {
+						max_h[m] = h[m];
+
+					}
+				}
+				rbase = (rpac >> 24) & 15;//get a base from query_batch sequence
+				//------------load intermediate values----------------------
+				HD = global[ridx];
+				h[0] = HD.x;
+				e = HD.y;
+#pragma unroll 8
+				for (l = 28, m = 1; m < 9; l -= 4, m++) {
+					CORE_GLOBAL_COMPUTE_TB(direction.y);
+				}
+				//--------------save intermediate values-------------------------
+				HD.x = h[m-1];
+				HD.y = e;//max(e, 0);
+				global[ridx] = HD;
+				ridx++;
+				//--------------------------------------------------------------
+				//------the last column of DP matrix------------
+				if (ridx == read_len) {
+					for (m = 1; m < 9; m++) {
+						max_h[m] = h[m];
+
+					}
+				}
+				rbase = (rpac >> 20) & 15;//get a base from query_batch sequence
+				//------------load intermediate values----------------------
+				HD = global[ridx];
+				h[0] = HD.x;
+				e = HD.y;
+#pragma unroll 8
+				for (l = 28, m = 1; m < 9; l -= 4, m++) {
+					CORE_GLOBAL_COMPUTE_TB(direction.z);
+				}
+				//--------------save intermediate values-------------------------
+				HD.x = h[m-1];
+				HD.y = e;//max(e, 0);
+				global[ridx] = HD;
+				ridx++;
+				//--------------------------------------------------------------
+				//------the last column of DP matrix------------
+				if (ridx == read_len) {
+					for (m = 1; m < 9; m++) {
+						max_h[m] = h[m];
+
+					}
+				}
+				rbase = (rpac >> 16) & 15;//get a base from query_batch sequence
+				//------------load intermediate values----------------------
+				HD = global[ridx];
+				h[0] = HD.x;
+				e = HD.y;
+#pragma unroll 8
+				for (l = 28, m = 1; m < 9; l -= 4, m++) {
+					CORE_GLOBAL_COMPUTE_TB(direction.w);
+				}
+				//--------------save intermediate values-------------------------
+				HD.x = h[m-1];
+				HD.y = e;//max(e, 0);
+				global[ridx] = HD;
+				ridx++;
+				//--------------------------------------------------------------
+				//------the last column of DP matrix------------
+				if (ridx == read_len) {
+					for (m = 1; m < 9; m++) {
+						max_h[m] = h[m];
+
+					}
+				}
+				packed_tb_matrices[(tile_no*n_tasks) + tid] = direction;
+				tile_no++;
+
+				direction = make_uint4(0,0,0,0);
+				rbase = (rpac >> 12) & 15;//get a base from query_batch sequence
+				//------------load intermediate values----------------------
+				HD = global[ridx];
+				h[0] = HD.x;
+				e = HD.y;
+#pragma unroll 8
+				for (l = 28, m = 1; m < 9; l -= 4, m++) {
+					CORE_GLOBAL_COMPUTE_TB(direction.x);
+				}
+				//--------------save intermediate values-------------------------
+				HD.x = h[m-1];
+				HD.y = e;//max(e, 0);
+				global[ridx] = HD;
+				ridx++;
+				//--------------------------------------------------------------
+				//------the last column of DP matrix------------
+				if (ridx == read_len) {
+					for (m = 1; m < 9; m++) {
+						max_h[m] = h[m];
+
+					}
+				}
+				rbase = (rpac >> 8) & 15;//get a base from query_batch sequence
+				//------------load intermediate values----------------------
+				HD = global[ridx];
+				h[0] = HD.x;
+				e = HD.y;
+#pragma unroll 8
+				for (l = 28, m = 1; m < 9; l -= 4, m++) {
+					CORE_GLOBAL_COMPUTE_TB(direction.y);
+				}
+				//--------------save intermediate values-------------------------
+				HD.x = h[m-1];
+				HD.y = e;//max(e, 0);
+				global[ridx] = HD;
+				ridx++;
+				//--------------------------------------------------------------
+				//------the last column of DP matrix------------
+				if (ridx == read_len) {
+					for (m = 1; m < 9; m++) {
+						max_h[m] = h[m];
+
+					}
+				}
+				rbase = (rpac >> 4) & 15;//get a base from query_batch sequence
+				//------------load intermediate values----------------------
+				HD = global[ridx];
+				h[0] = HD.x;
+				e = HD.y;
+#pragma unroll 8
+				for (l = 28, m = 1; m < 9; l -= 4, m++) {
+					CORE_GLOBAL_COMPUTE_TB(direction.z);
+				}
+				//--------------save intermediate values-------------------------
+				HD.x = h[m-1];
+				HD.y = e;//max(e, 0);
+				global[ridx] = HD;
+				ridx++;
+				//--------------------------------------------------------------
+				//------the last column of DP matrix------------
+				if (ridx == read_len) {
+					for (m = 1; m < 9; m++) {
+						max_h[m] = h[m];
+
+					}
+				}
+				rbase = rpac & 15;//get a base from query_batch sequence
+				//------------load intermediate values----------------------
+				HD = global[ridx];
+				h[0] = HD.x;
+				e = HD.y;
+#pragma unroll 8
+				for (l = 28, m = 1; m < 9; l -= 4, m++) {
+					CORE_GLOBAL_COMPUTE_TB(direction.w);
+				}
+				//--------------save intermediate values-------------------------
+				HD.x = h[m-1];
+				HD.y = e;//max(e, 0);
+				global[ridx] = HD;
+				ridx++;
+				//--------------------------------------------------------------
+				//------the last column of DP matrix------------
+				if (ridx == read_len) {
+					for (m = 1; m < 9; m++) {
+						max_h[m] = h[m];
+
+					}
+				}
+				packed_tb_matrices[(tile_no*n_tasks) + tid] = direction;
+				tile_no++;
+
+			}
+			else{
 			for (k = 28; k >= 0; k -= 4) {
 				uint32_t rbase = (rpac >> k) & 15;//get a base from query_batch sequence
 				//------------load intermediate values----------------------
@@ -83,7 +271,6 @@ __global__ void gasal_global_kernel(uint32_t *packed_query_batch, uint32_t *pack
 				h[0] = HD.x;
 				e = HD.y;
 				//----------------------------------------------------------
-				register int32_t prev_hm_diff = h[0] - _cudaGapOE;
 				#pragma unroll 8
 				for (l = 28, m = 1; m < 9; l -= 4, m++) {
 					CORE_GLOBAL_COMPUTE();
@@ -97,17 +284,19 @@ __global__ void gasal_global_kernel(uint32_t *packed_query_batch, uint32_t *pack
 				//------the last column of DP matrix------------
 				if (ridx == read_len) {
 					for (m = 1; m < 9; m++) {
-						maxHH = ((gidx + (m -1)) == (ref_len - 1)) ? h[m] : maxHH;//if this is the last base of query_batch and target_batch sequence, then the max score is here
+						max_h[m] = h[m];
+
 					}
 				}
 				//----------------------------------------------
 			}
+		}
 			//------------------------------------------------------------------
 		}
 
 	}
 	
-	device_res->aln_score[tid] = maxHH;//copy the max score to the output array in the GPU mem
+	device_res->aln_score[tid] = max_h[8 - ((target_batch_regs << 3) - (ref_len))];//copy the max score to the output array in the GPU mem
 
 	return;
 

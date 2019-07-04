@@ -11,6 +11,8 @@
 
 #include "interfaces.h"
 
+#include <cmath>
+
 
 gasal_gpu_storage_v gasal_init_gpu_storage_v(int n_streams) {
 	gasal_gpu_storage_v v;
@@ -21,10 +23,22 @@ gasal_gpu_storage_v gasal_init_gpu_storage_v(int n_streams) {
 }
 
 
-void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query_batch_bytes,  int gpu_max_query_batch_bytes,  int host_max_target_batch_bytes, int gpu_max_target_batch_bytes, int host_max_n_alns, int gpu_max_n_alns, Parameters *params) {
+void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec,  int max_query_len, int max_target_len, int max_n_alns,  Parameters *params) {
 
 	cudaError_t err;
 	int i;
+	int max_query_len_8 = max_query_len % 8 ? max_query_len + (8 - (max_query_len % 8)) : max_query_len;
+	int max_target_len_8 = max_target_len % 8 ? max_target_len + (8 - (max_target_len % 8)) : max_target_len;
+
+	int host_max_query_batch_bytes = max_n_alns * max_query_len_8;
+	int gpu_max_query_batch_bytes = max_n_alns * max_query_len_8;
+	int host_max_target_batch_bytes =  max_n_alns * max_target_len_8;
+	int gpu_max_target_batch_bytes =  max_n_alns * max_target_len_8;
+	int host_max_n_alns = max_n_alns;
+	int gpu_max_n_alns = max_n_alns;
+
+
+
 	for (i = 0; i < gpu_storage_vec->n; i++) {
 
 		gpu_storage_vec->a[i].extensible_host_unpacked_query_batch = gasal_host_batch_new(host_max_query_batch_bytes, 0);
@@ -79,12 +93,13 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 		
 
 		gpu_storage_vec->a[i].host_res = gasal_res_new_host(host_max_n_alns, params);
-		gpu_storage_vec->a[i].device_cpy = gasal_res_new_device_cpy(host_max_n_alns, params);
+		if(params->start_pos == WITH_TB) CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage_vec->a[i].host_res->cigar), gpu_max_query_batch_bytes * sizeof(uint8_t),cudaHostAllocDefault));
+		gpu_storage_vec->a[i].device_cpy = gasal_res_new_device_cpy(max_n_alns,  params);
 		gpu_storage_vec->a[i].device_res = gasal_res_new_device(gpu_storage_vec->a[i].device_cpy);
 
 		if (params->secondBest)
 		{	
-			gpu_storage_vec->a[i].host_res_second = gasal_res_new_host(host_max_n_alns, params);
+			gpu_storage_vec->a[i].host_res_second = gasal_res_new_host(host_max_n_alns,  params);
 			gpu_storage_vec->a[i].device_cpy_second = gasal_res_new_device_cpy(host_max_n_alns, params);
 			gpu_storage_vec->a[i].device_res_second = gasal_res_new_device(gpu_storage_vec->a[i].device_cpy_second);
 
@@ -92,6 +107,11 @@ void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query
 			gpu_storage_vec->a[i].host_res_second = NULL;
 			gpu_storage_vec->a[i].device_cpy_second = NULL;
 			gpu_storage_vec->a[i].device_res_second = NULL;
+		}
+
+		if (params->start_pos == WITH_TB) {
+			gpu_storage_vec->a[i].packed_tb_matrix_size = ((uint32_t)ceil(((double)((uint64_t)max_query_len_8*(uint64_t)max_target_len_8))/32)) * gpu_max_n_alns;
+			CHECKCUDAERROR(cudaMalloc(&(gpu_storage_vec->a[i].packed_tb_matrices), gpu_storage_vec->a[i].packed_tb_matrix_size * sizeof(uint4)));
 		}
 
 
@@ -142,6 +162,7 @@ void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec, Parameters *par
 		if (gpu_storage_vec->a[i].host_target_batch_offsets != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_target_batch_offsets));
 		if (gpu_storage_vec->a[i].host_query_batch_lens != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_query_batch_lens));
 		if (gpu_storage_vec->a[i].host_target_batch_lens != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_target_batch_lens));
+		if (gpu_storage_vec->a[i].host_res->cigar != NULL) CHECKCUDAERROR(cudaFreeHost(gpu_storage_vec->a[i].host_res->cigar));
 
 
 
@@ -159,6 +180,7 @@ void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec, Parameters *par
 		if (gpu_storage_vec->a[i].target_batch_offsets != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].target_batch_offsets));
 		if (gpu_storage_vec->a[i].query_batch_lens != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].query_batch_lens));
 		if (gpu_storage_vec->a[i].target_batch_lens != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].target_batch_lens));
+		if (gpu_storage_vec->a[i].packed_tb_matrices != NULL) CHECKCUDAERROR(cudaFree(gpu_storage_vec->a[i].packed_tb_matrices));
 
 		if (gpu_storage_vec->a[i].str != NULL)CHECKCUDAERROR(cudaStreamDestroy(gpu_storage_vec->a[i].str));
 	}

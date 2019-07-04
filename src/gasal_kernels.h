@@ -78,4 +78,6 @@ maxHH = (maxHH < curr) ? curr : maxHH;
 
 #include "kernels/ksw_kernel_template.h"
 
+#include "kernels/get_tb.h"
+
 #endif

@@ -1,4 +1,4 @@
-CUDA_LD_LIBRARY=/usr/local/cuda-10.0//targets/x86_64-linux/lib
+CUDA_LD_LIBRARY=/usr/local/cuda-10.1/targets/x86_64-linux/lib
 ANALYSIS_FILENAME=analysis
 # prefix1 can be optirun in case you need to run it from an optimus-enabled laptop.
 PREFIX1=
@@ -30,7 +30,7 @@ test_prog.out: test_prog.o
 	g++ -std=c++11 -O3 -o test_prog.out -L$(CUDA_LD_LIBRARY) -L../lib test_prog.o -fopenmp -lcudart -lgasal
 
 clean:
-	rm -f -r *~ *.exe *.o *.out *.txt *~ *.tsv
+	rm -f -r *~ *.exe *.o *.out
 	
 test_prog.o: Timer.h
  

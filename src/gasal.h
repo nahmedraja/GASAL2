@@ -4,7 +4,9 @@
 
 #include <stdlib.h>
 #include <stdint.h>
-#include "/usr/local/cuda-10.0//targets/x86_64-linux/include/cuda_runtime.h"
+
+
+#include "/usr/local/cuda-10.1/targets/x86_64-linux/include/cuda_runtime.h"
 
 #ifndef HOST_MALLOC_SAFETY_FACTOR
 #define HOST_MALLOC_SAFETY_FACTOR 5
@@ -34,7 +36,8 @@ inline int CudaCheckKernelLaunch()
 
 enum comp_start{
 	WITHOUT_START,
-	WITH_START
+	WITH_START,
+	WITH_TB
 };
 
 // Generic enum for ture/false. Using this instead of bool to generalize templates out of Int values for secondBest. 
@@ -86,6 +89,8 @@ struct gasal_res{
 	int32_t *target_batch_end;
 	int32_t *query_batch_start;
 	int32_t *target_batch_start;
+	uint8_t *cigar;
+	uint32_t *n_cigar_ops;
 };
 typedef struct gasal_res gasal_res_t;
 
@@ -133,6 +138,11 @@ typedef struct {
 	uint32_t gpu_max_n_alns;
 	uint32_t host_max_n_alns;
 	uint32_t current_n_alns;
+
+	uint64_t packed_tb_matrix_size;
+	uint4 *packed_tb_matrices;
+
+
 	cudaStream_t str;
 	int is_free;
 	int id; //this can be useful in cases where a gasal_gpu_storage only contains PARTS of an alignment (like a seed-extension...), to gather results.

@@ -7,7 +7,7 @@
 
 
 
-inline void gasal_kernel_launcher(int32_t N_BLOCKS, int32_t BLOCKDIM, algo_type algo, comp_start start, gasal_gpu_storage_t *gpu_storage, int32_t actual_n_alns, int32_t k_band, data_source semiglobal_skipping_head, data_source semiglobal_skipping_tail, Bool secondBest) 
+inline void gasal_kernel_launcher(int32_t N_BLOCKS, int32_t BLOCKDIM, algo_type algo, comp_start start, gasal_gpu_storage_t *gpu_storage, int32_t actual_n_alns, int32_t k_band, data_source semiglobal_skipping_head, data_source semiglobal_skipping_tail, Bool secondBest)
 {
 	switch(algo)
 	{
@@ -81,6 +81,12 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
 
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage->unpacked_query_batch), gpu_storage->gpu_max_query_batch_bytes * sizeof(uint8_t)));
 		CHECKCUDAERROR(cudaMalloc(&(gpu_storage->packed_query_batch), (gpu_storage->gpu_max_query_batch_bytes/8) * sizeof(uint32_t)));
+
+		if (params->start_pos==WITH_TB){
+			fprintf(stderr, "[GASAL WARNING:] actual_query_batch_bytes(%d) > Allocated HOST memory for CIGAR (gpu_max_query_batch_bytes=%d). Therefore, allocating %d bytes on the host (gpu_max_query_batch_bytes=%d). Performance may be lost if this is repeated many times.\n", actual_query_batch_bytes, gpu_storage->gpu_max_query_batch_bytes, gpu_storage->gpu_max_query_batch_bytes*i, gpu_storage->gpu_max_query_batch_bytes*i);
+			if (gpu_storage->host_res->cigar != NULL)CHECKCUDAERROR(cudaFreeHost(gpu_storage->host_res->cigar));
+			CHECKCUDAERROR(cudaHostAlloc(&(gpu_storage->host_res->cigar), gpu_storage->gpu_max_query_batch_bytes * sizeof(uint8_t),cudaHostAllocDefault));
+		}
 
 	}
 
@@ -242,6 +248,11 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
     //--------------------------------------launch alignment kernels--------------------------------------------------------------
 	gasal_kernel_launcher(N_BLOCKS, BLOCKDIM, params->algo, params->start_pos, gpu_storage, actual_n_alns, params->k_band, params->semiglobal_skipping_head, params->semiglobal_skipping_tail, params->secondBest);
 
+	//if (params->start_pos == WITH_TB) {
+
+		// The output of the kernel: gpu_storage->unpacked_query_batch = cigar, gpu_storage->query_batch_lens = n_cigar_ops
+		//gasal_get_tb<Int2Type<params->algo>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->unpacked_query_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->packed_tb_matrices, gpu_storage->device_res, gpu_storage->current_n_alns);
+	//}
 
         //-----------------------------------------------------------------------------------------------------------------------
     cudaError_t aln_kernel_err = cudaGetLastError();
@@ -266,6 +277,10 @@ void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_que
     
 	if (gpu_storage->host_res->target_batch_end != NULL && gpu_storage->device_cpy->target_batch_end != NULL) 
 		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res->target_batch_end, gpu_storage->device_cpy->target_batch_end, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
+	if (params->start_pos == WITH_TB) {
+		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res->cigar, gpu_storage->unpacked_query_batch, actual_query_batch_bytes * sizeof(uint8_t), cudaMemcpyDeviceToHost, gpu_storage->str));
+		CHECKCUDAERROR(cudaMemcpyAsync(gpu_storage->host_res->n_cigar_ops, gpu_storage->query_batch_lens, actual_n_alns * sizeof(int32_t), cudaMemcpyDeviceToHost, gpu_storage->str));
+	}
 	//-----------------------------------------------------------------------------------------------------------------------
 	
 
