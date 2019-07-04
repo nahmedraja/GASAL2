@@ -25,9 +25,8 @@ It is an extension of GASAL (https://github.com/nahmedraja/GASAL) and allows ful
 A Linux platform with CUDA toolkit 8 or higher is required, along with usual build environment for C and C++ code. GASAL2 has been tested over NVIDIA GPUs with compute capabilities of 2.0, 3.5 and 5.0. Although lower versions of the CUDA framework might work, they have not been tested.
 
 ## Compiling GASAL2
-To compile the library, you need to specify the path of your CUDA installation and the variables for the Makefile in the script `run_all.sh`. Then you can compile GASAL2 by running this `run_all.sh` script. In the current script, an example of values is shown for  a GPU with Compute Capability of 3.5, a maximum sequence length of 300, a "N" code of 0xQF (representing the character "N"), and a N penalty of 1.
+The library can be compiled with the following two commands:
 
-In this script, these are the two lines where you have to adjust the parameters:
 ```bash
 $ ./configure.sh <path to cuda installation directory>
 $ make GPU_SM_ARCH=<GPU SM architecture> MAX_QUERY_LEN=<maximum query length> N_CODE=<code for "N", e.g. 0x4E if the bases are represented by ASCII characters> [N_PENALTY=<penalty for aligning "N" against any other base>]
