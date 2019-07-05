@@ -1,28 +1,98 @@
 #ifndef __GASAL_H__
 #define __GASAL_H__
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include "/usr/local/cuda-9.2/targets/x86_64-linux/include/cuda_runtime.h"
 
+#include <stdlib.h>
+#include <stdint.h>
+
+
+#include "/usr/local/cuda-10.1/targets/x86_64-linux/include/cuda_runtime.h"
 
 #ifndef HOST_MALLOC_SAFETY_FACTOR
 #define HOST_MALLOC_SAFETY_FACTOR 5
 #endif
 
+#define CHECKCUDAERROR(error) \
+		do{\
+			err = error;\
+			if (cudaSuccess != err ) { \
+				fprintf(stderr, "[GASAL CUDA ERROR:] %s(CUDA error no.=%d). Line no. %d in file %s\n", cudaGetErrorString(err), err,  __LINE__, __FILE__); \
+				exit(EXIT_FAILURE);\
+			}\
+		}while(0)\
+
+
+inline int CudaCheckKernelLaunch()
+{
+	cudaError err = cudaGetLastError();
+	if ( cudaSuccess != err )
+	{
+		return -1;
+	}
+
+	return 0;
+}
+
 
 enum comp_start{
+	WITHOUT_START,
 	WITH_START,
-	WITHOUT_START
+	WITH_TB
+};
+
+// Generic enum for ture/false. Using this instead of bool to generalize templates out of Int values for secondBest. 
+// Can be usd more generically, for example for WITH_/WITHOUT_START.
+enum Bool{
+	FALSE,
+	TRUE
+};
+
+enum data_source{
+	NONE,
+	QUERY,
+	TARGET,
+	BOTH
 };
 
 enum algo_type{
-	LOCAL,
+	UNKNOWN,
 	GLOBAL,
-	SEMI_GLOBAL
+	SEMI_GLOBAL,
+	LOCAL,
+	MICROLOCAL,
+	BANDED,
+	KSW
 };
 
+enum operation_on_seq{
+	FORWARD_NATURAL,
+	REVERSE_NATURAL,
+	FORWARD_COMPLEMENT,
+	REVERSE_COMPLEMENT,
+};
+
+// data structure of linked list to allow extension of memory on host side.
+struct host_batch{
+	uint8_t *data;
+	uint32_t page_size;
+	uint32_t data_size;
+	uint32_t offset;
+	int is_locked;
+	struct host_batch* next;
+};
+typedef struct host_batch host_batch_t;
+
+// Data structure to hold results. Can be instantiated for host or device memory (see res.cpp)
+struct gasal_res{
+	int32_t *aln_score;
+	int32_t *query_batch_end;
+	int32_t *target_batch_end;
+	int32_t *query_batch_start;
+	int32_t *target_batch_start;
+	uint8_t *cigar;
+	uint32_t *n_cigar_ops;
+};
+typedef struct gasal_res gasal_res_t;
 
 //stream data
 typedef struct {
@@ -34,30 +104,48 @@ typedef struct {
 	uint32_t *target_batch_offsets;
 	uint32_t *query_batch_lens;
 	uint32_t *target_batch_lens;
-	uint8_t *host_unpacked_query_batch;
-	uint8_t *host_unpacked_target_batch;
+
+	uint32_t *host_seed_scores;
+	uint32_t *seed_scores;
+	
+	host_batch_t *extensible_host_unpacked_query_batch;
+	host_batch_t *extensible_host_unpacked_target_batch;
+
+	uint8_t *host_query_op;
+	uint8_t *host_target_op;
+	uint8_t *query_op;
+	uint8_t *target_op;
+
 	uint32_t *host_query_batch_offsets;
 	uint32_t *host_target_batch_offsets;
 	uint32_t *host_query_batch_lens;
 	uint32_t *host_target_batch_lens;
-	int32_t *aln_score;
-	int32_t *query_batch_end;
-	int32_t *target_batch_end;
-	int32_t *query_batch_start;
-	int32_t *target_batch_start;
-	int32_t *host_aln_score;
-	int32_t *host_query_batch_end;
-	int32_t *host_target_batch_end;
-	int32_t *host_query_batch_start;
-	int32_t *host_target_batch_start;
+
+	gasal_res_t *host_res; // the results that can be read on host - THE STRUCT IS ON HOST SIDE, ITS CONTENT IS ON HOST SIDE.
+	gasal_res_t *device_cpy; // a struct that contains the pointers to the device side - THE STRUCT IS ON HOST SIDE, but the CONTENT is malloc'd on and points to the DEVICE SIDE
+	gasal_res_t *device_res; // the results that are written on device - THE STRUCT IS ON DEVICE SIDE, ITS CONTENT POINTS TO THE DEVICE SIDE.
+
+	gasal_res_t *host_res_second; 
+	gasal_res_t *device_res_second; 
+	gasal_res_t *device_cpy_second;
+
 	uint32_t gpu_max_query_batch_bytes;
 	uint32_t gpu_max_target_batch_bytes;
+
 	uint32_t host_max_query_batch_bytes;
 	uint32_t host_max_target_batch_bytes;
+	
 	uint32_t gpu_max_n_alns;
 	uint32_t host_max_n_alns;
+	uint32_t current_n_alns;
+
+	uint64_t packed_tb_matrix_size;
+	uint4 *packed_tb_matrices;
+
+
 	cudaStream_t str;
 	int is_free;
+	int id; //this can be useful in cases where a gasal_gpu_storage only contains PARTS of an alignment (like a seed-extension...), to gather results.
 
 } gasal_gpu_storage_t;
 
@@ -76,38 +164,5 @@ typedef struct{
 	int32_t gap_extend;
 } gasal_subst_scores;
 
-
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
-void gasal_aln(gasal_gpu_storage_t *gpu_storage, const uint8_t *query_batch, const uint32_t *query_batch_offsets, const uint32_t *query_batch_lens, const uint8_t *target_batch, const uint32_t *target_batch_offsets, const uint32_t *target_batch_lens,   const uint32_t actual_query_batch_bytes, const uint32_t actual_target_batch_bytes, const uint32_t actual_n_alns, int32_t *host_aln_score, int32_t *host_query_batch_start, int32_t *host_target_batch_start, int32_t *host_query_batch_end, int32_t *host_target_batch_end,  int algo, int start);
-
-void gasal_gpu_mem_alloc(gasal_gpu_storage_t *gpu_storage, int gpu_max_query_batch_bytes, int gpu_max_target_batch_bytes, int gpu_max_n_alns, int algo, int start);
-
-void gasal_gpu_mem_free(gasal_gpu_storage_t *gpu_storage);
-
-void gasal_copy_subst_scores(gasal_subst_scores *subst);
-
-gasal_gpu_storage_v gasal_init_gpu_storage_v(int n_streams);
-
-void gasal_aln_async(gasal_gpu_storage_t *gpu_storage, const uint32_t actual_query_batch_bytes, const uint32_t actual_target_batch_bytes, const uint32_t actual_n_alns, int algo, int start);
-
-int gasal_is_aln_async_done(gasal_gpu_storage_t *gpu_storage);
-
-void gasal_init_streams(gasal_gpu_storage_v *gpu_storage_vec, int host_max_query_batch_bytes,  int gpu_max_query_batch_bytes,  int host_max_target_batch_bytes, int gpu_max_target_batch_bytes, int host_max_n_alns, int gpu_max_n_alns, int algo, int start);
-
-void gasal_destroy_streams(gasal_gpu_storage_v *gpu_storage_vec);
-
-void gasal_destroy_gpu_storage_v(gasal_gpu_storage_v *gpu_storage_vec);
-
-
-
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

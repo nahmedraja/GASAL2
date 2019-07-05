@@ -1,4 +1,6 @@
 *.o
+*.cuo
+*.cppo
 *.out
 *.txt
 *.tsv
@@ -13,3 +15,11 @@
 *.swp
 lib/*
 include/*
+.vscode/*
+*.log
+
+src/\.vscode/
+
+*.nvvp
+
+*.nvprof
