@@ -9,13 +9,13 @@
 #include <omp.h>
 #include "Timer.h"
 
-#define NB_STREAMS 3
+#define NB_STREAMS 2
 
-//#define GPU_BATCH_SIZE (262144)
+//#define STREAM_BATCH_SIZE (262144)
 // this gives each stream HALF of the sequences.
-//#define GPU_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
+//#define STREAM_BATCH_SIZE ceil((double)target_seqs.size() / (double)(2))
 
-#define GPU_BATCH_SIZE 10000//ceil((double)target_seqs.size() / (double)(2 * 2))
+#define STREAM_BATCH_SIZE 5000//ceil((double)target_seqs.size() / (double)(2 * 2))
 
 
 #define DEBUG
@@ -192,7 +192,7 @@ int main(int argc, char **argv) {
 		thread_seqs_idx[i] = n_seqs_alloc;
 		if (n_seqs_alloc + thread_batch_size < total_seqs) thread_n_seqs[i] = thread_batch_size;
 		else thread_n_seqs[i] = total_seqs - n_seqs_alloc;
-		thread_n_batchs[i] = (int)ceil((double)thread_n_seqs[i]/(GPU_BATCH_SIZE));
+		thread_n_batchs[i] = (int)ceil((double)thread_n_seqs[i]/(STREAM_BATCH_SIZE));
 		n_seqs_alloc += thread_n_seqs[i];
 	}
 
@@ -227,7 +227,7 @@ int main(int argc, char **argv) {
 		// note: the calculations of the detailed sizes to allocate could be done on the library side (to hide it from the user's perspective)
 		gasal_init_streams(&(gpu_storage_vecs[z]), (maximum_sequence_length_query + 7) , //TODO: remove maximum_sequence_length_query
 						(maximum_sequence_length + 7) ,
-						 GPU_BATCH_SIZE, //device
+						 STREAM_BATCH_SIZE, //device
 						 args);
 	}
 	#ifdef DEBUG
@@ -277,7 +277,7 @@ int main(int argc, char **argv) {
 				//-----------Create a batch of sequences to be aligned on the GPU. The batch contains (target_seqs.size() / NB_STREAMS) number of sequences-----------------------
 
 
-				for (int i = curr_idx; seqs_done < n_seqs && j < (GPU_BATCH_SIZE); i++, j++, seqs_done++) 
+				for (int i = curr_idx; seqs_done < n_seqs && j < (STREAM_BATCH_SIZE); i++, j++, seqs_done++)
 				{
 
 					gpu_batch_arr[gpu_batch_arr_idx].gpu_storage->current_n_alns++ ;
@@ -329,7 +329,7 @@ int main(int argc, char **argv) {
 				uint32_t query_batch_bytes = query_batch_idx;
 				uint32_t target_batch_bytes = target_batch_idx;
 				gpu_batch_arr[gpu_batch_arr_idx].batch_start = curr_idx;
-				curr_idx += (GPU_BATCH_SIZE);
+				curr_idx += (STREAM_BATCH_SIZE);
 
 				//----------------------------------------------------------------------------------------------------
 				//-----------------calling the GASAL2 non-blocking alignment function---------------------------------
