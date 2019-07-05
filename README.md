@@ -32,7 +32,7 @@ $ ./configure.sh <path to cuda installation directory>
 $ make GPU_SM_ARCH=<GPU SM architecture> MAX_QUERY_LEN=<maximum query length> N_CODE=<code for "N", e.g. 0x4E if the bases are represented by ASCII characters> [N_PENALTY=<penalty for aligning "N" against any other base>]
 ```
 
-`N_PENALTY` is optional and if it is not specified then GASAL2 considers "N" as an ordinary base having the same match/mismatch scores as for A, C, G or T. As a result of these commands, *include* and *lib* directories will be created containing various .h files and `libgasal.a`, respectively. You will need to include part or all the .h files in your code link it with `libgasal.a` during compilation. Also link the CUDA runtime library by adding `-lcudart` flag. The path to the CUDA runtime library must also be specfied while linking as *-L <path to CUDA lib64 directory>*.
+`N_PENALTY` is optional and if it is not specified then GASAL2 considers "N" as an ordinary base having the same match/mismatch scores as for A, C, G or T. As a result of these commands, *include* and *lib* directories will be created containing various .h files and `libgasal.a`, respectively. The user needs to include `gasal_header.h` in the code and link it with `libgasal.a` during compilation. Also, the CUDA runtime library has to be linked by adding `-lcudart` flag. The path to the CUDA runtime library must also be specfied while linking as *-L <path to CUDA lib64 directory>*.
 
 ## Using GASAL2
 
@@ -94,7 +94,7 @@ args->start_pos = <WITHOUT_START|WITH_START|WITH_TB>; //`WITHOUT_START` computes
 args->isReverseComplement = <TRUE|FALSE>; //whether to reverse-complement the query sequence.
 args->semiglobal_skipping_head = <QUERY|TARGET|BOTH|NONE>; //ignore gaps at the begining of QUERY|TARGET|BOTH|NONE in semi alignment-global.
 args->semiglobal_skipping_tail = <QUERY|TARGET|BOTH|NONE>; //ignore gaps at the end of QUERY|TARGET|BOTH|NONE in semi alignment-global.
-args->secondBest = <TRUE|FALSE>; //whether to compute the second best score in local and semi-global algo. But the start-position(WITH_START) and traceback(WITH_TRACEBACK) is only computed with the best score.
+args->secondBest = <TRUE|FALSE>; //whether to compute the second best score in local and semi-global algo. But the start-position(WITH_START) and traceback(WITH_TRACEBACK) is only computMarched with the best score.
 
 ```
 
@@ -142,7 +142,7 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage, uint32_t idx, c
 
 ```
 
-This function takes a sequence and its length, and append it in the data structure. It also adds the neccessary padding bases to ensure the sequence has a length which is a multiple of 8. Moreover, it takes care of allocating more memory if there is not enough room when adding the sequence. `SRC` is either `QUERY` or `TARGET`, depending upon which batch to fill. When executed, this function returns the offset to be filled by the user in `host_target_batch_offsets` or `host_query_batch_offsets`. The user also has to fill the length of sequences in `host_target_batch_lens` or `host_query_batch_lens`. The `current_n_alns` must appropriayely be incremented to show the current number of alignments. `host_max_n_alns` is initially set eequal to `max_n_alns` in `gasal_init_streams()` function. If the 'current_n_alns' exceeds `host_max_n_alns`, the user must call the following funnction to reallocate host offset, lengths and results arrays.
+This function takes a sequence and its length, and append it in the data structure. It also adds the neccessary padding bases to ensure the sequence has a length which is a multiple of 8. Moreover, it takes care of allocating more memory if there is not enough room when adding the sequence. `SRC` is either `QUERY` or `TARGET`, depending upon which batch to fill. When executed, this function returns the offset to be filled by the user in `host_target_batch_offsets` or `host_query_batch_offsets`. The user also has to fill the length of sequences in `host_target_batch_lens` or `host_query_batch_lens`. The `current_n_alns` must appropriayely be incremented to show the current number of alignments. `host_max_n_alns` is initially set eequal to `max_n_alns` in `gasal_init_streams()` function. If the 'current_n_alns' exceeds `host_max_n_alns`, the user must call the following funnction to reallocate host offset, lengths and results arrays.March
 
 ```C
 void gasal_host_alns_resize(gasal_gpu_storage_t *gpu_storage, int new_max_alns, Parameters *params); 
@@ -165,7 +165,7 @@ enum operation_on_seq{
 };
 ```
 By default, no operations are done on the sequences (that is, the fields `host_query_op` and `host_target_op` arrays are initialized to 0, which is the value of FORWARD_NATURAL).
-
+March
 
 ### Alignment launching
 To launch the alignment, the following function is used:
