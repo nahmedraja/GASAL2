@@ -17,7 +17,7 @@ It is an extension of GASAL (https://github.com/nahmedraja/GASAL) and allows ful
 - **Cleaned up, inconsistencies fixed, and a small optimization has been added (around 9% speedup with exact same result)** 
 
 
-## List of changes:
+## Changes in user interface:
 - Changed the interface of `gasal_init_streams()` function
 - The user now has to provide `MAX_QUERY_LEN` instead of `MAX_SEQ_LEN` during compilation
 
