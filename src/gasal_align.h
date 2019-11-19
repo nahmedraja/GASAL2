@@ -50,9 +50,9 @@
 					exit(EXIT_FAILURE);\
 				}\
 				gasal_get_tb<Int2Type<LOCAL>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->unpacked_query_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->packed_tb_matrices, gpu_storage->device_res, gpu_storage->current_n_alns);\
-				break;\
 			}\
-		}
+			break;\
+		}\
 
 #define SWITCH_GLOBAL(a,s,h,t,b) \
 		case s:{\
@@ -65,9 +65,9 @@
 					exit(EXIT_FAILURE);\
 				}\
 				gasal_get_tb<Int2Type<GLOBAL>><<<N_BLOCKS, BLOCKDIM, 0, gpu_storage->str>>>(gpu_storage->unpacked_query_batch, gpu_storage->query_batch_lens, gpu_storage->target_batch_lens, gpu_storage->query_batch_offsets, gpu_storage->packed_tb_matrices, gpu_storage->device_res, gpu_storage->current_n_alns);\
-				break;\
 			}\
-		}
+			break;\
+		}\
 
 
 #define SWITCH_KSW(a,s,h,t,b) \

@@ -132,8 +132,7 @@ __global__ void gasal_ksw_kernel(uint32_t *packed_query_batch, uint32_t *packed_
                     eh_t *p = &eh[j];
                     int h, M = p->h, e = p->e; // get H(i-1,j-1) and E(i-1,j)
                     p->h = h1;          // set H(i,j-1) for the next row
-                    subScore = (rbase == gbase) ? _cudaMatchScore : -_cudaMismatchScore;
-                    subScore = ((rbase == N_VALUE) || (gbase == N_VALUE)) ? -N_PENALTY : subScore;
+                    DEV_GET_SUB_SCORE_LOCAL(subScore, rbase, gbase);
                     M = M ? M + subScore : 0;          // separating H and M to disallow a cigar like "100M3I3D20M"
                     h = M > e ? M : e;   // e and f are guaranteed to be non-negative, so h>=0 even if M<0
                     h = h > f ? h : f;

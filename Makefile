@@ -77,7 +77,7 @@ ifeq ($(N_PENALTY),)
 libgasal.a: $(LOBJS)
 	ar -csru $(LIB_DIR)$@ $(LOBJS_PATH)
 	@echo ""
-	@echo -e "${YELLOW}WARNING:${NC}\"N\" is not defined"
+	@echo -e "${YELLOW}WARNING:${NC}\"N_PENALTY\" is not defined"
 else
 libgasal.a: $(LOBJS)
 	ar -csru $(LIB_DIR)$@ $(LOBJS_PATH)
