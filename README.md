@@ -17,7 +17,7 @@ It is an extension of GASAL (https://github.com/nahmedraja/GASAL) and allows ful
 - **Cleaned up, inconsistencies fixed, and a small optimization has been added (around 9% speedup with exact same result)** 
 
 
-## List of changes:
+## Changes in user interface:
 - Changed the interface of `gasal_init_streams()` function
 - The user now has to provide `MAX_QUERY_LEN` instead of `MAX_SEQ_LEN` during compilation
 
@@ -142,7 +142,7 @@ uint32_t gasal_host_batch_fill(gasal_gpu_storage_t *gpu_storage, uint32_t idx, c
 
 ```
 
-This function takes a sequence and its length, and append it in the data structure. It also adds the neccessary padding bases to ensure the sequence has a length which is a multiple of 8. Moreover, it takes care of allocating more memory if there is not enough room when adding the sequence. `SRC` is either `QUERY` or `TARGET`, depending upon which batch to fill. When executed, this function returns the offset to be filled by the user in `host_target_batch_offsets` or `host_query_batch_offsets`. The user also has to fill the length of sequences in `host_target_batch_lens` or `host_query_batch_lens`. The `current_n_alns` must appropriayely be incremented to show the current number of alignments. `host_max_n_alns` is initially set eequal to `max_n_alns` in `gasal_init_streams()` function. If the 'current_n_alns' exceeds `host_max_n_alns`, the user must call the following funnction to reallocate host offset, lengths and results arrays.March
+This function takes a sequence and its length, and append it in the data structure. It also adds the neccessary padding bases to ensure the sequence has a length which is a multiple of 8. Moreover, it takes care of allocating more memory if there is not enough room when adding the sequence. `SRC` is either `QUERY` or `TARGET`, depending upon which batch to fill. When executed, this function returns the offset to be filled by the user in `host_target_batch_offsets` or `host_query_batch_offsets`. The user also has to fill `host_target_batch_lens` or `host_query_batch_lens` with original length of sequences, i.e. length without pad bases. **The offset values include pad bases, whereas lengths are without pad bases**. The number of elements in offset and length arrays must be equal. The offset values allows the user to express the mode of pairwise alignment, i.e. one-to-one, one-to-all or one-to-many etc., between the query and traget sequences. The `current_n_alns` must appropriately be incremented to show the current number of alignments. `host_max_n_alns` is initially set equal to `max_n_alns` in `gasal_init_streams()` function. If the 'current_n_alns' exceeds `host_max_n_alns`, the user must call the following funnction to reallocate host offset, lengths and results arrays.March
 
 ```C
 void gasal_host_alns_resize(gasal_gpu_storage_t *gpu_storage, int new_max_alns, Parameters *params); 
