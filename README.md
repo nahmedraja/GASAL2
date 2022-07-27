@@ -224,7 +224,7 @@ GASAL2 is published in BMC Bioinformatics:
 N. Ahmed, J. Lévy, S. Ren, H. Mushtaq, K. Bertels and Z. Al-ars, __GASAL2: a GPU accelerated sequence alignment library for high-throughput NGS data__, *BMC Bioinformatics* 20, 520 (2019) doi: [10.1186/s12859-019-3086-9](https://doi.org/10.1186/s12859-019-3086-9).
 
 ## Problems and suggestions
-For any issues and suugestions contact Jonathan Lévy (j.levy@student.tudelft.nl) or Nauman Ahmed (n.ahmed@tudelft.nl).
+For any issues and suugestions contact Nauman Ahmed at nahmed@uet.edu.pk.
 
 
 
